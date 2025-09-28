@@ -691,6 +691,56 @@
             font-size: 0.7em;
             margin-left: 8px;
         }
+
+#manage-activities-grid .activities-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#manage-activities-grid h3 {
+    font-size: 1em;
+    font-weight: 600;
+    color: #555;
+    margin: 15px 0 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+#manage-activities-grid h3:first-child {
+    margin-top: 0;
+}
+
+#manage-activities-modal-overlay .modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#manage-activities-grid .activity-card {
+    padding: 8px !important;
+    font-size: 0.75em !important;
+    min-height: 60px !important;
+    max-height: 60px !important;
+    width: 100% !important;
+}
+
+#manage-activities-grid .activity-emoji {
+    font-size: 1.1em !important;
+    margin-bottom: 4px !important;
+}
+
+#manage-activities-grid .activity-name {
+    font-size: 0.75em !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+}
+
+#manage-activities-modal-overlay #manage-activities-grid {
+    display: block !important;
+    grid-template-columns: unset !important;
+}
+
     </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
@@ -807,8 +857,8 @@
         <span class="close-modal-btn" onclick="closeManageActivitiesModal()">×</span>
         <div class="modal-header">Manage Activities for This Circle</div>
         <div style="margin-bottom: 15px; font-size: 0.9em; color: #666;">
-            Uncheck activities to hide them from this circle
-        </div>
+    Customize which activities appear in your activity selection. Core activities are shown by default - uncheck to hide them. Additional activities are available to add more variety to your options.
+</div>
         <div id="manage-activities-grid" class="activities-grid"></div>
         <button class="btn" onclick="saveActivityVisibility()">Save Changes</button>
     </div>
@@ -819,15 +869,68 @@
         // App State
         let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null;
 
-        const defaultActivities = [
-            { id: 101, name: 'Coffee', emoji: '☕', category: 'food' }, { id: 102, name: 'Dinner', emoji: '🍽️', category: 'food' }, { id: 103, name: 'Drinks', emoji: '🍹', category: 'food' }, { id: 104, name: 'Brunch', emoji: '🥐', category: 'food' }, { id: 105, name: 'Food Truck', emoji: '🚚', category: 'food' }, { id: 106, name: 'Bubble Tea', emoji: '🧋', category: 'food' },
-            { id: 201, name: 'Hiking', emoji: '🥾', category: 'active' }, { id: 202, name: 'Beach', emoji: '🏖️', category: 'active' }, { id: 203, name: 'Bike Ride', emoji: '🚴', category: 'active' }, { id: 204, name: 'Rock Climbing', emoji: '🧗', category: 'active' }, { id: 205, name: 'Workout', emoji: '💪', category: 'active' }, { id: 206, name: 'Swimming', emoji: '🏊', category: 'active' },
-            { id: 301, name: 'Movie', emoji: '🎬', category: 'entertainment' }, { id: 302, name: 'Concert', emoji: '🎵', category: 'entertainment' }, { id: 303, name: 'Comedy Show', emoji: '😂', category: 'entertainment' }, { id: 304, name: 'Museum', emoji: '🏛️', category: 'entertainment' }, { id: 305, name: 'Mini Golf', emoji: '⛳', category: 'entertainment' }, { id: 306, name: 'Karaoke', emoji: '🎤', category: 'entertainment' },
-            { id: 1, name: 'Pizza Night', emoji: '🍕', category: 'food' }, { id: 2, name: 'Farmers Market', emoji: '🥕', category: 'food' }, { id: 3, name: 'Cooking Class', emoji: '🍳', category: 'food' }, { id: 4, name: 'Ice Cream', emoji: '🍦', category: 'food' }, { id: 5, name: 'Brewery Tour', emoji: '🍻', category: 'food' }, { id: 6, name: 'Taco Tuesday', emoji: '🌮', category: 'food' }, { id: 7, name: 'Picnic', emoji: '🧺', category: 'food' },
-            { id: 8, name: 'Bowling', emoji: '🎳', category: 'active' }, { id: 9, name: 'Yoga Class', emoji: '🧘', category: 'active' }, { id: 10, name: 'Kayaking', emoji: '🛶', category: 'active' }, { id: 11, name: 'Roller Skating', emoji: '🛼', category: 'active' }, { id: 12, name: 'Walk in the Park', emoji: '🌳', category: 'active' }, { id: 13, name: 'Frisbee Golf', emoji: '🥏', category: 'active' }, { id: 14, name: 'Trampoline Park', emoji: '🤸‍♂️', category: 'active' },
-            { id: 15, name: 'Trivia Night', emoji: '🏆', category: 'entertainment' }, { id: 16, name: 'Escape Room', emoji: '🔑', category: 'entertainment' }, { id: 17, name: 'Live Theatre', emoji: '🎭', category: 'entertainment' }, { id: 18, name: 'Arcade', emoji: '🕹️', category: 'entertainment' }, { id: 19, name: 'Open Mic Night', emoji: '🎙️', category: 'entertainment' }, { id: 20, name: 'Sporting Event', emoji: '🎟️', category: 'entertainment' }, { id: 21, name: 'Live Music', emoji: '🎸', category: 'entertainment' },
-            { id: 22, name: 'Board Games', emoji: '🎲', category: 'relax' }, { id: 23, name: 'Stargazing', emoji: '🔭', category: 'relax' }, { id: 24, name: 'Volunteering', emoji: '❤️', category: 'relax' }, { id: 25, name: 'Bookstore', emoji: '📚', category: 'relax' }, { id: 26, name: 'Pottery Class', emoji: '🏺', category: 'relax' }, { id: 27, name: 'Photography Walk', emoji: '📸', category: 'relax' }, { id: 28, name: 'Art Gallery', emoji: '🖼️', category: 'relax' }
-        ];
+        // Core activities - most common/universal (shown by default)
+const coreActivities = [
+    { id: 101, name: 'Coffee', emoji: '☕', category: 'food' },
+    { id: 102, name: 'Dinner', emoji: '🍽️', category: 'food' },
+    { id: 103, name: 'Drinks', emoji: '🍹', category: 'food' },
+    { id: 104, name: 'Brunch', emoji: '🥐', category: 'food' },
+    { id: 1, name: 'Pizza Night', emoji: '🍕', category: 'food' },
+    { id: 4, name: 'Ice Cream', emoji: '🍦', category: 'food' },
+    
+    { id: 201, name: 'Hiking', emoji: '🥾', category: 'active' },
+    { id: 202, name: 'Beach', emoji: '🏖️', category: 'active' },
+    { id: 8, name: 'Bowling', emoji: '🎳', category: 'active' },
+    { id: 12, name: 'Walk in the Park', emoji: '🌳', category: 'active' },
+    
+    { id: 301, name: 'Movie', emoji: '🎬', category: 'entertainment' },
+    { id: 15, name: 'Trivia Night', emoji: '🏆', category: 'entertainment' },
+    { id: 18, name: 'Arcade', emoji: '🕹️', category: 'entertainment' },
+    
+    { id: 22, name: 'Board Games', emoji: '🎲', category: 'relax' }
+];
+
+// Extended activities - less common (hidden by default, available in manage)
+const extendedActivities = [
+    { id: 105, name: 'Food Truck', emoji: '🚚', category: 'food' },
+    { id: 106, name: 'Bubble Tea', emoji: '🧋', category: 'food' },
+    { id: 2, name: 'Farmers Market', emoji: '🥕', category: 'food' },
+    { id: 3, name: 'Cooking Class', emoji: '🍳', category: 'food' },
+    { id: 5, name: 'Brewery Tour', emoji: '🍻', category: 'food' },
+    { id: 6, name: 'Taco Tuesday', emoji: '🌮', category: 'food' },
+    { id: 7, name: 'Picnic', emoji: '🧺', category: 'food' },
+    
+    { id: 203, name: 'Bike Ride', emoji: '🚴', category: 'active' },
+    { id: 204, name: 'Rock Climbing', emoji: '🧗', category: 'active' },
+    { id: 205, name: 'Workout', emoji: '💪', category: 'active' },
+    { id: 206, name: 'Swimming', emoji: '🏊', category: 'active' },
+    { id: 9, name: 'Yoga Class', emoji: '🧘', category: 'active' },
+    { id: 10, name: 'Kayaking', emoji: '🛶', category: 'active' },
+    { id: 11, name: 'Roller Skating', emoji: '🛼', category: 'active' },
+    { id: 13, name: 'Frisbee Golf', emoji: '🥏', category: 'active' },
+    { id: 14, name: 'Trampoline Park', emoji: '🤸‍♂️', category: 'active' },
+    
+    { id: 302, name: 'Concert', emoji: '🎵', category: 'entertainment' },
+    { id: 303, name: 'Comedy Show', emoji: '😂', category: 'entertainment' },
+    { id: 304, name: 'Museum', emoji: '🏛️', category: 'entertainment' },
+    { id: 305, name: 'Mini Golf', emoji: '⛳', category: 'entertainment' },
+    { id: 306, name: 'Karaoke', emoji: '🎤', category: 'entertainment' },
+    { id: 16, name: 'Escape Room', emoji: '🔑', category: 'entertainment' },
+    { id: 17, name: 'Live Theatre', emoji: '🎭', category: 'entertainment' },
+    { id: 19, name: 'Open Mic Night', emoji: '🎙️', category: 'entertainment' },
+    { id: 20, name: 'Sporting Event', emoji: '🎟️', category: 'entertainment' },
+    { id: 21, name: 'Live Music', emoji: '🎸', category: 'entertainment' },
+    
+    { id: 23, name: 'Stargazing', emoji: '🔭', category: 'relax' },
+    { id: 24, name: 'Volunteering', emoji: '❤️', category: 'relax' },
+    { id: 25, name: 'Bookstore', emoji: '📚', category: 'relax' },
+    { id: 26, name: 'Pottery Class', emoji: '🏺', category: 'relax' },
+    { id: 27, name: 'Photography Walk', emoji: '📸', category: 'relax' },
+    { id: 28, name: 'Art Gallery', emoji: '🖼️', category: 'relax' }
+];
+
+// Combined array for database operations
+const defaultActivities = [...coreActivities, ...extendedActivities];
 
 // UUID Generator
         function generateUUID() {
@@ -1326,11 +1429,11 @@ async function loadUserPreferences(circleId) {
 
 async function loadActivities(circleId) {
     try {
-        // Get ALL activities from Supabase
-        const { data: allActivities, error: activitiesError } = await supabase
+        // Get user-created activities from Supabase for this circle
+        const { data: customActivities, error: activitiesError } = await supabase
             .from('activities')
             .select('*')
-            .or(`circle_id.is.null,circle_id.eq.${circleId}`);
+            .eq('circle_id', circleId);
         
         if (activitiesError) throw activitiesError;
         
@@ -1345,11 +1448,18 @@ async function loadActivities(circleId) {
         
         const hiddenIds = hiddenActivities.map(h => h.activity_id);
         
-        // Filter out hidden activities
-        return allActivities.filter(activity => !hiddenIds.includes(activity.id));
+        // Show only core activities by default (unless user has specifically enabled extended ones)
+        const visibleDefaultActivities = coreActivities.filter(activity => !hiddenIds.includes(activity.id));
+        
+        // Add any extended activities that user has specifically enabled
+        const enabledExtendedActivities = extendedActivities.filter(activity => !hiddenIds.includes(activity.id));
+        
+        // For now, only show core activities + custom activities
+        // Extended activities are available through manage interface
+        return [...visibleDefaultActivities, ...customActivities];
     } catch (error) {
         console.error('Error loading activities:', error);
-        return [];
+        return coreActivities;
     }
 }
         // Activity Management
@@ -1480,81 +1590,98 @@ async function findMatches(circleId) {
             return [];
         }
 
-        // Find other users in the same circle with overlapping preferences
-        const { data, error } = await supabase
-            .from('preferences')
-            .select(`
-                profile_id,
-                activity_id,
-                profiles(id, name, avatar),
-                activities(id, name, emoji, category)
-            `)
-            .eq('circle_id', circleId)
-            .eq('selected', true)
-            .neq('profile_id', currentUser.id)
-            .in('activity_id', userPrefs);
+        const groupMatches = [];
 
-        if (error) throw error;
+        // For each activity the user likes, find or create a group match
+        for (const activityId of userPrefs) {
+            // Check if a group match already exists for this activity in this circle
+            const { data: existingMatch, error: matchError } = await supabase
+                .from('matches')
+                .select(`
+                    *,
+                    activities(id, name, emoji, category),
+                    match_participants(profile_id, profiles(id, name, avatar))
+                `)
+                .eq('circle_id', circleId)
+                .eq('activity_id', activityId)
+                .single();
 
-        // Group by user and activity to find matches
-        const userActivityMatches = {};
-        data.forEach(pref => {
-            const key = `${pref.profile_id}-${pref.activity_id}`;
-            if (!userActivityMatches[key]) {
-                userActivityMatches[key] = {
-                    userId: pref.profile_id,
-                    user: pref.profiles,
-                    activity: pref.activities,
-                    activityId: pref.activity_id
-                };
+            if (matchError && matchError.code !== 'PGRST116') {
+                console.error('Error checking for existing match:', matchError);
+                continue;
             }
-        });
 
-        // Save matches to database and get the stored records
-        const matches = [];
-        for (const match of Object.values(userActivityMatches)) {
-            // Check if match already exists
-            // Check if match already exists
-const { data: existingMatches } = await supabase
-    .from('matches')
-    .select('*')
-    .eq('circle_id', circleId)
-    .eq('activity_id', match.activityId);
-
-const existingMatch = existingMatches && existingMatches.length > 0 ? existingMatches[0] : null;
-
-            let matchRecord;
-            if (!existingMatch) {
-                // Create new match record
-                const { data: newMatch, error: matchError } = await supabase
+            let match;
+            
+            if (existingMatch) {
+                // Group match exists, check if user is already in it
+                const isUserInGroup = existingMatch.match_participants.some(p => p.profile_id === currentUser.id);
+                
+                if (!isUserInGroup) {
+                    // Add user to existing group
+                    await supabase
+                        .from('match_participants')
+                        .insert([{ match_id: existingMatch.id, profile_id: currentUser.id }]);
+                }
+                
+                match = existingMatch;
+            } else {
+                // Create new group match for this activity
+                const { data: newMatch, error: createError } = await supabase
                     .from('matches')
                     .insert([{
                         circle_id: circleId,
-                        activity_id: match.activityId
+                        activity_id: activityId
                     }])
-                    .select()
+                    .select(`
+                        *,
+                        activities(id, name, emoji, category)
+                    `)
                     .single();
 
-                if (matchError) throw matchError;
-                matchRecord = newMatch;
-            } else {
-                matchRecord = existingMatch;
+                if (createError) {
+                    console.error('Error creating match:', createError);
+                    continue;
+                }
+
+                // Add current user as first participant
+                await supabase
+                    .from('match_participants')
+                    .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
+
+                match = { ...newMatch, match_participants: [{ profile_id: currentUser.id, profiles: currentUser }] };
             }
 
-            // Convert to your match format
-            console.log('Match record from DB:', matchRecord); // Add this line
-matches.push({
-    id: matchRecord.id,
-    isGroupChat: false,
-    circleId: circleId,
-    users: [match.user],
-    activity: match.activity,
-    isRead: false,
-    scheduledDate: matchRecord.scheduled_date ? new Date(matchRecord.scheduled_date) : null
-});
+            // Get all participants for this match
+            const { data: participants, error: participantError } = await supabase
+                .from('match_participants')
+                .select(`
+                    profile_id,
+                    profiles(id, name, avatar)
+                `)
+                .eq('match_id', match.id)
+                .neq('profile_id', currentUser.id); // Exclude current user
+
+            if (participantError) {
+                console.error('Error loading participants:', participantError);
+                continue;
+            }
+
+            // Only show matches that have other participants
+            if (participants.length > 0) {
+                groupMatches.push({
+                    id: match.id,
+                    isGroupChat: participants.length > 1, // True if more than 2 total people
+                    circleId: circleId,
+                    users: participants.map(p => p.profiles),
+                    activity: match.activities,
+                    isRead: false,
+                    scheduledDate: match.scheduled_date ? new Date(match.scheduled_date) : null
+                });
+            }
         }
 
-        return matches;
+        return groupMatches;
     } catch (error) {
         console.error('Error finding matches:', error);
         return [];
@@ -1618,38 +1745,43 @@ async function saveMatchesToSupabase(matches, circleId) {
 window.renderMatches = function() {
     const list = document.getElementById('matches-list');
     const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
+    const searchTerm = document.getElementById('matches-search')?.value.toLowerCase() || '';
     
-    console.log('All matches:', matches); // ADD THIS
-    console.log('Show past events:', showPastEvents); // ADD THIS
-    
-    // Filter matches based on toggle
+    // Filter matches based on toggle and search
     let filteredMatches = matches;
+    
     if (!showPastEvents) {
-        filteredMatches = matches.filter(match => {
-            console.log('Checking match:', match.id, 'scheduled date:', match.scheduledDate); // ADD THIS
+        filteredMatches = filteredMatches.filter(match => {
             if (!match.scheduledDate) return true;
-const scheduledDate = new Date(match.scheduledDate);
-const today = new Date();
-console.log('Comparing:', scheduledDate, 'vs', today, 'Result:', scheduledDate >= today);
-return scheduledDate >= today;
+            const scheduledDate = new Date(match.scheduledDate);
+            const today = new Date();
+            return scheduledDate >= today;
         });
     }
     
-    console.log('Filtered matches:', filteredMatches);
+    if (searchTerm) {
+        filteredMatches = filteredMatches.filter(match => {
+            const userName = match.users.map(u => u.name).join(' ').toLowerCase();
+            const activityName = match.activity?.name.toLowerCase() || '';
+            return userName.includes(searchTerm) || activityName.includes(searchTerm);
+        });
+    }
     
     if (filteredMatches.length === 0) {
-        const message = showPastEvents ? 
-            'No matches yet.' : 
-            'No upcoming events. Check "Show past events" to see completed activities.';
+        const message = searchTerm ? 
+            'No matches found for your search.' :
+            (showPastEvents ? 'No matches yet.' : 'No upcoming events. Check "Show past events" to see completed activities.');
         return list.innerHTML = `<div style="text-align: center; margin: 40px 0; color: #666;">${message}</div>`;
     }
     
     list.innerHTML = filteredMatches.map(match => {
-        const title = match.isGroupChat 
-            ? `Group Chat for ${match.activity.name}` 
-            : `${match.users[0].name} for ${match.activity.name}`;
+        const title = match.isGroupChat ? 
+            `${match.activity.name} Group` : 
+            `${match.users[0].name} - ${match.activity.name}`;
         
-        const members = match.isGroupChat ? `${match.users.length + 1} Members` : `Ready to chat!`;
+        const members = match.isGroupChat ? 
+            `${match.users.length + 1} members` : 
+            'Chat ready';
 
         return `
         <div class="circle-card" onclick='openChat(${JSON.stringify(match)})'>
@@ -1659,7 +1791,7 @@ return scheduledDate >= today;
                     <div class="circle-name">${title}</div>
                     <div class="circle-members">${members}</div>
                 </div>
-                <div style="color: #667eea; font-size: 1.2em;">${!match.isRead ? '🔔' : '💬'}</div>
+                <div style="color: #667eea; font-size: 1.2em;">${!match.isRead ? '🔔' : (match.isGroupChat ? '👥' : '💬')}</div>
             </div>
         </div>`;
     }).join('');
@@ -1740,32 +1872,43 @@ async function loadMessagesFromSupabase(matchId) {
     currentChatMatch = matches.find(m => m.id === match.id);
     if(currentChatMatch) currentChatMatch.isRead = true;
     
-    const chatName = currentChatMatch.isGroupChat ? `Group: ${currentChatMatch.activity.name}` : currentChatMatch.users[0].name;
-    const chatAvatar = currentChatMatch.isGroupChat ? currentChatMatch.activity.emoji : currentChatMatch.users[0].avatar;
+    // Set chat header for group or individual chat
+    const chatName = currentChatMatch.isGroupChat ? 
+        `${currentChatMatch.activity.name} Group` : 
+        currentChatMatch.users[0].name;
+    
+    const chatAvatar = currentChatMatch.isGroupChat ? 
+        currentChatMatch.activity.emoji : 
+        currentChatMatch.users[0].avatar;
+    
     document.getElementById('chat-name').textContent = chatName;
     document.getElementById('chat-avatar').textContent = chatAvatar;
-    document.getElementById('chat-activity').textContent = currentChatMatch.isGroupChat ? `With: You, ${currentChatMatch.users.map(u => u.name).join(', ')}` : currentChatMatch.activity.name;
+    
+    // Update subtitle for group chats
+    const subtitle = currentChatMatch.isGroupChat ? 
+        `${currentChatMatch.users.length + 1} members: You, ${currentChatMatch.users.map(u => u.name).join(', ')}` :
+        currentChatMatch.activity.name;
+    
+    document.getElementById('chat-activity').textContent = subtitle;
 
-    // Load messages from Supabase instead of localStorage
+    // Load messages from Supabase
     const supabaseMessages = await loadMessagesFromSupabase(currentChatMatch.id);
     
     // Convert Supabase messages to your existing format
-    // Convert Supabase messages to your existing format
-messages[currentChatMatch.id] = supabaseMessages.map(msg => ({
-    id: msg.id,
-    sender: msg.profiles.name,
-    content: msg.content,
-    type: msg.type,
-    lat: msg.lat,
-    lng: msg.lng,
-    created_at: msg.created_at, // Add this line
-    isRead: true
-}));
+    messages[currentChatMatch.id] = supabaseMessages.map(msg => ({
+        id: msg.id,
+        sender: msg.profiles.name,
+        content: msg.content,
+        type: msg.type,
+        lat: msg.lat,
+        lng: msg.lng,
+        created_at: msg.created_at,
+        isRead: true
+    }));
 
     renderChatMessages(); 
     showPage('chat');
     
-    // Update localStorage for compatibility
     localStorage.setItem('friendle_matches', JSON.stringify(matches));
     localStorage.setItem('friendle_messages', JSON.stringify(messages));
     updateNotificationBadge();
@@ -2160,40 +2303,67 @@ const toggle = document.getElementById('show-past-events');
 window.openManageActivitiesModal = async function() {
     if (!selectedCircle) return;
     
-    console.log('Loading manage activities modal...');
-    
-    // Load all default activities and hidden status
-    const { data: allActivities, error: activitiesError } = await supabase
-        .from('activities')
-        .select('*')
-        .is('circle_id', null); // Only default activities
-    
-    console.log('All default activities:', allActivities);
-    console.log('Activities error:', activitiesError);
-    
-    const { data: hiddenActivities, error: hiddenError } = await supabase
-        .from('hidden_activities')
-        .select('activity_id')
-        .eq('profile_id', currentUser.id)
-        .eq('circle_id', selectedCircle.id);
-    
-    console.log('Hidden activities:', hiddenActivities);
-    console.log('Hidden error:', hiddenError);
-    
-    const hiddenIds = hiddenActivities?.map(h => h.activity_id) || [];
-    console.log('Hidden IDs:', hiddenIds);
-    
-    const grid = document.getElementById('manage-activities-grid');
-    grid.innerHTML = allActivities.map(activity => `
-        <div class="activity-card ${hiddenIds.includes(activity.id) ? '' : 'selected'}" 
-             onclick="toggleActivityVisibility(this, '${activity.id}')"
-             data-activity-id="${activity.id}">
-            <div class="activity-emoji">${activity.emoji}</div>
-            <div class="activity-name">${activity.name}</div>
-        </div>
-    `).join('');
-    
-    document.getElementById('manage-activities-modal-overlay').style.display = 'flex';
+    try {
+        // Get hidden activities for this user and circle
+        const { data: hiddenActivities, error: hiddenError } = await supabase
+            .from('hidden_activities')
+            .select('activity_id')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', selectedCircle.id);
+        
+        if (hiddenError) throw hiddenError;
+        
+        const hiddenIds = hiddenActivities?.map(h => h.activity_id) || [];
+        
+        const grid = document.getElementById('manage-activities-grid');
+        
+        // Create sections for core and extended activities
+        grid.innerHTML = `
+    <div style="margin-bottom: 30px;">
+        <h3 style="margin-bottom: 15px; color: #555; font-size: 1.1em; font-weight: 600; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px;">Core Activities</h3>
+        <div class="activities-grid" id="core-activities-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
+    </div>
+    <div>
+        <h3 style="margin-bottom: 15px; color: #555; font-size: 1.1em; font-weight: 600; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px;">Additional Activities</h3>
+        <div class="activities-grid" id="extended-activities-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
+    </div>
+`;
+        
+        const coreGrid = document.getElementById('core-activities-grid');
+        const extendedGrid = document.getElementById('extended-activities-grid');
+        
+        // Populate core activities (shown by default unless hidden)
+        coreActivities.forEach(activity => {
+            const card = document.createElement('div');
+            card.className = `activity-card ${hiddenIds.includes(activity.id) ? '' : 'selected'}`;
+            card.onclick = () => toggleActivityVisibility(card, activity.id);
+            card.dataset.activityId = activity.id;
+            card.innerHTML = `
+                <div class="activity-emoji">${activity.emoji}</div>
+                <div class="activity-name">${activity.name}</div>
+            `;
+            coreGrid.appendChild(card);
+        });
+        
+        // Populate extended activities (hidden by default unless specifically enabled)
+        extendedActivities.forEach(activity => {
+            const card = document.createElement('div');
+            // Extended activities are hidden by default, selected only if NOT in hiddenIds
+            card.className = `activity-card ${hiddenIds.includes(activity.id) ? '' : 'selected'}`;
+            card.onclick = () => toggleActivityVisibility(card, activity.id);
+            card.dataset.activityId = activity.id;
+            card.innerHTML = `
+                <div class="activity-emoji">${activity.emoji}</div>
+                <div class="activity-name">${activity.name}</div>
+            `;
+            extendedGrid.appendChild(card);
+        });
+        
+        document.getElementById('manage-activities-modal-overlay').style.display = 'flex';
+        
+    } catch (error) {
+        console.error('Error loading manage activities modal:', error);
+    }
 }
 
 window.closeManageActivitiesModal = () => {
@@ -2206,9 +2376,6 @@ window.toggleActivityVisibility = function(card, activityId) {
 }
 
 window.saveActivityVisibility = async function() {
-    const visibleCards = document.querySelectorAll('#manage-activities-grid .activity-card.selected');
-    const hiddenCards = document.querySelectorAll('#manage-activities-grid .activity-card:not(.selected)');
-    
     try {
         // Clear existing hidden activities for this circle
         await supabase
@@ -2217,9 +2384,11 @@ window.saveActivityVisibility = async function() {
             .eq('profile_id', currentUser.id)
             .eq('circle_id', selectedCircle.id);
         
-        // Add newly hidden activities
-        if (hiddenCards.length > 0) {
-            const hiddenData = Array.from(hiddenCards).map(card => ({
+        // Get all unselected activities (these should be hidden)
+        const unselectedCards = document.querySelectorAll('#manage-activities-grid .activity-card:not(.selected)');
+        
+        if (unselectedCards.length > 0) {
+            const hiddenData = Array.from(unselectedCards).map(card => ({
                 profile_id: currentUser.id,
                 circle_id: selectedCircle.id,
                 activity_id: card.dataset.activityId
@@ -2230,7 +2399,7 @@ window.saveActivityVisibility = async function() {
                 .insert(hiddenData);
         }
         
-        showNotification('Activity visibility updated!');
+        showNotification('Activity preferences updated!');
         closeManageActivitiesModal();
         renderActivities(); // Refresh the activities page
     } catch (error) {
