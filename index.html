@@ -953,6 +953,56 @@ window.signOut = async function() {
     }
 }
 
+async function processInviteCode() {
+    const inviteCode = sessionStorage.getItem('pending_invite_code');
+    if (!inviteCode || !currentUser) return;
+    
+    try {
+        // Find circle by code
+        const { data: circle, error: circleError } = await supabase
+            .from('circles')
+            .select('*')
+            .eq('code', inviteCode)
+            .single();
+        
+        if (circleError || !circle) {
+            showNotification('Invalid invite code', 'error');
+            sessionStorage.removeItem('pending_invite_code');
+            return;
+        }
+        
+        // Check if user is already a member
+        const { data: existingMember } = await supabase
+            .from('circle_members')
+            .select('*')
+            .eq('circle_id', circle.id)
+            .eq('profile_id', currentUser.id)
+            .single();
+        
+        if (existingMember) {
+            showNotification('You are already a member of this circle');
+            sessionStorage.removeItem('pending_invite_code');
+            return;
+        }
+        
+        // Add user to circle
+        const { error: joinError } = await supabase
+            .from('circle_members')
+            .insert([{ circle_id: circle.id, profile_id: currentUser.id }]);
+        
+        if (joinError) throw joinError;
+        
+        showNotification('Successfully joined "' + circle.name + '"!');
+        renderCircles(); // Refresh circles display
+        sessionStorage.removeItem('pending_invite_code');
+        
+    } catch (error) {
+        console.error('Error processing invite:', error);
+        showNotification('Error joining circle', 'error');
+        sessionStorage.removeItem('pending_invite_code');
+    }
+}
+
         // Utility Functions
         function generateCode() { return Math.floor(100000 + Math.random() * 900000).toString(); }
         function showNotification(message, type = 'success') { /* ... */ }
@@ -1153,13 +1203,18 @@ window.copyCircleCode = function(code) {
 
 window.inviteByEmail = function(circleName, circleCode) {
     const subject = encodeURIComponent('Join my "' + circleName + '" circle on Friendle');
+    const appUrl = 'https://friendle-circles.vercel.app/'; // Update this to your actual URL
+    const inviteUrl = appUrl + '?invite_code=' + circleCode;
+    
     const body = encodeURIComponent(
-        'Hi! I would like to invite you to join my "' + circleName + '" circle on Friendle.\n\n' +
-        'Friendle helps friends coordinate activities together. Use this code to join:\n\n' +
-        'Circle Code: ' + circleCode + '\n\n' +
-        'Just open the app and enter this code when joining a circle.\n\n' +
-        'Looking forward to planning some fun activities together!'
-    );
+    'Hi! I would like to invite you to join my "' + circleName + '" circle on Friendle.\n\n' +
+    'Friendle helps friends coordinate activities together.\n\n' +
+    'CLICK THIS LINK TO JOIN:\n' +
+    inviteUrl + '\n\n' +
+    '(Copy and paste the link above into your browser if it does not appear clickable)\n\n' +
+    'Or visit ' + appUrl + ' and manually enter code: ' + circleCode + '\n\n' +
+    'Looking forward to planning some fun activities together!'
+);
     
     const mailtoLink = 'mailto:?subject=' + subject + '&body=' + body;
     window.open(mailtoLink, '_self');
@@ -2034,12 +2089,14 @@ if (pageId === 'matches') {
             }
 }
 
-        // Initialize App with Authentication
-async function initApp() {
+        async function initApp() {
     const urlParams = new URLSearchParams(window.location.search);
-    const inviteToken = urlParams.get('invite_token');
-    if (inviteToken) {
-        sessionStorage.setItem('pending_invite', inviteToken);
+    const inviteCode = urlParams.get('invite_code');
+    
+    // Store invite code for after authentication
+    if (inviteCode) {
+        sessionStorage.setItem('pending_invite_code', inviteCode);
+        // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -2061,10 +2118,12 @@ async function initApp() {
             localStorage.setItem('friendle_user', JSON.stringify(currentUser));
             showPage('circles');
             updateProfile();
-            processInvite();
+            
+            // Process invite code if present
+            await processInviteCode();
+            
         } catch (error) {
             console.error('Error loading profile:', error);
-            // Profile doesn't exist, sign out
             await supabase.auth.signOut();
             showPage('welcome');
         }
