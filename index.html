@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friendle - Match Activities with Friends</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+
+        .app-container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            height: 100%;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page {
+            display: none;
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .page#chat.active {
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 2.5em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        #activity-search {
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 10px 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e1e5e9;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .btn-small {
+            width: auto;
+            padding: 10px 20px;
+            font-size: 0.9em;
+            margin-top: 0;
+        }
+
+        .avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .avatar-option {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid #e1e5e9;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            background: #f8f9fa;
+        }
+
+        .avatar-option:hover {
+            transform: scale(1.1);
+        }
+
+        .avatar-option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .circle-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .circle-card .main-content {
+            cursor: pointer;
+        }
+
+        .circle-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .circle-name {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .circle-members {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .circle-code {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            color: #555;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .circle-code strong {
+            letter-spacing: 2px;
+            font-size: 1.1em;
+            color: #667eea;
+        }
+
+        .activities-grid, .frequent-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #555;
+            margin: 20px 0 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .activity-card {
+            background: white;
+            border: 2px solid #e1e5e9;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .activity-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .activity-card.selected {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .activity-emoji {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .activity-name {
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .bulk-controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .bulk-controls h4 {
+            margin-bottom: 10px;
+            color: #555;
+        }
+
+        .bulk-btn {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 5px 5px 5px 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .bulk-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            flex-shrink: 0;
+        }
+
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            color: #667eea;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .scheduled-event-banner {
+            padding: 10px;
+            background-color: #e6f7ff;
+            border-bottom: 1px solid #91d5ff;
+            text-align: center;
+            font-size: 0.9em;
+            color: #0050b3;
+            flex-shrink: 0;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .message-actions {
+    position: relative;
+}
+
+.message-actions-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px;
+}
+
+.message-actions-menu {
+    position: absolute;
+    bottom: 25px;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: none;
+    width: 100px;
+    z-index: 10;
+}
+
+.message-actions-menu button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.message-actions-menu button:hover {
+    background: #f8f9fa;
+}
+
+        .message.own {
+            flex-direction: row-reverse;
+        }
+        
+        .message.system {
+            justify-content: center;
+            font-size: 0.8em;
+            color: #888;
+            margin: 20px 0;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            max-width: 80%;
+        }
+
+        .message-sender {
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 4px;
+            padding: 0 12px;
+        }
+
+        .message.own .message-content {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .message-bubble {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .message.own .message-bubble {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .message-photo {
+            max-width: 200px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .message-photo:hover {
+            transform: scale(1.05);
+        }
+
+        .message-location {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .message-actions {
+            position: relative;
+        }
+
+        .message-actions-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 5px;
+        }
+        
+        .message-actions-menu {
+            position: absolute;
+            bottom: 25px;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+            width: 100px;
+            z-index: 10;
+        }
+
+        .message-actions-menu button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+        }
+        .message-actions-menu button:hover {
+            background: #f8f9fa;
+        }
+
+        .chat-input {
+            background: white;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            flex-shrink: 0;
+        }
+        
+        .chat-input-top-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .chat-input input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+            min-width: 50px;
+        }
+        
+        .attachment-btn {
+            background: #f8f9fa;
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 1.2em;
+        }
+        
+        .attachment-btn:hover {
+            background: #e9ecef;
+        }
+
+        .send-btn {
+            margin: 0;
+        }
+
+        .bottom-nav {
+            position: relative;
+            width: 100%;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            flex-shrink: 0;
+        }
+
+        .nav-item {
+            text-align: center;
+            cursor: pointer;
+            transition: color 0.2s;
+            flex: 1;
+            position: relative;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: calc(50% - 20px);
+            width: 10px;
+            height: 10px;
+            background-color: #ff4d4f;
+            border-radius: 50%;
+            border: 2px solid white;
+            display: none;
+        }
+
+        .nav-item.active {
+            color: #667eea;
+        }
+
+        .nav-item .nav-icon {
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+
+        .nav-item .nav-label {
+            font-size: 0.7em;
+            font-weight: 600;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            max-width: 90%;
+            width: 350px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .modal-image-content {
+            background: transparent;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        .modal-image {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 2em;
+            cursor: pointer;
+            z-index: 2001;
+        }
+        
+        .modal-content .close-modal-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.5em;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .modal-header {
+            font-size: 1.4em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .undo-container {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 40px);
+    max-width: 360px;
+    background-color: #333;
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1001; /* Higher than the save button */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+        .undo-btn {
+            background: none;
+            border: none;
+            color: #667eea;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+.sticky-save {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 40px);
+    max-width: 360px;
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+}
+
+.sticky-save:hover {
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 3px 15px rgba(102, 126, 234, 0.4);
+}
+
+#manage-activities-grid {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.message-timestamp {
+            color: #999;
+            font-size: 0.7em;
+            margin-left: 8px;
+        }
+    </style>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://kxsewkjbhxtfqbytftbu.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2V3a2piaHh0ZnFieXRmdGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NTE4ODQsImV4cCI6MjA3NDQyNzg4NH0.-A-7VOQWOaQqYOO6NxiKxGywddfS-pmwvzHISJqz2AQ";
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+
+</head>
+<body>
+    <div class="app-container">
+        <div id="pages-container" style="flex: 1; overflow-y: auto; position: relative;">
+            <div id="welcome" class="page active">
+    <div class="header"><div class="logo">Friendle</div><div class="tagline">Match activities with friends</div></div>
+    
+    <div id="login-form">
+        <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" placeholder="Enter your email"></div>
+        <div class="form-group"><label for="login-password">Password</label><input type="password" id="login-password" placeholder="Enter your password"></div>
+        <button class="btn" onclick="signIn()">Sign In</button>
+        <button class="btn btn-secondary" onclick="showRegister()">Create Account</button>
+    </div>
+    
+    <div id="register-form" style="display: none;">
+        <div class="form-group"><label for="register-email">Email</label><input type="email" id="register-email" placeholder="Enter your email"></div>
+        <div class="form-group"><label for="register-password">Password</label><input type="password" id="register-password" placeholder="Create a password (6+ characters)"></div>
+        <div class="form-group"><label for="register-name">Your Name</label><input type="text" id="register-name" placeholder="Enter your name"></div>
+        <div class="form-group"><label>Choose Your Avatar</label><div class="avatar-grid">
+            <div class="avatar-option" data-avatar="😊">😊</div><div class="avatar-option" data-avatar="🌟">🌟</div><div class="avatar-option" data-avatar="🦄">🦄</div><div class="avatar-option" data-avatar="🐨">🐨</div>
+            <div class="avatar-option" data-avatar="🎮">🎮</div><div class="avatar-option" data-avatar="🎨">🎨</div><div class="avatar-option" data-avatar="⚡">⚡</div><div class="avatar-option" data-avatar="🌙">🌙</div>
+        </div></div>
+        <button class="btn" onclick="signUp()">Create Account</button>
+        <button class="btn btn-secondary" onclick="showLogin()">Back to Sign In</button>
+    </div>
+</div>
+            <div id="circles" class="page"><div class="header"><div class="logo">Your Circles</div><div class="tagline">Friend groups for activity matching</div></div><div id="circles-list"></div><button class="btn" onclick="showCreateCircle()">Create New Circle</button><button class="btn btn-secondary" onclick="showJoinCircle()">Join Circle</button></div>
+            <div id="activities" class="page">
+    <div class="header">
+        <div class="logo" id="activity-circle-name">Select Activities</div>
+    </div>
+    <div class="form-group">
+        <input type="text" id="activity-search" placeholder="🔍 Search for an activity..." onkeyup="handleSearch(event)">
+    </div>
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
+        <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
+    </div>
+    
+                <div id="frequent-section"><div class="section-title">⭐ Frequently Used</div><div class="frequent-grid" id="frequent-grid"></div></div>
+                <div class="section-title">All Activities</div>
+                <div class="bulk-controls"><h4>Quick Select</h4><div class="bulk-btn" onclick="selectBulk('food')">Food & Drinks</div><div class="bulk-btn" onclick="selectBulk('active')">Active</div><div class="bulk-btn" onclick="selectBulk('entertainment')">Entertainment</div><div class="bulk-btn" onclick="selectBulk('relax')">Relax & Creative</div><div class="bulk-btn" onclick="selectBulk('clear')">Clear All</div></div>
+                <div class="activities-grid" id="activities-grid"></div>
+                <button class="btn sticky-save" onclick="saveActivities()">Save Preferences</button>
+                
+            </div>
+            <div id="matches" class="page">
+    <div class="header">
+        <div class="logo">Your Matches</div>
+        <div class="tagline">Friends who want the same activities</div>
+        <div style="margin-top: 15px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #666;">
+                <input type="checkbox" id="show-past-events" checked onchange="window.renderMatches()">
+                Show past events
+            </label>
+        </div>
+    </div>
+    <div id="matches-list"></div>
+</div>
+            <div id="chat" class="page">
+                <div class="chat-container">
+                    <div class="chat-header"><div class="chat-avatar" id="chat-avatar">😊</div><div><div id="chat-name">Friend Name</div><div style="font-size: 0.8em; opacity: 0.8;" id="chat-activity">Activity</div></div></div>
+                    <div id="scheduled-event-banner-container"></div>
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <div class="chat-input">
+                        <div class="chat-input-top-row">
+                            <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleMessageKeyPress(event)">
+                            <button class="attachment-btn" onclick="sharePhoto()">📷</button>
+                            <button class="attachment-btn" onclick="shareLocation()">📍</button>
+                            <button class="attachment-btn" onclick="findNearbyPlaces()">🔎</button>
+                            <button class="attachment-btn" onclick="openDateModal()">📅</button>
+                        </div>
+                        <button class="btn send-btn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+            <div id="settings" class="page">
+    <div class="header"><div class="logo">Settings</div><div class="tagline">Manage your preferences</div></div>
+    <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name">Your Name</h2></div>
+    <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
+    <button class="btn btn-secondary" onclick="exportData()">Export My Data</button>
+    <button class="btn btn-secondary" onclick="resetApp()" style="background: #dc3545; color: white;">Reset App</button>
+</div>
+        </div>
+        
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="showPage('circles')"><div class="nav-icon">👥</div><div class="nav-label">Circles</div></div>
+            <div class="nav-item" onclick="showPage('activities')"><div class="nav-icon">🎯</div><div class="nav-label">Activities</div></div>
+            <div class="nav-item" id="matches-nav-item" onclick="showPage('matches')"><div class="nav-icon">💫</div><div class="nav-label">Matches</div><span class="notification-badge"></span></div>
+            <div class="nav-item" onclick="showPage('settings')"><div class="nav-icon">⚙️</div><div class="nav-label">Settings</div></div>
+        </div>
+        
+        <div class="modal-overlay" id="image-modal-overlay"><div class="close-modal" onclick="closeImageModal()">×</div><div class="modal-content modal-image-content"><img class="modal-image" id="modal-image" src="" alt=""></div></div>
+        <div class="modal-overlay" id="circle-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeCircleModal()">×</span><div id="create-circle" style="display: none;"><div class="modal-header">Create New Circle</div><div class="form-group"><label for="circle-name">Circle Name</label><input type="text" id="circle-name" placeholder="e.g., College Friends"></div><button class="btn" onclick="createCircle()">Create</button></div><div id="join-circle" style="display: none;"><div class="modal-header">Join Circle</div><div class="form-group"><label for="circle-code">Circle Code</label><input type="text" id="circle-code" placeholder="Enter 6-digit code"></div><button class="btn" onclick="joinCircle()">Join</button></div></div></div>
+        <div class="modal-overlay" id="suggest-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeSuggestModal()">×</span><div class="modal-header">Suggest an Activity</div><div class="form-group"><label for="suggest-name">Activity Name</label><input type="text" id="suggest-name" placeholder="e.g., Go Karting"></div><button class="btn" onclick="suggestActivity()">Suggest</button></div></div>
+        <div class="modal-overlay" id="date-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeDateModal()">×</span><div class="modal-header">Schedule Activity</div><div class="form-group"><label for="event-date">Date</label><input type="date" id="event-date"></div><button class="btn" onclick="saveEvent()">Save Event</button></div></div>
+        <div class="modal-overlay" id="invite-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeInviteModal()">×</span><div class="modal-header">Share Invite Link</div><div class="form-group"><label for="invite-link">Copy this link and send it to a friend:</label><input type="text" id="invite-link" readonly></div><button class="btn" onclick="copyInviteLink()">Copy Link</button></div></div>
+    
+<div class="undo-container" id="undo-container">
+                    <span>Selection updated.</span>
+                    <button class="undo-btn" onclick="undoLastActivityChange()">Undo</button>
+                </div>
+<div class="modal-overlay" id="manage-activities-modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal-btn" onclick="closeManageActivitiesModal()">×</span>
+        <div class="modal-header">Manage Activities for This Circle</div>
+        <div style="margin-bottom: 15px; font-size: 0.9em; color: #666;">
+            Uncheck activities to hide them from this circle
+        </div>
+        <div id="manage-activities-grid" class="activities-grid"></div>
+        <button class="btn" onclick="saveActivityVisibility()">Save Changes</button>
+    </div>
+</div>
+</div>
+
+    <script>
+        // App State
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null;
+
+        const defaultActivities = [
+            { id: 101, name: 'Coffee', emoji: '☕', category: 'food' }, { id: 102, name: 'Dinner', emoji: '🍽️', category: 'food' }, { id: 103, name: 'Drinks', emoji: '🍹', category: 'food' }, { id: 104, name: 'Brunch', emoji: '🥐', category: 'food' }, { id: 105, name: 'Food Truck', emoji: '🚚', category: 'food' }, { id: 106, name: 'Bubble Tea', emoji: '🧋', category: 'food' },
+            { id: 201, name: 'Hiking', emoji: '🥾', category: 'active' }, { id: 202, name: 'Beach', emoji: '🏖️', category: 'active' }, { id: 203, name: 'Bike Ride', emoji: '🚴', category: 'active' }, { id: 204, name: 'Rock Climbing', emoji: '🧗', category: 'active' }, { id: 205, name: 'Workout', emoji: '💪', category: 'active' }, { id: 206, name: 'Swimming', emoji: '🏊', category: 'active' },
+            { id: 301, name: 'Movie', emoji: '🎬', category: 'entertainment' }, { id: 302, name: 'Concert', emoji: '🎵', category: 'entertainment' }, { id: 303, name: 'Comedy Show', emoji: '😂', category: 'entertainment' }, { id: 304, name: 'Museum', emoji: '🏛️', category: 'entertainment' }, { id: 305, name: 'Mini Golf', emoji: '⛳', category: 'entertainment' }, { id: 306, name: 'Karaoke', emoji: '🎤', category: 'entertainment' },
+            { id: 1, name: 'Pizza Night', emoji: '🍕', category: 'food' }, { id: 2, name: 'Farmers Market', emoji: '🥕', category: 'food' }, { id: 3, name: 'Cooking Class', emoji: '🍳', category: 'food' }, { id: 4, name: 'Ice Cream', emoji: '🍦', category: 'food' }, { id: 5, name: 'Brewery Tour', emoji: '🍻', category: 'food' }, { id: 6, name: 'Taco Tuesday', emoji: '🌮', category: 'food' }, { id: 7, name: 'Picnic', emoji: '🧺', category: 'food' },
+            { id: 8, name: 'Bowling', emoji: '🎳', category: 'active' }, { id: 9, name: 'Yoga Class', emoji: '🧘', category: 'active' }, { id: 10, name: 'Kayaking', emoji: '🛶', category: 'active' }, { id: 11, name: 'Roller Skating', emoji: '🛼', category: 'active' }, { id: 12, name: 'Walk in the Park', emoji: '🌳', category: 'active' }, { id: 13, name: 'Frisbee Golf', emoji: '🥏', category: 'active' }, { id: 14, name: 'Trampoline Park', emoji: '🤸‍♂️', category: 'active' },
+            { id: 15, name: 'Trivia Night', emoji: '🏆', category: 'entertainment' }, { id: 16, name: 'Escape Room', emoji: '🔑', category: 'entertainment' }, { id: 17, name: 'Live Theatre', emoji: '🎭', category: 'entertainment' }, { id: 18, name: 'Arcade', emoji: '🕹️', category: 'entertainment' }, { id: 19, name: 'Open Mic Night', emoji: '🎙️', category: 'entertainment' }, { id: 20, name: 'Sporting Event', emoji: '🎟️', category: 'entertainment' }, { id: 21, name: 'Live Music', emoji: '🎸', category: 'entertainment' },
+            { id: 22, name: 'Board Games', emoji: '🎲', category: 'relax' }, { id: 23, name: 'Stargazing', emoji: '🔭', category: 'relax' }, { id: 24, name: 'Volunteering', emoji: '❤️', category: 'relax' }, { id: 25, name: 'Bookstore', emoji: '📚', category: 'relax' }, { id: 26, name: 'Pottery Class', emoji: '🏺', category: 'relax' }, { id: 27, name: 'Photography Walk', emoji: '📸', category: 'relax' }, { id: 28, name: 'Art Gallery', emoji: '🖼️', category: 'relax' }
+        ];
+
+// UUID Generator
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+// Authentication functions
+function showRegister() {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'block';
+}
+
+function showLogin() {
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('login-form').style.display = 'block';
+}
+
+window.signUp = async function() {
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+    const name = document.getElementById('register-name').value.trim();
+    const selectedAvatar = document.querySelector('#register-form .avatar-option.selected');
+    
+    if (!email || !password || !name || !selectedAvatar) {
+        return showNotification('Please fill in all fields and select an avatar', 'error');
+    }
+    
+    if (password.length < 6) {
+        return showNotification('Password must be at least 6 characters', 'error');
+    }
+    
+    try {
+        // Sign up with Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: email,
+            password: password
+        });
+        
+        if (authError) throw authError;
+        
+        // Create profile with authenticated user ID
+        const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .insert([{
+                id: authData.user.id, // Use Supabase Auth user ID
+                name: name,
+                avatar: selectedAvatar.dataset.avatar
+            }])
+            .select()
+            .single();
+        
+        if (profileError) throw profileError;
+        
+        currentUser = profileData;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        
+        showNotification('Account created successfully!');
+        showPage('circles');
+        updateProfile();
+        processInvite();
+        
+    } catch (error) {
+        console.error('Signup error:', error);
+        showNotification(error.message || 'Error creating account', 'error');
+    }
+}
+
+window.signIn = async function() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    
+    if (!email || !password) {
+        return showNotification('Please enter email and password', 'error');
+    }
+    
+    try {
+        // Sign in with Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (authError) throw authError;
+        
+        // Load user profile
+        const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+        
+        if (profileError) throw profileError;
+        
+        currentUser = profileData;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        
+        showNotification('Signed in successfully!');
+        showPage('circles');
+        updateProfile();
+        processInvite();
+        
+    } catch (error) {
+        console.error('Signin error:', error);
+        showNotification(error.message || 'Error signing in', 'error');
+    }
+}
+
+window.signOut = async function() {
+    if (!confirm('Are you sure you want to sign out?')) return;
+    
+    try {
+        await supabase.auth.signOut();
+        currentUser = null;
+        localStorage.removeItem('friendle_user');
+        showPage('welcome');
+        showNotification('Signed out successfully');
+    } catch (error) {
+        console.error('Sign out error:', error);
+        showNotification('Error signing out', 'error');
+    }
+}
+
+        // Utility Functions
+        function generateCode() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+        function showNotification(message, type = 'success') { /* ... */ }
+
+        // Profile Management & Avatar Selection
+       window.createProfile = async function() {
+  const name = document.getElementById('name').value.trim();
+  const selectedAvatar = document.querySelector('.avatar-option.selected');
+  if (!name || !selectedAvatar) {
+    return showNotification('Please enter a name and select an avatar', 'error');
+  }
+
+  // Create profile object with UUID
+  const profileData = {
+    id: generateUUID(), // Use UUID instead of letting Supabase auto-generate
+    name, 
+    avatar: selectedAvatar.dataset.avatar
+  };
+
+  // Insert into Supabase
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert([profileData])
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    return showNotification('Could not create profile', 'error');
+  }
+
+  currentUser = data; // store the profile from DB
+  localStorage.setItem('friendle_user', JSON.stringify(currentUser)); // keep local copy for session
+  showPage('circles');
+  updateProfile();
+  processInvite();
+}
+
+        function updateProfile() { if (currentUser) { document.getElementById('profile-name').textContent = currentUser.name; document.getElementById('profile-avatar').textContent = currentUser.avatar; }}
+        document.querySelectorAll('.avatar-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // Circle Management
+        window.showCreateCircle = () => { document.getElementById('create-circle').style.display = 'block'; document.getElementById('circle-modal-overlay').style.display = 'flex'; };
+        window.showJoinCircle = () => { document.getElementById('join-circle').style.display = 'block'; document.getElementById('circle-modal-overlay').style.display = 'flex'; };
+        window.closeCircleModal = () => { document.getElementById('circle-modal-overlay').style.display = 'none'; document.getElementById('create-circle').style.display = 'none'; document.getElementById('join-circle').style.display = 'none'; };
+        window.createCircle = async function() {
+  const name = document.getElementById('circle-name').value.trim();
+  if (!name) return;
+
+  const code = generateCode();
+
+  // Insert into circles
+  const { data: circle, error } = await supabase
+    .from('circles')
+    .insert([{ name, code, created_by: currentUser.id }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    return showNotification('Could not create circle', 'error');
+  }
+
+  // Add creator as a member
+  await supabase.from('circle_members').insert([{ circle_id: circle.id, profile_id: currentUser.id }]);
+
+  circles.push(circle);
+  closeCircleModal();
+  renderCircles();
+  showNotification(`Circle created! Share code: ${circle.code}`);
+}
+
+        
+        window.joinCircle = async function() {
+  const code = document.getElementById('circle-code').value.trim();
+  if (!code) return;
+
+  // Find the circle by code
+  const { data: circle, error } = await supabase
+    .from('circles')
+    .select('*')
+    .eq('code', code)
+    .single();
+
+  if (error || !circle) {
+    return showNotification('Circle not found', 'error');
+  }
+
+  // Add user to circle_members
+  await supabase.from('circle_members').insert([{ circle_id: circle.id, profile_id: currentUser.id }]);
+
+  circles.push(circle);
+  closeCircleModal();
+  renderCircles();
+  showNotification(`Joined Circle!`);
+}
+
+        async function renderCircles() {
+  try {
+    // Get circles with member counts
+    const { data, error } = await supabase
+      .from('circle_members')
+      .select(`
+        circle_id, 
+        circles(*),
+        profile_id
+      `)
+      .eq('profile_id', currentUser.id);
+
+    if (error) throw error;
+
+    circles = data.map(d => d.circles);
+
+    // Get member counts for each circle
+    const circleIds = circles.map(c => c.id);
+    const { data: memberCounts, error: countError } = await supabase
+      .from('circle_members')
+      .select('circle_id')
+      .in('circle_id', circleIds);
+
+    if (countError) throw countError;
+
+    // Count members per circle
+    const counts = {};
+    memberCounts.forEach(member => {
+      counts[member.circle_id] = (counts[member.circle_id] || 0) + 1;
+    });
+
+    const list = document.getElementById('circles-list');
+    list.innerHTML = circles.map(circle => {
+      const memberCount = counts[circle.id] || 0;
+      const memberText = memberCount === 1 ? '1 member' : `${memberCount} members`;
+      
+      return `
+        <div class="circle-card">
+          <div class="main-content" onclick='selectCircle("${circle.id}")'>
+            <div class="circle-name">${circle.name}</div>
+            <div class="circle-members">${memberText}</div>
+            <div class="circle-code">Invite Code: <strong>${circle.code}</strong></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+    <div style="display: flex; gap: 8px;">
+        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${circle.code}')" style="flex: 1;">Copy Code</button>
+        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${circle.name}', '${circle.code}')" style="flex: 1;">Invite</button>
+    </div>
+    <div style="display: flex; gap: 8px;">
+        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="flex: 1;">Rename</button>
+        <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
+    </div>
+</div>
+        </div>`;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading circles:', error);
+    circles = [];
+  }
+}
+
+
+window.leaveCircle = async function(circleId) {
+  if (!confirm("Are you sure you want to leave this circle?")) return;
+
+  // Delete your membership row from circle_members
+  const { error } = await supabase
+    .from('circle_members')
+    .delete()
+    .eq('circle_id', circleId)
+    .eq('profile_id', currentUser.id);
+
+  if (error) {
+    console.error(error);
+    return showNotification("Error leaving circle", "error");
+  }
+
+  // Refresh circles list
+  await renderCircles();
+  showNotification("You left the circle.");
+};
+
+window.copyCircleCode = function(code) {
+    navigator.clipboard.writeText(code).then(() => {
+        showNotification('Circle code ' + code + ' copied to clipboard!');
+    }).catch(() => {
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showNotification('Circle code ' + code + ' copied to clipboard!');
+    });
+}
+
+window.inviteByEmail = function(circleName, circleCode) {
+    const subject = encodeURIComponent('Join my "' + circleName + '" circle on Friendle');
+    const body = encodeURIComponent(
+        'Hi! I would like to invite you to join my "' + circleName + '" circle on Friendle.\n\n' +
+        'Friendle helps friends coordinate activities together. Use this code to join:\n\n' +
+        'Circle Code: ' + circleCode + '\n\n' +
+        'Just open the app and enter this code when joining a circle.\n\n' +
+        'Looking forward to planning some fun activities together!'
+    );
+    
+    const mailtoLink = 'mailto:?subject=' + subject + '&body=' + body;
+    window.open(mailtoLink, '_self');
+}
+
+window.renameCircle = async function(circleId) {
+    const circle = circles.find(c => c.id === circleId);
+    const newName = prompt('Enter new circle name:', circle.name);
+    
+    if (newName && newName.trim() && newName.trim() !== circle.name) {
+        try {
+            const { error } = await supabase
+                .from('circles')
+                .update({ name: newName.trim() })
+                .eq('id', circleId)
+                .eq('created_by', currentUser.id); // Only creator can rename
+
+            if (error) throw error;
+            
+            showNotification('Circle renamed!');
+            renderCircles(); // Refresh the display
+        } catch (error) {
+            console.error('Error renaming circle:', error);
+            showNotification('Error renaming circle', 'error');
+        }
+    }
+}
+
+// Save user preferences to Supabase
+async function saveUserPreferences(circleId, selectedActivityIds) {
+    try {
+        console.log('Saving preferences for circle:', circleId);
+        console.log('Selected activity IDs:', selectedActivityIds);
+        console.log('Current user ID:', currentUser.id);
+
+        // First, clear existing preferences for this circle
+        const { error: deleteError } = await supabase
+            .from('preferences')
+            .delete()
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', circleId);
+
+        if (deleteError) {
+            console.error('Delete error:', deleteError);
+            throw deleteError;
+        }
+
+        // Then insert new preferences (only if there are selections)
+        if (selectedActivityIds.length > 0) {
+            const preferences = selectedActivityIds.map(activityId => ({
+                profile_id: currentUser.id,
+                circle_id: circleId,
+                activity_id: activityId.toString(), // Convert to string
+                selected: true
+            }));
+
+            console.log('Preferences to insert:', preferences);
+
+            const { error: insertError } = await supabase
+                .from('preferences')
+                .insert(preferences);
+
+            if (insertError) {
+                console.error('Insert error:', insertError);
+                throw insertError;
+            }
+        }
+        
+        showNotification('Preferences saved!');
+    } catch (error) {
+        console.error('Error saving preferences:', error);
+        showNotification('Error saving preferences', 'error');
+    }
+}
+
+// Load user preferences from Supabase
+async function loadUserPreferences(circleId) {
+    try {
+        const { data, error } = await supabase
+            .from('preferences')
+            .select('activity_id')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', circleId)
+            .eq('selected', true);
+
+        if (error) throw error;
+        
+        return data.map(pref => pref.activity_id);
+    } catch (error) {
+        console.error('Error loading preferences:', error);
+        return [];
+    }
+}
+
+        window.selectCircle = async function(circleId) {
+    selectedCircle = circles.find(c => c.id === circleId);
+    
+    // Load preferences from Supabase instead of localStorage
+    const savedActivityIds = await loadUserPreferences(selectedCircle.id);
+    const allActivities = await loadActivities(selectedCircle.id);
+    
+    // Rebuild the activities array from saved preferences
+    activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
+    
+    showPage('activities');
+    document.getElementById('activity-circle-name').textContent = selectedCircle.name;
+    renderActivities();
+}
+
+async function loadActivities(circleId) {
+    try {
+        // Get ALL activities from Supabase
+        const { data: allActivities, error: activitiesError } = await supabase
+            .from('activities')
+            .select('*')
+            .or(`circle_id.is.null,circle_id.eq.${circleId}`);
+        
+        if (activitiesError) throw activitiesError;
+        
+        // Get hidden activities for this user and circle
+        const { data: hiddenActivities, error: hiddenError } = await supabase
+            .from('hidden_activities')
+            .select('activity_id')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', circleId);
+        
+        if (hiddenError) throw hiddenError;
+        
+        const hiddenIds = hiddenActivities.map(h => h.activity_id);
+        
+        // Filter out hidden activities
+        return allActivities.filter(activity => !hiddenIds.includes(activity.id));
+    } catch (error) {
+        console.error('Error loading activities:', error);
+        return [];
+    }
+}
+        // Activity Management
+        async function renderActivities(searchTerm = '') {
+    const frequentGrid = document.getElementById('frequent-grid');
+    const activitiesGrid = document.getElementById('activities-grid');
+    frequentGrid.innerHTML = ''; 
+    activitiesGrid.innerHTML = '';
+    
+    const sortedCounts = Object.entries(activityCounts).sort(([,a],[,b]) => b-a);
+    const frequentIds = sortedCounts.slice(0, 4).map(([id]) => parseInt(id));
+    
+    // Load activities from both default + Supabase
+    const allPossibleActivities = await loadActivities(selectedCircle.id);
+    
+    const filteredActivities = allPossibleActivities.filter(a => 
+        a.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const frequentActivities = filteredActivities.filter(a => frequentIds.includes(a.id));
+    document.getElementById('frequent-section').style.display = 
+        frequentActivities.length > 0 && !searchTerm ? 'block' : 'none';
+    frequentActivities.forEach(activity => createActivityCard(activity, frequentGrid));
+
+    const nonFrequentActivities = filteredActivities.filter(a => !frequentIds.includes(a.id));
+    nonFrequentActivities.forEach(activity => createActivityCard(activity, activitiesGrid));
+}
+        function createActivityCard(activity, grid) {
+            const card = document.createElement('div');
+            card.className = 'activity-card';
+            if (activities.some(a => a.id === activity.id)) card.classList.add('selected');
+            card.innerHTML = `<div class="activity-emoji">${activity.emoji}</div><div class="activity-name">${activity.name}</div>`;
+            card.onclick = (event) => {
+                event.stopPropagation();
+                toggleActivity(card, activity);
+            };
+            grid.appendChild(card);
+        }
+        function toggleActivity(card, activity) {
+            lastActivitiesState = [...activities];
+            card.classList.toggle('selected');
+            const index = activities.findIndex(a => a.id === activity.id);
+            if (index > -1) activities.splice(index, 1);
+            else activities.push(activity);
+        }
+        window.handleSearch = (event) => renderActivities(event.target.value);
+        window.selectBulk = function(type) {
+            lastActivitiesState = [...activities];
+            const all = [...defaultActivities, ...(selectedCircle.customActivities || [])];
+            activities = type === 'clear' ? [] : all.filter(a => a.category === type);
+            renderActivities();
+        }
+        window.saveActivities = async function() {
+    if (!selectedCircle) return showNotification('Please select a circle first', 'error');
+    
+    // Store state for undo BEFORE saving
+    lastActivitiesState = [...activities];
+    
+    // Get the selected activity IDs
+    const selectedActivityIds = activities.map(activity => activity.id);
+    
+    // Save to Supabase instead of localStorage
+    await saveUserPreferences(selectedCircle.id, selectedActivityIds);
+    
+    // Update activity counts (keep this in localStorage for now)
+    activities.forEach(act => { 
+        activityCounts[act.id] = (activityCounts[act.id] || 0) + 1; 
+    });
+    localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
+    
+    checkForMatches();
+    
+    // Show undo AFTER saving
+    showUndo();
+    
+    showPage('matches');
+}
+        window.openSuggestModal = () => document.getElementById('suggest-modal-overlay').style.display = 'flex';
+        window.closeSuggestModal = () => document.getElementById('suggest-modal-overlay').style.display = 'none';
+        window.suggestActivity = async function() {
+    const name = document.getElementById('suggest-name').value.trim();
+    if (!name) { 
+        return showNotification('Please provide an activity name', 'error'); 
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('activities')
+            .insert([{
+                name: name,
+                emoji: '💡', // Always use lightbulb
+                category: 'custom',
+                circle_id: selectedCircle.id
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        
+        showNotification(`Activity "${name}" added!`);
+        closeSuggestModal(); 
+        renderActivities();
+    } catch (error) {
+        console.error('Error adding custom activity:', error);
+        showNotification('Error adding activity', 'error');
+    }
+}
+        function showUndo() {
+            const undoContainer = document.getElementById('undo-container');
+            undoContainer.style.display = 'flex';
+            clearTimeout(undoTimeout);
+            undoTimeout = setTimeout(() => {
+                undoContainer.style.display = 'none';
+            }, 8000);
+        }
+        window.undoLastActivityChange = function() {
+            activities = [...lastActivitiesState];
+            renderActivities();
+            document.getElementById('undo-container').style.display = 'none';
+            clearTimeout(undoTimeout);
+        }
+// Replace your findMatches function with this version:
+async function findMatches(circleId) {
+    try {
+        // Get current user's preferences
+        const userPrefs = await loadUserPreferences(circleId);
+        if (userPrefs.length === 0) {
+            return [];
+        }
+
+        // Find other users in the same circle with overlapping preferences
+        const { data, error } = await supabase
+            .from('preferences')
+            .select(`
+                profile_id,
+                activity_id,
+                profiles(id, name, avatar),
+                activities(id, name, emoji, category)
+            `)
+            .eq('circle_id', circleId)
+            .eq('selected', true)
+            .neq('profile_id', currentUser.id)
+            .in('activity_id', userPrefs);
+
+        if (error) throw error;
+
+        // Group by user and activity to find matches
+        const userActivityMatches = {};
+        data.forEach(pref => {
+            const key = `${pref.profile_id}-${pref.activity_id}`;
+            if (!userActivityMatches[key]) {
+                userActivityMatches[key] = {
+                    userId: pref.profile_id,
+                    user: pref.profiles,
+                    activity: pref.activities,
+                    activityId: pref.activity_id
+                };
+            }
+        });
+
+        // Save matches to database and get the stored records
+        const matches = [];
+        for (const match of Object.values(userActivityMatches)) {
+            // Check if match already exists
+            // Check if match already exists
+const { data: existingMatches } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('circle_id', circleId)
+    .eq('activity_id', match.activityId);
+
+const existingMatch = existingMatches && existingMatches.length > 0 ? existingMatches[0] : null;
+
+            let matchRecord;
+            if (!existingMatch) {
+                // Create new match record
+                const { data: newMatch, error: matchError } = await supabase
+                    .from('matches')
+                    .insert([{
+                        circle_id: circleId,
+                        activity_id: match.activityId
+                    }])
+                    .select()
+                    .single();
+
+                if (matchError) throw matchError;
+                matchRecord = newMatch;
+            } else {
+                matchRecord = existingMatch;
+            }
+
+            // Convert to your match format
+            console.log('Match record from DB:', matchRecord); // Add this line
+matches.push({
+    id: matchRecord.id,
+    isGroupChat: false,
+    circleId: circleId,
+    users: [match.user],
+    activity: match.activity,
+    isRead: false,
+    scheduledDate: matchRecord.scheduled_date ? new Date(matchRecord.scheduled_date) : null
+});
+        }
+
+        return matches;
+    } catch (error) {
+        console.error('Error finding matches:', error);
+        return [];
+    }
+}
+// Save matches to Supabase
+async function saveMatchesToSupabase(matches, circleId) {
+    try {
+        // Clear existing matches for this user and circle
+        await supabase
+            .from('matches')
+            .delete()
+            .eq('circle_id', circleId);
+
+        // Insert new matches
+        if (matches.length > 0) {
+            const matchData = matches.map(match => ({
+                id: match.id,
+                circle_id: circleId,
+                activity_id: match.activity.id
+                // Note: We'll need to modify your matches table structure to store user pairs
+            }));
+
+            const { error } = await supabase
+                .from('matches')
+                .insert(matchData);
+
+            if (error) throw error;
+        }
+    } catch (error) {
+        console.error('Error saving matches:', error);
+    }
+}
+        // Match System
+        async function checkForMatches() {
+    if (!selectedCircle) return;
+    
+    console.log('Finding matches for circle:', selectedCircle.id);
+    
+    // Find real matches based on preferences
+    const foundMatches = await findMatches(selectedCircle.id);
+    
+    // Update global matches array
+    matches = foundMatches;
+    
+    console.log('Found matches:', matches);
+    
+    // Save to localStorage for now (we can migrate this later)
+    localStorage.setItem('friendle_matches', JSON.stringify(matches));
+    
+    updateNotificationBadge();
+    
+    if (matches.length > 0) {
+        showNotification(`Found ${matches.length} new matches!`);
+    } else {
+        showNotification('No matches found yet. Try selecting more activities or invite more friends!');
+    }
+}
+
+// UPDATE your renderMatches function to handle empty states better:
+window.renderMatches = function() {
+    const list = document.getElementById('matches-list');
+    const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
+    
+    console.log('All matches:', matches); // ADD THIS
+    console.log('Show past events:', showPastEvents); // ADD THIS
+    
+    // Filter matches based on toggle
+    let filteredMatches = matches;
+    if (!showPastEvents) {
+        filteredMatches = matches.filter(match => {
+            console.log('Checking match:', match.id, 'scheduled date:', match.scheduledDate); // ADD THIS
+            if (!match.scheduledDate) return true;
+const scheduledDate = new Date(match.scheduledDate);
+const today = new Date();
+console.log('Comparing:', scheduledDate, 'vs', today, 'Result:', scheduledDate >= today);
+return scheduledDate >= today;
+        });
+    }
+    
+    console.log('Filtered matches:', filteredMatches);
+    
+    if (filteredMatches.length === 0) {
+        const message = showPastEvents ? 
+            'No matches yet.' : 
+            'No upcoming events. Check "Show past events" to see completed activities.';
+        return list.innerHTML = `<div style="text-align: center; margin: 40px 0; color: #666;">${message}</div>`;
+    }
+    
+    list.innerHTML = filteredMatches.map(match => {
+        const title = match.isGroupChat 
+            ? `Group Chat for ${match.activity.name}` 
+            : `${match.users[0].name} for ${match.activity.name}`;
+        
+        const members = match.isGroupChat ? `${match.users.length + 1} Members` : `Ready to chat!`;
+
+        return `
+        <div class="circle-card" onclick='openChat(${JSON.stringify(match)})'>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="font-size: 1.5em;">${match.activity.emoji}</div>
+                <div style="flex: 1;">
+                    <div class="circle-name">${title}</div>
+                    <div class="circle-members">${members}</div>
+                </div>
+                <div style="color: #667eea; font-size: 1.2em;">${!match.isRead ? '🔔' : '💬'}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+        function renderMatches() {
+            const list = document.getElementById('matches-list');
+            if (matches.length === 0) return list.innerHTML = '<div style="text-align: center; margin: 40px 0; color: #666;">No matches yet.</div>';
+            
+            list.innerHTML = matches.map(match => {
+                const title = match.isGroupChat 
+                    ? `Group Chat for ${match.activity.name}` 
+                    : `${match.users[0].name} for ${match.activity.name}`;
+                
+                const members = match.isGroupChat ? `${match.users.length + 1} Members` : `In ${match.circleName}`;
+
+                return `
+                <div class="circle-card" onclick='openChat(${JSON.stringify(match)})'>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-size: 1.5em;">${match.activity.emoji}</div>
+                        <div style="flex: 1;">
+                            <div class="circle-name">${title}</div>
+                            <div class="circle-members">${members}</div>
+                        </div>
+                        <div style="color: #667eea; font-size: 1.2em;">${!match.isRead ? '🔔' : '💬'}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        
+async function sendMessageToSupabase(matchId, content, type = 'text', extraData = {}) {
+    try {
+        const { data, error } = await supabase
+            .from('messages')
+            .insert([{
+                match_id: matchId,
+                sender_id: currentUser.id,
+                content: content,
+                type: type,
+                lat: extraData.lat || null,
+                lng: extraData.lng || null
+            }])
+            .select(`
+                *,
+                profiles(id, name, avatar)
+            `)
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error sending message:', error);
+        return null;
+    }
+}
+
+// Load messages from Supabase for a match
+async function loadMessagesFromSupabase(matchId) {
+    try {
+        const { data, error } = await supabase
+            .from('messages')
+            .select(`
+                *,
+                profiles(id, name, avatar)
+            `)
+            .eq('match_id', matchId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error loading messages:', error);
+        return [];
+    }
+}
+
+        // Chat System
+        window.openChat = async function(match) {
+    currentChatMatch = matches.find(m => m.id === match.id);
+    if(currentChatMatch) currentChatMatch.isRead = true;
+    
+    const chatName = currentChatMatch.isGroupChat ? `Group: ${currentChatMatch.activity.name}` : currentChatMatch.users[0].name;
+    const chatAvatar = currentChatMatch.isGroupChat ? currentChatMatch.activity.emoji : currentChatMatch.users[0].avatar;
+    document.getElementById('chat-name').textContent = chatName;
+    document.getElementById('chat-avatar').textContent = chatAvatar;
+    document.getElementById('chat-activity').textContent = currentChatMatch.isGroupChat ? `With: You, ${currentChatMatch.users.map(u => u.name).join(', ')}` : currentChatMatch.activity.name;
+
+    // Load messages from Supabase instead of localStorage
+    const supabaseMessages = await loadMessagesFromSupabase(currentChatMatch.id);
+    
+    // Convert Supabase messages to your existing format
+    // Convert Supabase messages to your existing format
+messages[currentChatMatch.id] = supabaseMessages.map(msg => ({
+    id: msg.id,
+    sender: msg.profiles.name,
+    content: msg.content,
+    type: msg.type,
+    lat: msg.lat,
+    lng: msg.lng,
+    created_at: msg.created_at, // Add this line
+    isRead: true
+}));
+
+    renderChatMessages(); 
+    showPage('chat');
+    
+    // Update localStorage for compatibility
+    localStorage.setItem('friendle_matches', JSON.stringify(matches));
+    localStorage.setItem('friendle_messages', JSON.stringify(messages));
+    updateNotificationBadge();
+}
+        function renderChatMessages() {
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.innerHTML = '';
+    (messages[currentChatMatch.id] || []).forEach(msg => {
+        const div = document.createElement('div');
+        div.className = `message ${msg.sender === currentUser.name ? 'own' : ''} ${msg.type === 'system' ? 'system' : ''}`;
+        let bubble = '';
+        if (msg.type === 'photo') bubble = `<img src="${msg.content}" class="message-photo" onclick="openImageModal('${msg.content}')">`;
+        else if (msg.type === 'location') bubble = `<div class="message-location" onclick="openMap(${msg.lat}, ${msg.lng})">📍 Location Shared</div>`;
+        else if (msg.type === 'text') bubble = `<div class="message-bubble">${msg.content}</div>`;
+        else { div.textContent = msg.content; }
+        
+        if (msg.type !== 'system') {
+            const senderName = msg.sender === currentUser.name ? 'You' : msg.sender;
+            const avatar = msg.sender === currentUser.name ? currentUser.avatar : (currentChatMatch.users.find(u => u.name === msg.sender)?.avatar || '👤');
+            // Format timestamp
+console.log('Raw created_at:', msg.created_at); // Debug line
+const timestamp = msg.created_at ? 
+    new Date(msg.created_at + 'Z').toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'no time';
+console.log('Formatted timestamp:', timestamp); // Debug line
+
+div.innerHTML = `
+    <div class="message-avatar">${avatar}</div>
+    <div class="message-content">
+        <div class="message-sender">${senderName} ${timestamp ? '<span class="message-timestamp">' + timestamp + '</span>' : ''}</div>
+        ${bubble}
+    </div>`;
+            
+            // Add message actions using DOM manipulation for own messages
+            if (msg.sender === currentUser.name) {
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'message-actions';
+                
+                const actionsBtn = document.createElement('button');
+                actionsBtn.className = 'message-actions-btn';
+                actionsBtn.textContent = '...';
+                actionsBtn.onclick = () => toggleMessageActions(msg.id);
+                
+                const actionsMenu = document.createElement('div');
+                actionsMenu.className = 'message-actions-menu';
+                actionsMenu.id = `menu-${msg.id}`;
+                
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.onclick = () => editMessage(msg.id);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = () => deleteMessage(msg.id);
+                
+                actionsMenu.appendChild(editBtn);
+                actionsMenu.appendChild(deleteBtn);
+                actionsDiv.appendChild(actionsBtn);
+                actionsDiv.appendChild(actionsMenu);
+                div.appendChild(actionsDiv);
+            }
+        }
+        chatMessages.appendChild(div);
+    });
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    const banner = document.getElementById('scheduled-event-banner-container');
+    banner.innerHTML = currentChatMatch.scheduledDate ? `<div class="scheduled-event-banner">🗓️ Event scheduled for ${new Date(currentChatMatch.scheduledDate).toLocaleDateString()}</div>` : '';
+}
+        window.sendMessage = async function() {
+    const input = document.getElementById('message-input');
+    if (!input.value.trim()) return;
+    
+    // Send to Supabase
+    const savedMessage = await sendMessageToSupabase(currentChatMatch.id, input.value.trim(), 'text');
+    
+    if (savedMessage) {
+    // Add to local messages for immediate display
+    const message = {
+        id: savedMessage.id,
+        sender: currentUser.name,
+        content: savedMessage.content,
+        type: savedMessage.type,
+        lat: savedMessage.lat,
+        lng: savedMessage.lng,
+        created_at: savedMessage.created_at, // Add this line
+        isRead: true
+    };
+        
+        if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
+        messages[currentChatMatch.id].push(message);
+        
+        // Update localStorage for compatibility
+        localStorage.setItem('friendle_messages', JSON.stringify(messages));
+        renderChatMessages();
+    }
+    
+    input.value = '';
+    // Remove simulated response for now - real users will respond
+}
+        async function addMessage(content, type, extraData = {}) {
+    // Send to Supabase
+    const savedMessage = await sendMessageToSupabase(currentChatMatch.id, content, type, extraData);
+    
+    if (savedMessage) {
+        // Add to local messages for immediate display
+        const message = {
+            id: savedMessage.id,
+            sender: currentUser.name,
+            content: savedMessage.content,
+            type: savedMessage.type,
+            lat: savedMessage.lat,
+            lng: savedMessage.lng,
+            isRead: true
+        };
+        
+        if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
+        messages[currentChatMatch.id].push(message);
+        
+        localStorage.setItem('friendle_messages', JSON.stringify(messages));
+        renderChatMessages();
+    }
+}
+        function simulateResponse() {
+            const otherUsers = currentChatMatch.users.filter(u => u.name !== currentUser.name);
+            const randomUser = otherUsers[Math.floor(Math.random() * otherUsers.length)];
+            const response = { id: Date.now(), sender: randomUser.name, content: "Sounds good! 👍", isRead: false, type: 'text' };
+            if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
+            messages[currentChatMatch.id].push(response);
+            localStorage.setItem('friendle_messages', JSON.stringify(messages));
+            if (document.getElementById('chat').classList.contains('active')) renderChatMessages();
+            updateNotificationBadge();
+        }
+        window.handleMessageKeyPress = e => { if (e.key === 'Enter') sendMessage(); };
+        window.openDateModal = () => document.getElementById('date-modal-overlay').style.display = 'flex';
+        window.closeDateModal = () => document.getElementById('date-modal-overlay').style.display = 'none';
+        window.saveEvent = async function() {
+    const date = document.getElementById('event-date').value;
+    if (!date) return;
+    const eventDate = new Date(date.replace(/-/g, '/'));
+    
+    try {
+        // Save to Supabase
+        const { error } = await supabase
+            .from('matches')
+            .update({ scheduled_date: eventDate.toISOString() })
+            .eq('id', currentChatMatch.id);
+
+        if (error) throw error;
+
+        // Update local data
+        currentChatMatch.scheduledDate = eventDate;
+        const matchIndex = matches.findIndex(m => m.id === currentChatMatch.id);
+        if (matchIndex > -1) {
+            matches[matchIndex].scheduledDate = eventDate;
+        }
+        
+        localStorage.setItem('friendle_matches', JSON.stringify(matches));
+        addMessage(`📅 ${currentUser.name} scheduled this for ${eventDate.toLocaleDateString()}`, 'system');
+        closeDateModal();
+    } catch (error) {
+        console.error('Error saving event:', error);
+        showNotification('Error saving event', 'error');
+    }
+}
+        window.toggleMessageActions = function(msgId) {
+            const menu = document.getElementById(`menu-${msgId}`);
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        }
+        window.editMessage = async function(msgId) {
+    const message = messages[currentChatMatch.id].find(m => m.id === msgId);
+    const newContent = prompt('Edit your message:', message.content);
+    if (newContent) {
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .update({ content: newContent })
+                .eq('id', msgId)
+                .eq('sender_id', currentUser.id); // Only allow editing own messages
+
+            if (error) throw error;
+
+            // Update local message
+            message.content = newContent;
+            localStorage.setItem('friendle_messages', JSON.stringify(messages));
+            renderChatMessages();
+        } catch (error) {
+            console.error('Error editing message:', error);
+            showNotification('Error editing message', 'error');
+        }
+    }
+}
+        window.deleteMessage = async function(msgId) {
+    if (!confirm('Delete this message?')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', msgId)
+            .eq('sender_id', currentUser.id); // Only allow deleting own messages
+
+        if (error) throw error;
+
+        // Remove from local messages
+        const index = messages[currentChatMatch.id].findIndex(m => m.id === msgId);
+        if (index > -1) {
+            messages[currentChatMatch.id].splice(index, 1);
+            localStorage.setItem('friendle_messages', JSON.stringify(messages));
+            renderChatMessages();
+        }
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        showNotification('Error deleting message', 'error');
+    }
+}
+        
+        // Attachments & Modals
+        window.sharePhoto = function() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    
+    input.onchange = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        showNotification('Uploading photo...');
+        
+        try {
+            const fileName = `${Date.now()}-${file.name}`;
+            const { data, error } = await supabase.storage
+                .from('chat-photos')
+                .upload(fileName, file);
+            
+            if (error) throw error;
+            
+            const { data: { publicUrl } } = supabase.storage
+                .from('chat-photos')
+                .getPublicUrl(fileName);
+            
+            addMessage(publicUrl, 'photo');
+            showNotification('Photo shared!');
+            
+        } catch (error) {
+            console.error('Error uploading photo:', error);
+            showNotification('Error uploading photo', 'error');
+        }
+    };
+    
+    input.click();
+}
+        window.shareLocation = () => navigator.geolocation.getCurrentPosition(pos => addMessage('Location Shared', 'location', { lat: pos.coords.latitude, lng: pos.coords.longitude }), () => showNotification('Could not get location', 'error'));
+        window.findNearbyPlaces = function() {
+            if (!navigator.geolocation) {
+                return alert("Geolocation is not supported by this browser. This feature works best on a mobile device.");
+            }
+            showNotification("Getting your location...");
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    const query = currentChatMatch.activity.name;
+                    const url = `https://www.google.com/maps/search/[activity${query}/@${latitude},${longitude},14z`;
+                    window.open(url, '_blank');
+                },
+                () => {
+                    alert("Unable to retrieve your location. Please ensure location services are enabled. This feature works best on a mobile device.");
+                }
+            );
+        }
+        window.openImageModal = src => { document.getElementById('modal-image').src = src; document.getElementById('image-modal-overlay').style.display = 'flex'; };
+        window.closeImageModal = () => document.getElementById('image-modal-overlay').style.display = 'none';
+        window.openMap = (lat, lng) => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+        function updateNotificationBadge() {
+            const hasUnread = matches.some(m => !m.isRead) || Object.values(messages).flat().some(msg => !msg.isRead && msg.sender !== currentUser.name);
+            document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
+        }
+        window.showPage = async function(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
+            if (pageId === 'circles') renderCircles();
+if (pageId === 'matches') {
+    if (selectedCircle) {
+        await checkForMatches(); // Refresh matches when viewing the page
+    }
+    renderMatches();
+}
+        }
+        window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
+        
+        // Invite System
+        window.showInviteModal = function(circleId) {
+            const baseUrl = window.location.href.split('?')[0];
+            const inviteToken = `invite_${circleId}_${Date.now()}`;
+            const inviteLink = `${baseUrl}?invite_token=${inviteToken}`;
+            document.getElementById('invite-link').value = inviteLink;
+            document.getElementById('invite-modal-overlay').style.display = 'flex';
+        }
+        window.closeInviteModal = () => document.getElementById('invite-modal-overlay').style.display = 'none';
+        window.copyInviteLink = function() {
+            const linkInput = document.getElementById('invite-link');
+            linkInput.select();
+            document.execCommand('copy');
+            showNotification('Link copied to clipboard!');
+        }
+        function processInvite() {
+            const token = sessionStorage.getItem('pending_invite');
+            if (token && currentUser) {
+                const allCircles = JSON.parse(localStorage.getItem('friendle_circles') || '[]');
+                const circleId = parseInt(token.split('_')[1]);
+                const circle = allCircles.find(c => c.id === circleId);
+                if (circle && !circle.members.some(m => m.id === currentUser.id)) {
+                    circle.members.push(currentUser);
+                    localStorage.setItem('friendle_circles', JSON.stringify(allCircles));
+                    circles = allCircles; // Make sure our in-memory list is updated
+                    showNotification(`Invite accepted! You've joined "${circle.name}".`);
+                }
+                sessionStorage.removeItem('pending_invite');
+                renderCircles(); // Re-render to show the new circle membership
+            }
+}
+
+        // Initialize App with Authentication
+async function initApp() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get('invite_token');
+    if (inviteToken) {
+        sessionStorage.setItem('pending_invite', inviteToken);
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Check for existing Supabase auth session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+        // User is authenticated, load their profile
+        try {
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+            
+            if (error) throw error;
+            
+            currentUser = profileData;
+            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+            showPage('circles');
+            updateProfile();
+            processInvite();
+        } catch (error) {
+            console.error('Error loading profile:', error);
+            // Profile doesn't exist, sign out
+            await supabase.auth.signOut();
+            showPage('welcome');
+        }
+    } else {
+        // No authenticated session, show login
+        currentUser = null;
+        localStorage.removeItem('friendle_user');
+        showPage('welcome');
+    }
+}
+
+// ✅ Run after DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM ready, attaching avatar clicks...");
+
+  const avatars = document.querySelectorAll(".avatar-option");
+  console.log("Found avatars:", avatars.length);
+
+    avatars.forEach(option => {
+    option.addEventListener("click", () => {
+      console.log("Avatar clicked:", option.dataset.avatar);
+      avatars.forEach(o => o.classList.remove("selected"));
+      option.classList.add("selected");
+    });
+  });
+
+const toggle = document.getElementById('show-past-events');
+  if (toggle) {
+    toggle.addEventListener('change', function() {
+      console.log('Toggle changed to:', this.checked);
+      renderMatches();
+    });
+  }
+window.openManageActivitiesModal = async function() {
+    if (!selectedCircle) return;
+    
+    console.log('Loading manage activities modal...');
+    
+    // Load all default activities and hidden status
+    const { data: allActivities, error: activitiesError } = await supabase
+        .from('activities')
+        .select('*')
+        .is('circle_id', null); // Only default activities
+    
+    console.log('All default activities:', allActivities);
+    console.log('Activities error:', activitiesError);
+    
+    const { data: hiddenActivities, error: hiddenError } = await supabase
+        .from('hidden_activities')
+        .select('activity_id')
+        .eq('profile_id', currentUser.id)
+        .eq('circle_id', selectedCircle.id);
+    
+    console.log('Hidden activities:', hiddenActivities);
+    console.log('Hidden error:', hiddenError);
+    
+    const hiddenIds = hiddenActivities?.map(h => h.activity_id) || [];
+    console.log('Hidden IDs:', hiddenIds);
+    
+    const grid = document.getElementById('manage-activities-grid');
+    grid.innerHTML = allActivities.map(activity => `
+        <div class="activity-card ${hiddenIds.includes(activity.id) ? '' : 'selected'}" 
+             onclick="toggleActivityVisibility(this, '${activity.id}')"
+             data-activity-id="${activity.id}">
+            <div class="activity-emoji">${activity.emoji}</div>
+            <div class="activity-name">${activity.name}</div>
+        </div>
+    `).join('');
+    
+    document.getElementById('manage-activities-modal-overlay').style.display = 'flex';
+}
+
+window.closeManageActivitiesModal = () => {
+    document.getElementById('manage-activities-modal-overlay').style.display = 'none';
+}
+
+window.toggleActivityVisibility = function(card, activityId) {
+    card.classList.toggle('selected');
+    console.log('Toggled activity:', activityId, 'Selected:', card.classList.contains('selected'));
+}
+
+window.saveActivityVisibility = async function() {
+    const visibleCards = document.querySelectorAll('#manage-activities-grid .activity-card.selected');
+    const hiddenCards = document.querySelectorAll('#manage-activities-grid .activity-card:not(.selected)');
+    
+    try {
+        // Clear existing hidden activities for this circle
+        await supabase
+            .from('hidden_activities')
+            .delete()
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', selectedCircle.id);
+        
+        // Add newly hidden activities
+        if (hiddenCards.length > 0) {
+            const hiddenData = Array.from(hiddenCards).map(card => ({
+                profile_id: currentUser.id,
+                circle_id: selectedCircle.id,
+                activity_id: card.dataset.activityId
+            }));
+            
+            await supabase
+                .from('hidden_activities')
+                .insert(hiddenData);
+        }
+        
+        showNotification('Activity visibility updated!');
+        closeManageActivitiesModal();
+        renderActivities(); // Refresh the activities page
+    } catch (error) {
+        console.error('Error saving activity visibility:', error);
+        showNotification('Error saving changes', 'error');
+    }
+}
+  initApp(); // start the app
+});   // ✅ only one of these, closes document.addEventListener
+</script>
+</body>
+</html>
