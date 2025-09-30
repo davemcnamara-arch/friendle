@@ -1903,13 +1903,29 @@ window.leaveChat = async function() {
     
     try {
         // Remove user from match participants
-        const { error } = await supabase
+        const { error: deleteError } = await supabase
             .from('match_participants')
             .delete()
             .eq('match_id', currentChatMatch.id)
             .eq('profile_id', currentUser.id);
         
-        if (error) throw error;
+        if (deleteError) throw deleteError;
+        
+        // Also remove this activity from user's preferences
+        const { error: prefError } = await supabase
+            .from('preferences')
+            .delete()
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', currentChatMatch.circleId)
+            .eq('activity_id', currentChatMatch.activity.id);
+        
+        if (prefError) throw prefError;
+        
+        // Update local activities array to remove this activity
+        const activityIndex = activities.findIndex(a => a.id === currentChatMatch.activity.id);
+        if (activityIndex > -1) {
+            activities.splice(activityIndex, 1);
+        }
         
         // Remove from local matches array
         const matchIndex = matches.findIndex(m => m.id === currentChatMatch.id);
