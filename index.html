@@ -869,68 +869,6 @@
         // App State
         let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null;
 
-        // Core activities - most common/universal (shown by default)
-const coreActivities = [
-    { id: 101, name: 'Coffee', emoji: '☕', category: 'food' },
-    { id: 102, name: 'Dinner', emoji: '🍽️', category: 'food' },
-    { id: 103, name: 'Drinks', emoji: '🍹', category: 'food' },
-    { id: 104, name: 'Brunch', emoji: '🥐', category: 'food' },
-    { id: 1, name: 'Pizza Night', emoji: '🍕', category: 'food' },
-    { id: 4, name: 'Ice Cream', emoji: '🍦', category: 'food' },
-    
-    { id: 201, name: 'Hiking', emoji: '🥾', category: 'active' },
-    { id: 202, name: 'Beach', emoji: '🏖️', category: 'active' },
-    { id: 8, name: 'Bowling', emoji: '🎳', category: 'active' },
-    { id: 12, name: 'Walk in the Park', emoji: '🌳', category: 'active' },
-    
-    { id: 301, name: 'Movie', emoji: '🎬', category: 'entertainment' },
-    { id: 15, name: 'Trivia Night', emoji: '🏆', category: 'entertainment' },
-    { id: 18, name: 'Arcade', emoji: '🕹️', category: 'entertainment' },
-    
-    { id: 22, name: 'Board Games', emoji: '🎲', category: 'relax' }
-];
-
-// Extended activities - less common (hidden by default, available in manage)
-const extendedActivities = [
-    { id: 105, name: 'Food Truck', emoji: '🚚', category: 'food' },
-    { id: 106, name: 'Bubble Tea', emoji: '🧋', category: 'food' },
-    { id: 2, name: 'Farmers Market', emoji: '🥕', category: 'food' },
-    { id: 3, name: 'Cooking Class', emoji: '🍳', category: 'food' },
-    { id: 5, name: 'Brewery Tour', emoji: '🍻', category: 'food' },
-    { id: 6, name: 'Taco Tuesday', emoji: '🌮', category: 'food' },
-    { id: 7, name: 'Picnic', emoji: '🧺', category: 'food' },
-    
-    { id: 203, name: 'Bike Ride', emoji: '🚴', category: 'active' },
-    { id: 204, name: 'Rock Climbing', emoji: '🧗', category: 'active' },
-    { id: 205, name: 'Workout', emoji: '💪', category: 'active' },
-    { id: 206, name: 'Swimming', emoji: '🏊', category: 'active' },
-    { id: 9, name: 'Yoga Class', emoji: '🧘', category: 'active' },
-    { id: 10, name: 'Kayaking', emoji: '🛶', category: 'active' },
-    { id: 11, name: 'Roller Skating', emoji: '🛼', category: 'active' },
-    { id: 13, name: 'Frisbee Golf', emoji: '🥏', category: 'active' },
-    { id: 14, name: 'Trampoline Park', emoji: '🤸‍♂️', category: 'active' },
-    
-    { id: 302, name: 'Concert', emoji: '🎵', category: 'entertainment' },
-    { id: 303, name: 'Comedy Show', emoji: '😂', category: 'entertainment' },
-    { id: 304, name: 'Museum', emoji: '🏛️', category: 'entertainment' },
-    { id: 305, name: 'Mini Golf', emoji: '⛳', category: 'entertainment' },
-    { id: 306, name: 'Karaoke', emoji: '🎤', category: 'entertainment' },
-    { id: 16, name: 'Escape Room', emoji: '🔑', category: 'entertainment' },
-    { id: 17, name: 'Live Theatre', emoji: '🎭', category: 'entertainment' },
-    { id: 19, name: 'Open Mic Night', emoji: '🎙️', category: 'entertainment' },
-    { id: 20, name: 'Sporting Event', emoji: '🎟️', category: 'entertainment' },
-    { id: 21, name: 'Live Music', emoji: '🎸', category: 'entertainment' },
-    
-    { id: 23, name: 'Stargazing', emoji: '🔭', category: 'relax' },
-    { id: 24, name: 'Volunteering', emoji: '❤️', category: 'relax' },
-    { id: 25, name: 'Bookstore', emoji: '📚', category: 'relax' },
-    { id: 26, name: 'Pottery Class', emoji: '🏺', category: 'relax' },
-    { id: 27, name: 'Photography Walk', emoji: '📸', category: 'relax' },
-    { id: 28, name: 'Art Gallery', emoji: '🖼️', category: 'relax' }
-];
-
-// Combined array for database operations
-const defaultActivities = [...coreActivities, ...extendedActivities];
 
 // UUID Generator
         function generateUUID() {
@@ -1429,7 +1367,6 @@ async function loadUserPreferences(circleId) {
 
 async function loadActivities(circleId) {
     try {
-        // Get user-created activities from Supabase for this circle
         const { data: customActivities, error: activitiesError } = await supabase
             .from('activities')
             .select('*')
@@ -1437,7 +1374,6 @@ async function loadActivities(circleId) {
         
         if (activitiesError) throw activitiesError;
         
-        // Get hidden activities for this user and circle
         const { data: hiddenActivities, error: hiddenError } = await supabase
             .from('hidden_activities')
             .select('activity_id')
@@ -1448,18 +1384,51 @@ async function loadActivities(circleId) {
         
         const hiddenIds = hiddenActivities.map(h => h.activity_id);
         
-        // Show only core activities by default (unless user has specifically enabled extended ones)
-        const visibleDefaultActivities = coreActivities.filter(activity => !hiddenIds.includes(activity.id));
+        // Filter core activities
+        const coreActivities = defaultActivities.filter(a => 
+            coreActivityIds.includes(a.id) && !hiddenIds.includes(a.id)
+        );
         
-        // Add any extended activities that user has specifically enabled
-        const enabledExtendedActivities = extendedActivities.filter(activity => !hiddenIds.includes(activity.id));
-        
-        // For now, only show core activities + custom activities
-        // Extended activities are available through manage interface
-        return [...visibleDefaultActivities, ...customActivities];
+        return [...coreActivities, ...customActivities];
     } catch (error) {
         console.error('Error loading activities:', error);
-        return coreActivities;
+        return [];
+    }
+}
+
+let coreActivityIds = [];
+let extendedActivityIds = [];
+let defaultActivities = [];
+
+async function loadDefaultActivities() {
+    try {
+        // Load all default activities from database (where circle_id is null)
+        const { data, error } = await supabase
+            .from('activities')
+            .select('*')
+            .is('circle_id', null);
+        
+        if (error) throw error;
+        
+        defaultActivities = data;
+        
+        // Split into core and extended based on a category or naming convention
+        // For now, let's say activities with IDs < 200 are core (adjust as needed)
+        coreActivityIds = data.filter(a => {
+            // Define which activities are "core" - adjust these names as needed
+            const coreNames = ['Coffee', 'Dinner', 'Drinks', 'Brunch', 'Pizza Night', 'Ice Cream',
+                               'Hiking', 'Beach', 'Bowling', 'Walk in the Park',
+                               'Movie', 'Trivia Night', 'Arcade', 'Board Games'];
+            return coreNames.includes(a.name);
+        }).map(a => a.id);
+        
+        extendedActivityIds = data.filter(a => !coreActivityIds.includes(a.id)).map(a => a.id);
+        
+        console.log('Loaded default activities:', defaultActivities);
+        console.log('Core activity IDs:', coreActivityIds);
+        
+    } catch (error) {
+        console.error('Error loading default activities:', error);
     }
 }
         // Activity Management
@@ -1515,26 +1484,23 @@ async function loadActivities(circleId) {
         window.saveActivities = async function() {
     if (!selectedCircle) return showNotification('Please select a circle first', 'error');
     
-    // Store state for undo BEFORE saving
-    lastActivitiesState = [...activities];
+    console.log('=== SAVING ACTIVITIES ===');
+    console.log('Current user:', currentUser.id);
+    console.log('Selected circle:', selectedCircle.id);
+    console.log('Selected activities:', activities);
     
-    // Get the selected activity IDs
     const selectedActivityIds = activities.map(activity => activity.id);
+    console.log('Activity IDs to save:', selectedActivityIds);
     
-    // Save to Supabase instead of localStorage
     await saveUserPreferences(selectedCircle.id, selectedActivityIds);
     
-    // Update activity counts (keep this in localStorage for now)
     activities.forEach(act => { 
         activityCounts[act.id] = (activityCounts[act.id] || 0) + 1; 
     });
     localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
     
-    checkForMatches();
-    
-    // Show undo AFTER saving
-    showUndo();
-    
+    console.log('=== CHECKING FOR MATCHES ===');
+    await checkForMatches();
     showPage('matches');
 }
         window.openSuggestModal = () => document.getElementById('suggest-modal-overlay').style.display = 'flex';
@@ -2233,6 +2199,7 @@ if (pageId === 'matches') {
 }
 
         async function initApp() {
+await loadDefaultActivities();
     const urlParams = new URLSearchParams(window.location.search);
     const inviteCode = urlParams.get('invite_code');
     
