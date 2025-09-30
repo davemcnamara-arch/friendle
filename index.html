@@ -836,6 +836,18 @@
             <div id="settings" class="page">
     <div class="header"><div class="logo">Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name">Your Name</h2></div>
+    
+    <div class="form-group">
+        <label for="min-group-size">Minimum Group Size</label>
+        <select id="min-group-size" onchange="saveMinimumGroupSize()">
+            <option value="2">Any size (including 1-on-1)</option>
+            <option value="3">At least 3 people</option>
+            <option value="4">At least 4 people</option>
+            <option value="5">At least 5 people</option>
+        </select>
+        <div style="font-size: 0.85em; color: #666; margin-top: 5px;">Only show matches with at least this many total participants</div>
+    </div>
+    
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
     <button class="btn btn-secondary" onclick="exportData()">Export My Data</button>
     <button class="btn btn-secondary" onclick="resetApp()" style="background: #dc3545; color: white;">Reset App</button>
@@ -1089,7 +1101,47 @@ async function processInviteCode() {
   processInvite();
 }
 
-        function updateProfile() { if (currentUser) { document.getElementById('profile-name').textContent = currentUser.name; document.getElementById('profile-avatar').textContent = currentUser.avatar; }}
+        function updateProfile() { if (currentUser) { document.getElementById('profile-name').textContent = currentUser.name; document.getElementById('profile-avatar').textContent = currentUser.avatar;
+loadMinimumGroupSize(); 
+	}
+}
+
+async function loadMinimumGroupSize() {
+    if (!currentUser) return;
+    
+    const select = document.getElementById('min-group-size');
+    if (select) {
+        select.value = currentUser.minimum_group_size || 2;
+    }
+}
+
+window.saveMinimumGroupSize = async function() {
+    const select = document.getElementById('min-group-size');
+    const newValue = parseInt(select.value);
+    
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ minimum_group_size: newValue })
+            .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        currentUser.minimum_group_size = newValue;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        
+        showNotification('Group size preference updated!');
+        
+        // Refresh matches to apply new filter
+        if (selectedCircle) {
+            await checkForMatches();
+            renderMatches();
+        }
+    } catch (error) {
+        console.error('Error saving minimum group size:', error);
+        showNotification('Error saving preference', 'error');
+    }
+}
         document.querySelectorAll('.avatar-option').forEach(option => {
             option.addEventListener('click', function() {
                 document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
@@ -1723,7 +1775,6 @@ async function saveMatchesToSupabase(matches, circleId) {
     }
 }
 
-// UPDATE your renderMatches function to handle empty states better:
 window.renderMatches = function() {
     const list = document.getElementById('matches-list');
     const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
@@ -1748,6 +1799,13 @@ window.renderMatches = function() {
             return userName.includes(searchTerm) || activityName.includes(searchTerm);
         });
     }
+    
+    // Filter by minimum group size
+    const minGroupSize = currentUser.minimum_group_size || 2;
+    filteredMatches = filteredMatches.filter(match => {
+        const totalParticipants = match.users.length + 1; // +1 for current user
+        return totalParticipants >= minGroupSize;
+    });
     
     if (filteredMatches.length === 0) {
         const message = searchTerm ? 
