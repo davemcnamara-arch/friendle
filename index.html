@@ -811,7 +811,14 @@
 </div>
             <div id="chat" class="page">
                 <div class="chat-container">
-                    <div class="chat-header"><div class="chat-avatar" id="chat-avatar">😊</div><div><div id="chat-name">Friend Name</div><div style="font-size: 0.8em; opacity: 0.8;" id="chat-activity">Activity</div></div></div>
+                    <div class="chat-header">
+    <div class="chat-avatar" id="chat-avatar">😊</div>
+    <div style="flex: 1;">
+        <div id="chat-name">Friend Name</div>
+        <div style="font-size: 0.8em; opacity: 0.8;" id="chat-activity">Activity</div>
+    </div>
+    <button onclick="leaveChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">Change of Plans</button>
+</div>
                     <div id="scheduled-event-banner-container"></div>
                     <div class="chat-messages" id="chat-messages"></div>
                     <div class="chat-input">
@@ -1374,22 +1381,31 @@ async function loadActivities(circleId) {
         
         if (activitiesError) throw activitiesError;
         
-        const { data: hiddenActivities, error: hiddenError } = await supabase
-            .from('hidden_activities')
-            .select('activity_id')
-            .eq('profile_id', currentUser.id)
+        // Get circle-level activity visibility (member-controlled)
+        const { data: circleActivities, error: visibilityError } = await supabase
+            .from('circle_activities')
+            .select('activity_id, is_visible')
             .eq('circle_id', circleId);
         
-        if (hiddenError) throw hiddenError;
+        if (visibilityError) throw visibilityError;
         
-        const hiddenIds = hiddenActivities.map(h => h.activity_id);
+        // Build map of activity visibility
+        const visibilityMap = {};
+        circleActivities?.forEach(ca => {
+            visibilityMap[ca.activity_id] = ca.is_visible;
+        });
         
-        // Filter core activities
-        const coreActivities = defaultActivities.filter(a => 
-            coreActivityIds.includes(a.id) && !hiddenIds.includes(a.id)
-        );
+        // Filter default activities based on circle visibility settings
+        // If not in map, core activities default to visible, extended default to hidden
+        const visibleDefaultActivities = defaultActivities.filter(a => {
+            if (visibilityMap.hasOwnProperty(a.id)) {
+                return visibilityMap[a.id]; // Use explicit setting
+            }
+            // Default: core visible, extended hidden
+            return coreActivityIds.includes(a.id);
+        });
         
-        return [...coreActivities, ...customActivities];
+        return [...visibleDefaultActivities, ...customActivities];
     } catch (error) {
         console.error('Error loading activities:', error);
         return [];
@@ -1879,6 +1895,38 @@ async function loadMessagesFromSupabase(matchId) {
     localStorage.setItem('friendle_messages', JSON.stringify(messages));
     updateNotificationBadge();
 }
+
+window.leaveChat = async function() {
+    if (!confirm('Change of plans? You can rejoin by reselecting this activity.')) {
+        return;
+    }
+    
+    try {
+        // Remove user from match participants
+        const { error } = await supabase
+            .from('match_participants')
+            .delete()
+            .eq('match_id', currentChatMatch.id)
+            .eq('profile_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        // Remove from local matches array
+        const matchIndex = matches.findIndex(m => m.id === currentChatMatch.id);
+        if (matchIndex > -1) {
+            matches.splice(matchIndex, 1);
+            localStorage.setItem('friendle_matches', JSON.stringify(matches));
+        }
+        
+        showNotification('You left the chat');
+        showPage('matches');
+        renderMatches();
+        
+    } catch (error) {
+        console.error('Error leaving chat:', error);
+        showNotification('Error leaving chat', 'error');
+    }
+}
         function renderChatMessages() {
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.innerHTML = '';
@@ -2271,16 +2319,19 @@ window.openManageActivitiesModal = async function() {
     if (!selectedCircle) return;
     
     try {
-        // Get hidden activities for this user and circle
-        const { data: hiddenActivities, error: hiddenError } = await supabase
-            .from('hidden_activities')
-            .select('activity_id')
-            .eq('profile_id', currentUser.id)
-            .eq('circle_id', selectedCircle.id);
-        
-        if (hiddenError) throw hiddenError;
-        
-        const hiddenIds = hiddenActivities?.map(h => h.activity_id) || [];
+        // Get circle-level visibility settings
+const { data: circleActivities, error: visibilityError } = await supabase
+    .from('circle_activities')
+    .select('activity_id, is_visible')
+    .eq('circle_id', selectedCircle.id);
+
+if (visibilityError) throw visibilityError;
+
+// Build visibility map - activities not in map use defaults (core=visible, extended=hidden)
+const visibilityMap = {};
+circleActivities?.forEach(ca => {
+    visibilityMap[ca.activity_id] = ca.is_visible;
+});
         
         const grid = document.getElementById('manage-activities-grid');
         
@@ -2297,34 +2348,48 @@ window.openManageActivitiesModal = async function() {
 `;
         
         const coreGrid = document.getElementById('core-activities-grid');
-        const extendedGrid = document.getElementById('extended-activities-grid');
-        
-        // Populate core activities (shown by default unless hidden)
-        coreActivities.forEach(activity => {
-            const card = document.createElement('div');
-            card.className = `activity-card ${hiddenIds.includes(activity.id) ? '' : 'selected'}`;
-            card.onclick = () => toggleActivityVisibility(card, activity.id);
-            card.dataset.activityId = activity.id;
-            card.innerHTML = `
-                <div class="activity-emoji">${activity.emoji}</div>
-                <div class="activity-name">${activity.name}</div>
-            `;
-            coreGrid.appendChild(card);
-        });
-        
-        // Populate extended activities (hidden by default unless specifically enabled)
-        extendedActivities.forEach(activity => {
-            const card = document.createElement('div');
-            // Extended activities are hidden by default, selected only if NOT in hiddenIds
-            card.className = `activity-card ${hiddenIds.includes(activity.id) ? '' : 'selected'}`;
-            card.onclick = () => toggleActivityVisibility(card, activity.id);
-            card.dataset.activityId = activity.id;
-            card.innerHTML = `
-                <div class="activity-emoji">${activity.emoji}</div>
-                <div class="activity-name">${activity.name}</div>
-            `;
-            extendedGrid.appendChild(card);
-        });
+const extendedGrid = document.getElementById('extended-activities-grid');
+
+// Get core activities from defaultActivities array
+const coreActivitiesArray = defaultActivities.filter(a => coreActivityIds.includes(a.id));
+
+// Populate core activities
+// Populate core activities
+coreActivitiesArray.forEach(activity => {
+    const card = document.createElement('div');
+    // Core activities visible by default unless explicitly set otherwise
+    const isVisible = visibilityMap.hasOwnProperty(activity.id) 
+        ? visibilityMap[activity.id] 
+        : true;
+    card.className = `activity-card ${isVisible ? 'selected' : ''}`;
+    card.onclick = () => toggleActivityVisibility(card, activity.id);
+    card.dataset.activityId = activity.id;
+    card.innerHTML = `
+        <div class="activity-emoji">${activity.emoji}</div>
+        <div class="activity-name">${activity.name}</div>
+    `;
+    coreGrid.appendChild(card);
+});
+
+// Get extended activities from defaultActivities array
+const extendedActivitiesArray = defaultActivities.filter(a => extendedActivityIds.includes(a.id));
+
+// Populate extended activities
+extendedActivitiesArray.forEach(activity => {
+    const card = document.createElement('div');
+    // Extended activities hidden by default unless explicitly set otherwise
+    const isVisible = visibilityMap.hasOwnProperty(activity.id) 
+        ? visibilityMap[activity.id] 
+        : false;
+    card.className = `activity-card ${isVisible ? 'selected' : ''}`;
+    card.onclick = () => toggleActivityVisibility(card, activity.id);
+    card.dataset.activityId = activity.id;
+    card.innerHTML = `
+        <div class="activity-emoji">${activity.emoji}</div>
+        <div class="activity-name">${activity.name}</div>
+    `;
+    extendedGrid.appendChild(card);
+});
         
         document.getElementById('manage-activities-modal-overlay').style.display = 'flex';
         
@@ -2344,31 +2409,32 @@ window.toggleActivityVisibility = function(card, activityId) {
 
 window.saveActivityVisibility = async function() {
     try {
-        // Clear existing hidden activities for this circle
-        await supabase
-            .from('hidden_activities')
-            .delete()
-            .eq('profile_id', currentUser.id)
-            .eq('circle_id', selectedCircle.id);
+        // Get selected activities from modal
+        const selectedCards = document.querySelectorAll('#manage-activities-grid .activity-card.selected');
+        const selectedIds = Array.from(selectedCards).map(card => card.dataset.activityId);
         
-        // Get all unselected activities (these should be hidden)
-        const unselectedCards = document.querySelectorAll('#manage-activities-grid .activity-card:not(.selected)');
+        // Get all activity IDs
+        const allActivityIds = [...coreActivityIds, ...extendedActivityIds];
         
-        if (unselectedCards.length > 0) {
-            const hiddenData = Array.from(unselectedCards).map(card => ({
-                profile_id: currentUser.id,
-                circle_id: selectedCircle.id,
-                activity_id: card.dataset.activityId
-            }));
-            
-            await supabase
-                .from('hidden_activities')
-                .insert(hiddenData);
-        }
+        // Prepare upsert data for all activities
+        const visibilityData = allActivityIds.map(activityId => ({
+            circle_id: selectedCircle.id,
+            activity_id: activityId,
+            is_visible: selectedIds.includes(activityId)
+        }));
         
-        showNotification('Activity preferences updated!');
+        // Upsert to circle_activities table
+        const { error } = await supabase
+            .from('circle_activities')
+            .upsert(visibilityData, { 
+                onConflict: 'circle_id,activity_id'
+            });
+        
+        if (error) throw error;
+        
+        showNotification('Activity preferences updated for all circle members!');
         closeManageActivitiesModal();
-        renderActivities(); // Refresh the activities page
+        renderActivities();
     } catch (error) {
         console.error('Error saving activity visibility:', error);
         showNotification('Error saving changes', 'error');
