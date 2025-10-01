@@ -2286,6 +2286,7 @@ div.innerHTML = `
             document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
         }
         window.showPage = async function(pageId) {
+localStorage.setItem('friendle_current_page', pageId);
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -2362,9 +2363,20 @@ await loadDefaultActivities();
             if (error) throw error;
             
             currentUser = profileData;
-            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        
+        // Restore last page or default to circles
+        const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
+        
+        // If trying to restore chat or activities page but no context, go to circles
+        if ((lastPage === 'chat' && !currentChatMatch) || 
+            (lastPage === 'activities' && !selectedCircle)) {
             showPage('circles');
-            updateProfile();
+        } else {
+            showPage(lastPage);
+        }
+        
+        updateProfile();
             
             // Process invite code if present
             await processInviteCode();
