@@ -2089,6 +2089,8 @@ window.leaveChat = async function() {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
+    console.log('Sending message, current user:', currentUser);
+    
     // Send to Supabase
     const savedMessage = await sendMessageToSupabase(currentChatMatch.id, input.value.trim(), 'text');
     
@@ -2097,6 +2099,7 @@ window.leaveChat = async function() {
         const message = {
             id: savedMessage.id,
             sender: currentUser.name,
+            sender_id: currentUser.id,  // Make sure this is set
             content: savedMessage.content,
             type: savedMessage.type,
             lat: savedMessage.lat,
@@ -2104,6 +2107,8 @@ window.leaveChat = async function() {
             created_at: savedMessage.created_at,
             isRead: true
         };
+        
+        console.log('Message object:', message);
         
         if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
         messages[currentChatMatch.id].push(message);
@@ -2115,7 +2120,7 @@ window.leaveChat = async function() {
             event: 'new_message',
             payload: {
                 id: savedMessage.id,
-                sender_id: currentUser.id,
+                sender_id: currentUser.id,  // Make sure this is included
                 sender_name: currentUser.name,
                 content: savedMessage.content,
                 type: savedMessage.type,
@@ -2124,6 +2129,8 @@ window.leaveChat = async function() {
                 created_at: savedMessage.created_at
             }
         });
+        
+        console.log('Broadcast sent with sender_id:', currentUser.id);
         
         // Update localStorage
         localStorage.setItem('friendle_messages', JSON.stringify(messages));
