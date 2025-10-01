@@ -776,10 +776,10 @@
         <button class="btn btn-secondary" onclick="showLogin()">Back to Sign In</button>
     </div>
 </div>
-            <div id="circles" class="page"><div class="header"><div class="logo">⭕ Your Circles</div><div class="tagline">What do you feel like doing?</div></div><div id="circles-list"></div><button class="btn" onclick="showCreateCircle()">Create New Circle</button><button class="btn btn-secondary" onclick="showJoinCircle()">Join Circle</button></div>
+            <div id="circles" class="page"><div class="header"><div class="logo">⭕ Circles</div><div class="tagline">Who do you want to hang with?</div></div><div id="circles-list"></div><button class="btn" onclick="showCreateCircle()">Create New Circle</button><button class="btn btn-secondary" onclick="showJoinCircle()">Join Circle</button></div>
             <div id="activities" class="page">
     <div class="header">
-        <div class="logo" id="activity-circle-name">Select Activities</div>
+        <div class="logo" id="activity-circle-name">⭕ Activities</div><div class="tagline">What do you want to do?</div>
     </div>
     <div class="form-group">
         <input type="text" id="activity-search" placeholder="🔍 Search for an activity..." onkeyup="handleSearch(event)">
@@ -798,8 +798,8 @@
             </div>
             <div id="matches" class="page">
     <div class="header">
-        <div class="logo">⭕ Your Matches</div>
-        <div class="tagline">Friends who want the same activities</div>
+        <div class="logo">⭕ Matches</div>
+        <div class="tagline">Who else wants to do what you want to do?</div>
         <div style="margin-top: 15px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #666;">
                 <input type="checkbox" id="show-past-events" checked onchange="window.renderMatches()">
@@ -833,6 +833,7 @@
                     </div>
                 </div>
             </div>
+            <div id="settings" class="page">
             <div class="header"><div class="logo">⭕ Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name">Your Name</h2></div>
     
