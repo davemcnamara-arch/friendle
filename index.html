@@ -2090,28 +2090,44 @@ div.innerHTML = `
     const savedMessage = await sendMessageToSupabase(currentChatMatch.id, input.value.trim(), 'text');
     
     if (savedMessage) {
-    // Add to local messages for immediate display
-    const message = {
-        id: savedMessage.id,
-        sender: currentUser.name,
-        content: savedMessage.content,
-        type: savedMessage.type,
-        lat: savedMessage.lat,
-        lng: savedMessage.lng,
-        created_at: savedMessage.created_at, // Add this line
-        isRead: true
-    };
+        // Add to local messages for immediate display
+        const message = {
+            id: savedMessage.id,
+            sender: currentUser.name,
+            content: savedMessage.content,
+            type: savedMessage.type,
+            lat: savedMessage.lat,
+            lng: savedMessage.lng,
+            created_at: savedMessage.created_at,
+            isRead: true
+        };
         
         if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
         messages[currentChatMatch.id].push(message);
         
-        // Update localStorage for compatibility
+        // Broadcast to other users via Realtime
+        const channel = supabase.channel(`match_${currentChatMatch.id}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'new_message',
+            payload: {
+                id: savedMessage.id,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                content: savedMessage.content,
+                type: savedMessage.type,
+                lat: savedMessage.lat,
+                lng: savedMessage.lng,
+                created_at: savedMessage.created_at
+            }
+        });
+        
+        // Update localStorage
         localStorage.setItem('friendle_messages', JSON.stringify(messages));
         renderChatMessages();
     }
     
     input.value = '';
-    // Remove simulated response for now - real users will respond
 }
         async function addMessage(content, type, extraData = {}) {
     // Send to Supabase
@@ -2564,65 +2580,64 @@ window.saveActivityVisibility = async function() {
 // Real-time messaging subscription
 let messageSubscription = null;
 
+// Real-time messaging subscription
+let messageSubscription = null;
+
 function setupRealtimeMessages(matchId) {
+    console.log('=== SETTING UP REALTIME ===');
+    console.log('Match ID:', matchId);
+    
     // Clean up existing subscription
     if (messageSubscription) {
+        console.log('Cleaning up old subscription');
         supabase.removeChannel(messageSubscription);
     }
     
-    // Subscribe to new messages for this match
+    // Use Realtime Presence/Broadcast instead of postgres_changes
     messageSubscription = supabase
-        .channel(`messages:${matchId}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-                filter: `match_id=eq.${matchId}`
-            },
-            async (payload) => {
-                console.log('New message received:', payload);
-                
-                // Don't duplicate messages we sent ourselves
-                if (payload.new.sender_id === currentUser.id) {
-                    return;
-                }
-                
-                // Load the sender's profile info
-                const { data: senderProfile } = await supabase
-                    .from('profiles')
-                    .select('id, name, avatar')
-                    .eq('id', payload.new.sender_id)
-                    .single();
-                
-                // Add to local messages array
-                const newMessage = {
-                    id: payload.new.id,
-                    sender: senderProfile.name,
-                    content: payload.new.content,
-                    type: payload.new.type,
-                    lat: payload.new.lat,
-                    lng: payload.new.lng,
-                    created_at: payload.new.created_at,
-                    isRead: true
-                };
-                
-                if (!messages[matchId]) messages[matchId] = [];
-                messages[matchId].push(newMessage);
-                
-                // Update UI if we're viewing this chat
-                if (currentChatMatch && currentChatMatch.id === matchId) {
-                    renderChatMessages();
-                }
-                
-                // Update localStorage
-                localStorage.setItem('friendle_messages', JSON.stringify(messages));
+        .channel(`match_${matchId}`)
+        .on('broadcast', { event: 'new_message' }, (payload) => {
+            console.log('🔔 NEW MESSAGE RECEIVED:', payload);
+            
+            // Don't duplicate messages we sent ourselves
+            if (payload.payload.sender_id === currentUser.id) {
+                console.log('⏭️ Skipping own message');
+                return;
             }
-        )
-        .subscribe();
+            
+            console.log('📥 Processing message from another user');
+            
+            // Add to local messages array
+            const newMessage = {
+                id: payload.payload.id,
+                sender: payload.payload.sender_name,
+                content: payload.payload.content,
+                type: payload.payload.type,
+                lat: payload.payload.lat,
+                lng: payload.payload.lng,
+                created_at: payload.payload.created_at,
+                isRead: true
+            };
+            
+            if (!messages[matchId]) messages[matchId] = [];
+            messages[matchId].push(newMessage);
+            
+            console.log('✅ Message added to local array');
+            
+            // Update UI if we're viewing this chat
+            if (currentChatMatch && currentChatMatch.id === matchId) {
+                console.log('🎨 Updating UI');
+                renderChatMessages();
+            }
+            
+            // Update localStorage
+            localStorage.setItem('friendle_messages', JSON.stringify(messages));
+        })
+        .subscribe((status) => {
+            console.log('Subscription status:', status);
+        });
     
-    console.log('Subscribed to messages for match:', matchId);
+    console.log('✅ Subscription created');
 }
 
 function cleanupRealtimeMessages() {
