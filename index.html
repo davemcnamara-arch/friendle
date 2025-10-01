@@ -755,7 +755,7 @@
     <div class="app-container">
         <div id="pages-container" style="flex: 1; overflow-y: auto; position: relative;">
             <div id="welcome" class="page active">
-    <div class="header"><div class="logo">Friendle</div><div class="tagline">Match activities with friends</div></div>
+    <div class="header"><div class="logo">⭕ Friendle</div><div class="tagline">What do you feel like doing?</div></div>
     
     <div id="login-form">
         <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" placeholder="Enter your email"></div>
@@ -776,7 +776,7 @@
         <button class="btn btn-secondary" onclick="showLogin()">Back to Sign In</button>
     </div>
 </div>
-            <div id="circles" class="page"><div class="header"><div class="logo">Your Circles</div><div class="tagline">Friend groups for activity matching</div></div><div id="circles-list"></div><button class="btn" onclick="showCreateCircle()">Create New Circle</button><button class="btn btn-secondary" onclick="showJoinCircle()">Join Circle</button></div>
+            <div id="circles" class="page"><div class="header"><div class="logo">⭕ Your Circles</div><div class="tagline">What do you feel like doing?</div></div><div id="circles-list"></div><button class="btn" onclick="showCreateCircle()">Create New Circle</button><button class="btn btn-secondary" onclick="showJoinCircle()">Join Circle</button></div>
             <div id="activities" class="page">
     <div class="header">
         <div class="logo" id="activity-circle-name">Select Activities</div>
@@ -798,7 +798,7 @@
             </div>
             <div id="matches" class="page">
     <div class="header">
-        <div class="logo">Your Matches</div>
+        <div class="logo">⭕ Your Matches</div>
         <div class="tagline">Friends who want the same activities</div>
         <div style="margin-top: 15px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #666;">
@@ -833,8 +833,7 @@
                     </div>
                 </div>
             </div>
-            <div id="settings" class="page">
-    <div class="header"><div class="logo">Settings</div><div class="tagline">Manage your preferences</div></div>
+            <div class="header"><div class="logo">⭕ Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name">Your Name</h2></div>
     
     <div class="form-group">
@@ -847,6 +846,19 @@
         </select>
         <div style="font-size: 0.85em; color: #666; margin-top: 5px;">Only show matches with at least this many total participants</div>
     </div>
+    
+    <div class="form-group">
+        <label for="new-username">Change Display Name</label>
+        <input type="text" id="new-username" placeholder="Enter new name">
+    </div>
+    <button class="btn btn-secondary" onclick="changeUsername()">Update Name</button>
+    
+    <div class="form-group">
+        <label for="new-password">Change Password</label>
+        <input type="password" id="new-password" placeholder="New password (6+ characters)">
+        <input type="password" id="confirm-password" placeholder="Confirm new password" style="margin-top: 10px;">
+    </div>
+    <button class="btn btn-secondary" onclick="changePassword()">Update Password</button>
     
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
     <button class="btn btn-secondary" onclick="exportData()">Export My Data</button>
@@ -1142,6 +1154,70 @@ window.saveMinimumGroupSize = async function() {
         showNotification('Error saving preference', 'error');
     }
 }
+
+window.changeUsername = async function() {
+    const newName = document.getElementById('new-username').value.trim();
+    
+    if (!newName) {
+        return showNotification('Please enter a name', 'error');
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ name: newName })
+            .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        currentUser.name = newName;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        
+        updateProfile();
+        document.getElementById('new-username').value = '';
+        
+        showNotification('Name updated successfully!');
+        
+    } catch (error) {
+        console.error('Error changing username:', error);
+        showNotification('Error updating name', 'error');
+    }
+}
+
+window.changePassword = async function() {
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    if (!newPassword || !confirmPassword) {
+        return showNotification('Please fill in both password fields', 'error');
+    }
+    
+    if (newPassword.length < 6) {
+        return showNotification('New password must be at least 6 characters', 'error');
+    }
+    
+    if (newPassword !== confirmPassword) {
+        return showNotification('Passwords do not match', 'error');
+    }
+    
+    try {
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+        
+        if (error) throw error;
+        
+        document.getElementById('new-password').value = '';
+        document.getElementById('confirm-password').value = '';
+        
+        showNotification('Password updated successfully!');
+        
+    } catch (error) {
+        console.error('Error changing password:', error);
+        showNotification(error.message || 'Error updating password', 'error');
+    }
+}
+
         document.querySelectorAll('.avatar-option').forEach(option => {
             option.addEventListener('click', function() {
                 document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
@@ -1967,12 +2043,14 @@ messages[currentChatMatch.id] = supabaseMessages.map(msg => ({
     
     localStorage.setItem('friendle_matches', JSON.stringify(matches));
     localStorage.setItem('friendle_messages', JSON.stringify(messages));
-    updateNotificationBadge();
+    localStorage.setItem('friendle_current_chat', JSON.stringify(currentChatMatch));    
+updateNotificationBadge();
 }
 
 window.leaveChat = async function() {
     // Clean up real-time subscription
     cleanupRealtimeMessages();
+    localStorage.removeItem('friendle_current_chat');
     
     if (!confirm('Change of plans? You can rejoin by reselecting this activity.')) {
         return;
@@ -2321,6 +2399,7 @@ window.leaveChat = async function() {
     // Clean up chat subscription when leaving chat page
     if (pageId !== 'chat') {
         cleanupRealtimeMessages();
+        localStorage.removeItem('friendle_current_chat');
     }
     
     localStorage.setItem('friendle_current_page', pageId);
@@ -2409,15 +2488,33 @@ await loadDefaultActivities();
         await loadAllCircleMatches();
         
         // Restore last page or default to circles
-        const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
-        
-        // If trying to restore chat or activities page but no context, go to circles
-        if ((lastPage === 'chat' && !currentChatMatch) || 
-            (lastPage === 'activities' && !selectedCircle)) {
+const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
+
+// Try to restore chat if we were on chat page
+if (lastPage === 'chat') {
+    const savedChat = localStorage.getItem('friendle_current_chat');
+    if (savedChat) {
+        try {
+            const chatMatch = JSON.parse(savedChat);
+            // Find the match in our loaded matches
+            const foundMatch = matches.find(m => m.id === chatMatch.id);
+            if (foundMatch) {
+                await openChat(foundMatch);
+            } else {
+                showPage('circles');
+            }
+        } catch (e) {
+            console.error('Error restoring chat:', e);
             showPage('circles');
-        } else {
-            showPage(lastPage);
         }
+    } else {
+        showPage('circles');
+    }
+} else if (lastPage === 'activities' && !selectedCircle) {
+    showPage('circles');
+} else {
+    showPage(lastPage);
+}
         
         updateProfile();
         
