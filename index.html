@@ -1775,6 +1775,18 @@ async function saveMatchesToSupabase(matches, circleId) {
     }
 }
 
+async function loadAllCircleMatches() {
+    matches = [];
+    
+    for (const circle of circles) {
+        const circleMatches = await findMatches(circle.id);
+        matches.push(...circleMatches);
+    }
+    
+    localStorage.setItem('friendle_matches', JSON.stringify(matches));
+    updateNotificationBadge();
+}
+
 window.renderMatches = function() {
     const list = document.getElementById('matches-list');
     const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
@@ -2282,6 +2294,9 @@ div.innerHTML = `
 if (pageId === 'matches') {
     if (selectedCircle) {
         await checkForMatches(); // Refresh matches when viewing the page
+    } else {
+        // Load matches from ALL circles
+        await loadAllCircleMatches();
     }
     renderMatches();
 }
