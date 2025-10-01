@@ -2365,6 +2365,12 @@ await loadDefaultActivities();
             currentUser = profileData;
         localStorage.setItem('friendle_user', JSON.stringify(currentUser));
         
+        // Load circles first
+        await renderCircles();
+        
+        // Then load matches from all circles
+        await loadAllCircleMatches();
+        
         // Restore last page or default to circles
         const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
         
@@ -2377,9 +2383,9 @@ await loadDefaultActivities();
         }
         
         updateProfile();
-            
-            // Process invite code if present
-            await processInviteCode();
+        
+        // Process invite code if present
+        await processInviteCode();
             
         } catch (error) {
             console.error('Error loading profile:', error);
