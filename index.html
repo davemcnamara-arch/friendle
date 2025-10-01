@@ -1961,12 +1961,18 @@ async function loadMessagesFromSupabase(matchId) {
     renderChatMessages(); 
     showPage('chat');
     
+    // Set up real-time subscription for this chat
+    setupRealtimeMessages(currentChatMatch.id);
+    
     localStorage.setItem('friendle_matches', JSON.stringify(matches));
     localStorage.setItem('friendle_messages', JSON.stringify(messages));
     updateNotificationBadge();
 }
 
 window.leaveChat = async function() {
+    // Clean up real-time subscription
+    cleanupRealtimeMessages();
+    
     if (!confirm('Change of plans? You can rejoin by reselecting this activity.')) {
         return;
     }
@@ -2286,22 +2292,27 @@ div.innerHTML = `
             document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
         }
         window.showPage = async function(pageId) {
-localStorage.setItem('friendle_current_page', pageId);
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(pageId).classList.add('active');
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
-            if (pageId === 'circles') renderCircles();
-if (pageId === 'matches') {
-    if (selectedCircle) {
-        await checkForMatches(); // Refresh matches when viewing the page
-    } else {
-        // Load matches from ALL circles
-        await loadAllCircleMatches();
+    // Clean up chat subscription when leaving chat page
+    if (pageId !== 'chat') {
+        cleanupRealtimeMessages();
     }
-    renderMatches();
-}
+    
+    localStorage.setItem('friendle_current_page', pageId);
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
+    if (pageId === 'circles') renderCircles();
+    if (pageId === 'matches') {
+        if (selectedCircle) {
+            await checkForMatches(); // Refresh matches when viewing the page
+        } else {
+            // Load matches from ALL circles
+            await loadAllCircleMatches();
         }
+        renderMatches();
+    }
+}
         window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
         
         // Invite System
@@ -2549,6 +2560,79 @@ window.saveActivityVisibility = async function() {
 }
   initApp(); // start the app
 });   // ✅ only one of these, closes document.addEventListener
+
+// Real-time messaging subscription
+let messageSubscription = null;
+
+function setupRealtimeMessages(matchId) {
+    // Clean up existing subscription
+    if (messageSubscription) {
+        supabase.removeChannel(messageSubscription);
+    }
+    
+    // Subscribe to new messages for this match
+    messageSubscription = supabase
+        .channel(`messages:${matchId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `match_id=eq.${matchId}`
+            },
+            async (payload) => {
+                console.log('New message received:', payload);
+                
+                // Don't duplicate messages we sent ourselves
+                if (payload.new.sender_id === currentUser.id) {
+                    return;
+                }
+                
+                // Load the sender's profile info
+                const { data: senderProfile } = await supabase
+                    .from('profiles')
+                    .select('id, name, avatar')
+                    .eq('id', payload.new.sender_id)
+                    .single();
+                
+                // Add to local messages array
+                const newMessage = {
+                    id: payload.new.id,
+                    sender: senderProfile.name,
+                    content: payload.new.content,
+                    type: payload.new.type,
+                    lat: payload.new.lat,
+                    lng: payload.new.lng,
+                    created_at: payload.new.created_at,
+                    isRead: true
+                };
+                
+                if (!messages[matchId]) messages[matchId] = [];
+                messages[matchId].push(newMessage);
+                
+                // Update UI if we're viewing this chat
+                if (currentChatMatch && currentChatMatch.id === matchId) {
+                    renderChatMessages();
+                }
+                
+                // Update localStorage
+                localStorage.setItem('friendle_messages', JSON.stringify(messages));
+            }
+        )
+        .subscribe();
+    
+    console.log('Subscribed to messages for match:', matchId);
+}
+
+function cleanupRealtimeMessages() {
+    if (messageSubscription) {
+        supabase.removeChannel(messageSubscription);
+        messageSubscription = null;
+        console.log('Unsubscribed from messages');
+    }
+}
+
 </script>
 </body>
 </html>
