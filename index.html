@@ -2708,33 +2708,43 @@ window.saveActivityVisibility = async function() {
   initApp(); // start the app
 });   // ✅ only one of these, closes document.addEventListener
 
-function showNotificationAlert(title, body, icon = null, requireHidden = false) {
-    console.log('🔔 showNotificationAlert called:', title, body, 'requireHidden:', requireHidden, 'document.hidden:', document.hidden);
+function showNotificationAlert(title, body) {
+    console.log('=== NOTIFICATION DEBUG ===');
+    console.log('Title:', title);
+    console.log('Body:', body);
+    console.log('Notification in window:', 'Notification' in window);
+    console.log('Permission:', Notification?.permission);
+    console.log('Document hidden:', document.hidden);
+    console.log('Document visibility:', document.visibilityState);
     
-    // Check if notifications are supported and permitted
-    if ('Notification' in window && Notification.permission === 'granted') {
-        // For messages: only skip if actively viewing that specific chat
-        // For matches: only show if tab is hidden (requireHidden = true)
-        if (requireHidden && !document.hidden) {
-            console.log('Skipping notification - requireHidden but tab is visible');
-            return;
-        }
-        
-        const options = {
+    if (!('Notification' in window)) {
+        console.log('Browser does not support notifications');
+        return;
+    }
+    
+    if (Notification.permission !== 'granted') {
+        console.log('Notification permission not granted');
+        return;
+    }
+    
+    try {
+        const notification = new Notification(title, {
             body: body,
-            vibrate: [200, 100, 200]
+            tag: 'friendle-message', // Prevents duplicate notifications
+            requireInteraction: false,
+            silent: false
+        });
+        
+        console.log('Notification created successfully');
+        
+        // Handle notification click
+        notification.onclick = function() {
+            window.focus();
+            notification.close();
         };
         
-        // Only add icon if it's a valid URL
-        if (icon && (icon.startsWith('http://') || icon.startsWith('https://'))) {
-            options.icon = icon;
-        }
-        
-        console.log('Creating notification with options:', options);
-        const notification = new Notification(title, options);
-        console.log('Notification created:', notification);
-    } else {
-        console.log('Notifications not available. In window:', 'Notification' in window, 'Permission:', Notification.permission);
+    } catch (error) {
+        console.error('Error creating notification:', error);
     }
 }
 
@@ -2780,22 +2790,14 @@ const newMessage = {
 
 if (!messages[matchId]) messages[matchId] = [];
 messages[matchId].push(newMessage);
-            
+
 console.log('✅ Message added to local array');
 
-// Show notification if not viewing this specific chat
-console.log('Checking notification condition:', {
-    currentChatMatch: currentChatMatch?.id,
-    matchId: matchId,
-    shouldNotify: !currentChatMatch || currentChatMatch.id !== matchId
-});
-
-if (!currentChatMatch || currentChatMatch.id !== matchId) {
-    console.log('Calling showNotificationAlert');
-    showNotificationAlert(
-        `New message from ${newMessage.sender}`,
-        newMessage.content
-    );
+// Always attempt notification for new messages
+showNotificationAlert(
+    `New message from ${newMessage.sender}`,
+    newMessage.content
+);
 }
 
 // Update UI if we're viewing this chat
