@@ -2776,34 +2776,31 @@ function setupRealtimeMessages(matchId) {
             console.log('📥 Processing message from another user');
             
             // Add to local messages array
-const newMessage = {
-    id: payload.payload.id,
-    sender: payload.payload.sender_name,
-    sender_id: payload.payload.sender_id,
-    content: payload.payload.content,
-    type: payload.payload.type,
-    lat: payload.payload.lat,
-    lng: payload.payload.lng,
-    created_at: payload.payload.created_at,
-    isRead: true
-};
-
-if (!messages[matchId]) messages[matchId] = [];
-messages[matchId].push(newMessage);
-
-console.log('✅ Message added to local array');
-
-// Always attempt notification for new messages
-showNotificationAlert(
-    `New message from ${newMessage.sender}`,
-    newMessage.content
-);
-}
-
-// Update UI if we're viewing this chat
-
-// Update UI if we're viewing this chat
-if (currentChatMatch && currentChatMatch.id === matchId) {
+            const newMessage = {
+                id: payload.payload.id,
+                sender: payload.payload.sender_name,
+                sender_id: payload.payload.sender_id,
+                content: payload.payload.content,
+                type: payload.payload.type,
+                lat: payload.payload.lat,
+                lng: payload.payload.lng,
+                created_at: payload.payload.created_at,
+                isRead: true
+            };
+            
+            if (!messages[matchId]) messages[matchId] = [];
+            messages[matchId].push(newMessage);
+            
+            console.log('✅ Message added to local array');
+            
+            // Always attempt notification for new messages
+            showNotificationAlert(
+                `New message from ${newMessage.sender}`,
+                newMessage.content
+            );
+            
+            // Update UI if we're viewing this chat
+            if (currentChatMatch && currentChatMatch.id === matchId) {
                 console.log('🎨 Updating UI');
                 renderChatMessages();
             }
