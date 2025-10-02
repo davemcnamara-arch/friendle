@@ -2713,7 +2713,10 @@ function showNotificationAlert(title, body, icon = null, requireHidden = false) 
     if ('Notification' in window && Notification.permission === 'granted') {
         // For messages: only skip if actively viewing that specific chat
         // For matches: only show if tab is hidden (requireHidden = true)
-        if (requireHidden && !document.hidden) return;
+        if (requireHidden && !document.hidden) {
+            console.log('Skipping notification - requireHidden but tab is visible');
+            return;
+        }
         
         const options = {
             body: body,
@@ -2725,7 +2728,11 @@ function showNotificationAlert(title, body, icon = null, requireHidden = false) 
             options.icon = icon;
         }
         
-        new Notification(title, options);
+        console.log('Creating notification with options:', options);
+        const notification = new Notification(title, options);
+        console.log('Notification created:', notification);
+    } else {
+        console.log('Notifications not available. In window:', 'Notification' in window, 'Permission:', Notification.permission);
     }
 }
 
