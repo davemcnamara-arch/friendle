@@ -2835,11 +2835,9 @@ async function loadEventMessages(eventId) {
     }
 }
 
-// Append a single message to the chat
 function appendMessage(message) {
     const messagesContainer = document.getElementById('chat-messages');
     
-    // Remove "no messages" text if it exists
     if (messagesContainer.querySelector('p')) {
         messagesContainer.innerHTML = '';
     }
@@ -3112,31 +3110,50 @@ async function deleteEvent() {
     
     input.click();
 }
-        window.shareLocation = () => navigator.geolocation.getCurrentPosition(pos => addMessage('Location Shared', 'location', { lat: pos.coords.latitude, lng: pos.coords.longitude }), () => showNotification('Could not get location', 'error'));
-        window.findNearbyPlaces = function() {
+        window.shareLocation = async function() {
     if (!navigator.geolocation) {
-        return alert("Geolocation is not supported by this browser. This feature works best on a mobile device.");
+        return showNotification('Geolocation not supported', 'error');
     }
-    showNotification("Getting your location...");
+    
     navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const { latitude, longitude } = position.coords;
+        async (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
             
-            // Get activity name from either event or match
-            let activityName = 'activities';
+            // Check if we're in event chat or old match chat
             if (currentEvent) {
-                const activity = activities.find(a => a.id === currentEvent.activity_id);
-                activityName = activity ? activity.name : 'activities';
+                // Event chat system - send location as a link in content
+                try {
+                    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                    const { data, error } = await supabase
+                        .from('event_messages')
+                        .insert({
+                            event_id: currentEvent.id,
+                            sender_id: currentUser.id,
+                            content: `📍 <a href="${mapsUrl}" target="_blank" style="color: inherit; text-decoration: underline;">Location Shared - Tap to open</a>`
+                        })
+                        .select(`
+                            *,
+                            sender:profiles(id, name, avatar)
+                        `)
+                        .single();
+                    
+                    if (error) throw error;
+                    
+                    appendMessage(data);
+                    showNotification('Location shared!');
+                    
+                } catch (error) {
+                    console.error('Error sharing location:', error);
+                    showNotification('Error sharing location', 'error');
+                }
+                
             } else if (currentChatMatch) {
-                activityName = currentChatMatch.activity.name;
+                // Old match chat system
+                addMessage('Location Shared', 'location', { lat, lng });
             }
-            
-            const url = `https://www.google.com/maps/search/${activityName}/@${latitude},${longitude},14z`;
-            window.open(url, '_blank');
         },
-        () => {
-            alert("Unable to retrieve your location. Please ensure location services are enabled. This feature works best on a mobile device.");
-        }
+        () => showNotification('Could not get location', 'error')
     );
 }
         window.openImageModal = src => { document.getElementById('modal-image').src = src; document.getElementById('image-modal-overlay').style.display = 'flex'; };
