@@ -2415,9 +2415,9 @@ setTimeout(() => {
             document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
         }
         window.showPage = async function(pageId) {
-    // Don't clean up subscription when navigating between pages
-    // Only remove current chat from localStorage if leaving chat page
+    // Clear current chat match when leaving chat page
     if (pageId !== 'chat') {
+        currentChatMatch = null;  // ADD THIS LINE
         localStorage.removeItem('friendle_current_chat');
     }
     
