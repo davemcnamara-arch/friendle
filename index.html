@@ -812,29 +812,36 @@
     <div id="matches-list"></div>
 </div>
             <div id="chat" class="page">
-                <div class="chat-container">
-                    <div class="chat-header">
-    <div class="chat-avatar" id="chat-avatar">😊</div>
+    <div class="chat-container">
+        <div class="chat-header">
+    <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 10px;">← Back</button>
     <div style="flex: 1;">
-        <div id="chat-name">Friend Name</div>
-        <div style="font-size: 0.8em; opacity: 0.8;" id="chat-activity">Activity</div>
+        <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
+        <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
     </div>
-    <button onclick="leaveChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">Change of Plans</button>
+    <button onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 8px;">Change of Plans</button>
+    <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">⚙️</button>
 </div>
-                    <div id="scheduled-event-banner-container"></div>
-                    <div class="chat-messages" id="chat-messages"></div>
-                    <div class="chat-input">
-                        <div class="chat-input-top-row">
-                            <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleMessageKeyPress(event)">
-                            <button class="attachment-btn" onclick="sharePhoto()">📷</button>
-                            <button class="attachment-btn" onclick="shareLocation()">📍</button>
-                            <button class="attachment-btn" onclick="findNearbyPlaces()">🔎</button>
-                            <button class="attachment-btn" onclick="openDateModal()">📅</button>
-                        </div>
-                        <button class="btn send-btn" onclick="sendMessage()">Send</button>
-                    </div>
-                </div>
+        
+        <div id="event-details" style="background: #e6f7ff; padding: 12px 15px; border-bottom: 1px solid #91d5ff; flex-shrink: 0;">
+            <div id="event-date" style="font-weight: 500; margin-bottom: 4px; color: #0050b3;"></div>
+            <div id="event-location" style="color: #0050b3; font-size: 14px;"></div>
+            <div id="event-notes" style="color: #0050b3; font-size: 14px; margin-top: 4px;"></div>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages"></div>
+        
+        <div class="chat-input">
+            <div class="chat-input-top-row">
+                <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleMessageKeyPress(event)">
+                <button class="attachment-btn" onclick="sharePhoto()">📷</button>
+                <button class="attachment-btn" onclick="shareLocation()">📍</button>
+                <button class="attachment-btn" onclick="findNearbyPlaces()">🔍</button>
             </div>
+            <button class="btn send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+</div>
             <div id="settings" class="page">
             <div class="header"><div class="logo">⭕ Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name">Your Name</h2></div>
@@ -897,6 +904,83 @@
         <button class="btn" onclick="saveActivityVisibility()">Save Changes</button>
     </div>
 </div>
+</div>
+
+<!-- Create Event Modal -->
+<div class="modal-overlay" id="create-event-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closeCreateEventModal()">×</span>
+        <div class="modal-header">Schedule New Event</div>
+        
+        <form id="create-event-form">
+            <input type="hidden" id="new-event-match-id">
+            
+            <div class="form-group">
+                <label for="new-event-date">Date & Time *</label>
+                <input type="datetime-local" id="new-event-date" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="new-event-location">Location</label>
+                <input type="text" id="new-event-location" placeholder="Where are you meeting?">
+            </div>
+            
+            <div class="form-group">
+                <label for="new-event-notes">Notes</label>
+                <textarea id="new-event-notes" rows="3" placeholder="Any additional details..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn">Create Event</button>
+        </form>
+    </div>
+</div>
+
+<!-- Event Options Modal -->
+<div class="modal-overlay" id="event-options-modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close-modal-btn" onclick="closeEventOptionsModal()">×</span>
+        <div class="modal-header">Event Options</div>
+        
+        <button onclick="editCurrentEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
+            ✏️ Edit Event Details
+        </button>
+        <button onclick="markEventCompleted()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
+            ✅ Mark as Completed
+        </button>
+        <button onclick="cancelEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
+            ❌ Cancel Event
+        </button>
+        <button onclick="deleteEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0; background: #dc3545; color: white;">
+            🗑️ Delete Event
+        </button>
+    </div>
+</div>
+
+<!-- Edit Event Modal -->
+<div class="modal-overlay" id="edit-event-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closeEditEventModal()">×</span>
+        <div class="modal-header">Edit Event</div>
+        
+        <form id="edit-event-form">
+            <div class="form-group">
+                <label for="edit-event-date">Date & Time *</label>
+                <input type="datetime-local" id="edit-event-date" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-event-location">Location</label>
+                <input type="text" id="edit-event-location" placeholder="Where are you meeting?">
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-event-notes">Notes</label>
+                <textarea id="edit-event-notes" rows="3" placeholder="Any additional details..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn">Save Changes</button>
+        </form>
+    </div>
 </div>
 
     <script>
@@ -1735,11 +1819,14 @@ async function findMatches(circleId) {
                 const isUserInGroup = existingMatch.match_participants.some(p => p.profile_id === currentUser.id);
                 
                 if (!isUserInGroup) {
-                    // Add user to existing group
-                    await supabase
-                        .from('match_participants')
-                        .insert([{ match_id: existingMatch.id, profile_id: currentUser.id }]);
-                }
+    // Add user to existing group
+    await supabase
+        .from('match_participants')
+        .insert([{ match_id: existingMatch.id, profile_id: currentUser.id }]);
+    
+    // Auto-add to any upcoming events for this match
+    await autoAddToUpcomingEvents(existingMatch.id, currentUser.id);
+}
                 
                 match = existingMatch;
             } else {
@@ -1762,9 +1849,12 @@ async function findMatches(circleId) {
                 }
 
                 // Add current user as first participant
-                await supabase
-                    .from('match_participants')
-                    .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
+await supabase
+    .from('match_participants')
+    .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
+
+// Auto-add to any upcoming events
+await autoAddToUpcomingEvents(newMatch.id, currentUser.id);
 
                 match = { ...newMatch, match_participants: [{ profile_id: currentUser.id, profiles: currentUser }] };
             }
@@ -1866,16 +1956,50 @@ showNotificationAlert(
 }
 }
 
-async function loadAllCircleMatches() {
-    matches = [];
+async function loadMatches() {
+    if (!currentUser) return;
     
-    for (const circle of circles) {
-        const circleMatches = await findMatches(circle.id);
-        matches.push(...circleMatches);
+    try {
+        // Get matches where user is a participant
+        const { data: userMatches, error: matchError } = await supabase
+            .from('match_participants')
+            .select(`
+                match_id,
+                matches!inner(
+                    id,
+                    activity_id,
+                    circle_id,
+                    created_at
+                )
+            `)
+            .eq('profile_id', currentUser.id);
+        
+        if (matchError) throw matchError;
+        
+        // Extract match data
+        matches = userMatches.map(um => um.matches);
+        
+        // Get participant names for each match
+        for (let match of matches) {
+            const { data: participants, error: participantError } = await supabase
+                .from('match_participants')
+                .select(`
+                    profile_id,
+                    profiles(name)
+                `)
+                .eq('match_id', match.id);
+            
+            if (!participantError) {
+                match.participant_names = participants.map(p => p.profiles.name);
+            }
+        }
+        
+        // Display matches
+        await displayMatches();
+        
+    } catch (error) {
+        console.error('Error loading matches:', error);
     }
-    
-    localStorage.setItem('friendle_matches', JSON.stringify(matches));
-    updateNotificationBadge();
 }
 
 window.renderMatches = function() {
@@ -1939,30 +2063,139 @@ window.renderMatches = function() {
         </div>`;
     }).join('');
 }
-        function renderMatches() {
-            const list = document.getElementById('matches-list');
-            if (matches.length === 0) return list.innerHTML = '<div style="text-align: center; margin: 40px 0; color: #666;">No matches yet.</div>';
-            
-            list.innerHTML = matches.map(match => {
-                const title = match.isGroupChat 
-                    ? `Group Chat for ${match.activity.name}` 
-                    : `${match.users[0].name} for ${match.activity.name}`;
-                
-                const members = match.isGroupChat ? `${match.users.length + 1} Members` : `In ${match.circleName}`;
+        async function displayMatches() {
+    const matchesList = document.getElementById('matches-list');
+    
+    if (!matches || matches.length === 0) {
+        matchesList.innerHTML = '<p>No matches yet. Select some activities to get started!</p>';
+        return;
+    }
 
-                return `
-                <div class="circle-card" onclick='openChat(${JSON.stringify(match)})'>
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="font-size: 1.5em;">${match.activity.emoji}</div>
-                        <div style="flex: 1;">
-                            <div class="circle-name">${title}</div>
-                            <div class="circle-members">${members}</div>
-                        </div>
-                        <div style="color: #667eea; font-size: 1.2em;">${!match.isRead ? '🔔' : '💬'}</div>
+    // Load activities if not already loaded
+    if (activities.length === 0 && matches.length > 0) {
+        const firstMatch = matches[0];
+        const allActivities = await loadActivities(firstMatch.circle_id);
+        activities = allActivities;
+    }
+
+    // For each match, load its events
+    const matchesWithEvents = await Promise.all(
+        matches.map(async (match) => {
+            const { data: events, error } = await supabase
+                .from('events')
+                .select(`
+                    *,
+                    event_participants!inner(profile_id, status),
+                    event_messages(id)
+                `)
+                .eq('match_id', match.id)
+                .eq('event_participants.profile_id', currentUser.id)
+                .order('scheduled_date', { ascending: true });
+            
+            return { match, events: events || [] };
+        })
+    );
+
+    matchesList.innerHTML = matchesWithEvents.map(({ match, events }) => {
+        const activity = activities.find(a => a.id === match.activity_id);
+        const activityName = activity ? activity.name : 'Unknown Activity';
+        const activityEmoji = activity ? activity.emoji : '🎯';
+        
+        // Separate upcoming and past events
+        const now = new Date();
+        const upcomingEvents = events.filter(e => 
+            new Date(e.scheduled_date) >= now && e.status === 'scheduled'
+        );
+        const pastEvents = events.filter(e => 
+            new Date(e.scheduled_date) < now || e.status !== 'scheduled'
+        );
+
+        return `
+            <div class="match-card" style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                    <div>
+                        <h3 style="margin: 0 0 8px 0;">${activityEmoji} ${activityName}</h3>
+                        <p style="margin: 0; color: #666; font-size: 14px;">
+                            ${match.participant_names ? match.participant_names.join(', ') : 'Loading participants...'}
+                        </p>
                     </div>
-                </div>`;
-            }).join('');
-        }
+                    <button onclick="openCreateEventModal('${match.id}')" class="btn-primary" style="font-size: 14px; padding: 6px 12px;">
+                        + New Event
+                    </button>
+                </div>
+                
+                ${upcomingEvents.length > 0 ? `
+                    <div style="margin-bottom: 10px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Upcoming Events</h4>
+                        ${upcomingEvents.map(event => {
+                            const date = new Date(event.scheduled_date);
+                            const dateStr = date.toLocaleDateString('en-US', { 
+                                weekday: 'short', 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                            });
+                            const unreadCount = event.event_messages?.length || 0; // You'll calculate actual unread later
+                            
+                            return `
+                                <div onclick="openEventChat('${event.id}')" class="event-item" style="padding: 10px; margin-bottom: 6px; background: #f5f5f5; border-radius: 6px; cursor: pointer; border-left: 4px solid #4CAF50; transition: background 0.2s;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <div style="font-weight: 500; margin-bottom: 2px;">📅 ${dateStr}</div>
+                                            ${event.location ? `<div style="color: #666; font-size: 13px;">📍 ${event.location}</div>` : ''}
+                                        </div>
+                                        ${unreadCount > 0 ? `<span class="badge" style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${unreadCount}</span>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : ''}
+                
+                ${pastEvents.length > 0 ? `
+                    <details style="margin-top: 10px;">
+                        <summary style="cursor: pointer; color: #666; font-size: 14px;">Past Events (${pastEvents.length})</summary>
+                        <div style="margin-top: 8px;">
+                            ${pastEvents.map(event => {
+                                const date = new Date(event.scheduled_date);
+                                const dateStr = date.toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric'
+                                });
+                                const statusEmoji = event.status === 'completed' ? '✅' : event.status === 'cancelled' ? '❌' : '📅';
+                                
+                                return `
+                                    <div onclick="openEventChat('${event.id}')" class="event-item" style="padding: 8px; margin-bottom: 4px; background: #fafafa; border-radius: 4px; cursor: pointer; opacity: 0.7; font-size: 13px;">
+                                        ${statusEmoji} ${dateStr}${event.location ? ` · ${event.location}` : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </details>
+                ` : ''}
+                
+                ${upcomingEvents.length === 0 && pastEvents.length === 0 ? `
+                    <p style="color: #999; font-style: italic; font-size: 14px; margin: 0;">No events scheduled yet</p>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Add hover effect
+    document.querySelectorAll('.event-item').forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.background = '#e8e8e8';
+        });
+        item.addEventListener('mouseleave', function() {
+            if (this.style.opacity === '0.7') {
+                this.style.background = '#fafafa';
+            } else {
+                this.style.background = '#f5f5f5';
+            }
+        });
+    });
+}
         
 async function sendMessageToSupabase(matchId, content, type = 'text', extraData = {}) {
     try {
@@ -2188,55 +2421,55 @@ setTimeout(() => {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
-    console.log('Sending message, current user:', currentUser);
-    
-    // Send to Supabase
-    const savedMessage = await sendMessageToSupabase(currentChatMatch.id, input.value.trim(), 'text');
-    
-    if (savedMessage) {
-        // Add to local messages for immediate display
-        const message = {
-            id: savedMessage.id,
-            sender: currentUser.name,
-            sender_id: currentUser.id,  // Make sure this is set
-            content: savedMessage.content,
-            type: savedMessage.type,
-            lat: savedMessage.lat,
-            lng: savedMessage.lng,
-            created_at: savedMessage.created_at,
-            isRead: true
-        };
+    // Check if we're in an event chat or old-style match chat
+    if (currentEvent) {
+        // Use event message function
+        const fakeEvent = { preventDefault: () => {} };
+        await sendEventMessage(fakeEvent);
+    } else if (currentChatMatch) {
+        // Old match chat logic (keep for backward compatibility)
+        console.log('Sending message, current user:', currentUser);
         
-        console.log('Message object:', message);
+        const savedMessage = await sendMessageToSupabase(currentChatMatch.id, input.value.trim(), 'text');
         
-        if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
-        messages[currentChatMatch.id].push(message);
-        
-        // Broadcast to other users via Realtime
-        const channel = supabase.channel(`match_${currentChatMatch.id}`);
-        await channel.send({
-            type: 'broadcast',
-            event: 'new_message',
-            payload: {
+        if (savedMessage) {
+            const message = {
                 id: savedMessage.id,
-                sender_id: currentUser.id,  // Make sure this is included
-                sender_name: currentUser.name,
+                sender: currentUser.name,
+                sender_id: currentUser.id,
                 content: savedMessage.content,
                 type: savedMessage.type,
                 lat: savedMessage.lat,
                 lng: savedMessage.lng,
-                created_at: savedMessage.created_at
-            }
-        });
+                created_at: savedMessage.created_at,
+                isRead: true
+            };
+            
+            if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
+            messages[currentChatMatch.id].push(message);
+            
+            const channel = supabase.channel(`match_${currentChatMatch.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'new_message',
+                payload: {
+                    id: savedMessage.id,
+                    sender_id: currentUser.id,
+                    sender_name: currentUser.name,
+                    content: savedMessage.content,
+                    type: savedMessage.type,
+                    lat: savedMessage.lat,
+                    lng: savedMessage.lng,
+                    created_at: savedMessage.created_at
+                }
+            });
+            
+            localStorage.setItem('friendle_messages', JSON.stringify(messages));
+            renderChatMessages();
+        }
         
-        console.log('Broadcast sent with sender_id:', currentUser.id);
-        
-        // Update localStorage
-        localStorage.setItem('friendle_messages', JSON.stringify(messages));
-        renderChatMessages();
+        input.value = '';
     }
-    
-    input.value = '';
 }
         async function addMessage(content, type, extraData = {}) {
     // Send to Supabase
@@ -2354,6 +2587,494 @@ setTimeout(() => {
         showNotification('Error deleting message', 'error');
     }
 }
+
+// Global variable to track current event
+let currentEvent = null;
+let eventMessageSubscription = null;
+
+// Open modal to create new event
+function openCreateEventModal(matchId) {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+    
+    document.getElementById('new-event-match-id').value = matchId;
+    document.getElementById('create-event-form').reset();
+    
+    // Set min date to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('new-event-date').min = now.toISOString().slice(0, 16);
+    
+    document.getElementById('create-event-modal').style.display = 'flex';
+}
+
+function closeCreateEventModal() {
+    document.getElementById('create-event-modal').style.display = 'none';
+}
+
+// Create new event
+async function createEvent(e) {
+    e.preventDefault();
+    
+    const matchId = document.getElementById('new-event-match-id').value;
+    const match = matches.find(m => m.id === matchId);
+    
+    try {
+        // Create the event
+        const { data: newEvent, error: eventError } = await supabase
+            .from('events')
+            .insert({
+                match_id: matchId,
+                activity_id: match.activity_id,
+                circle_id: match.circle_id,
+                scheduled_date: document.getElementById('new-event-date').value,
+                location: document.getElementById('new-event-location').value || null,
+                notes: document.getElementById('new-event-notes').value || null,
+                created_by: currentUser.id,
+                status: 'scheduled'
+            })
+            .select()
+            .single();
+        
+        if (eventError) throw eventError;
+        
+        // Get ALL current match participants (not just at creation time)
+        const { data: matchParticipants, error: participantsError } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId);
+        
+        if (participantsError) throw participantsError;
+        
+        const eventParticipants = matchParticipants.map(p => ({
+            event_id: newEvent.id,
+            profile_id: p.profile_id,
+            status: 'accepted'
+        }));
+        
+        const { error: insertError } = await supabase
+            .from('event_participants')
+            .insert(eventParticipants);
+        
+        if (insertError) throw insertError;
+        
+        closeCreateEventModal();
+        
+        // Refresh matches to show new event
+        await loadMatches();
+        
+        // Open the new event chat
+        openEventChat(newEvent.id);
+        
+    } catch (error) {
+        console.error('Error creating event:', error);
+        alert('Failed to create event. Please try again.');
+    }
+}
+
+// Auto-add new users to upcoming events when they join a match
+async function autoAddToUpcomingEvents(matchId, newUserId) {
+    try {
+        // Find all upcoming events for this match
+        const { data: upcomingEvents, error: eventsError } = await supabase
+            .from('events')
+            .select('id')
+            .eq('match_id', matchId)
+            .eq('status', 'scheduled')
+            .gte('scheduled_date', new Date().toISOString());
+        
+        if (eventsError) throw eventsError;
+        
+        if (upcomingEvents && upcomingEvents.length > 0) {
+            // Add user to all upcoming events
+            const participantRecords = upcomingEvents.map(event => ({
+                event_id: event.id,
+                profile_id: newUserId,
+                status: 'accepted'
+            }));
+            
+            const { error: insertError } = await supabase
+                .from('event_participants')
+                .insert(participantRecords);
+            
+            if (insertError && insertError.code !== '23505') { // Ignore duplicate key errors
+                throw insertError;
+            }
+            
+            console.log(`Added user to ${upcomingEvents.length} upcoming events`);
+        }
+    } catch (error) {
+        console.error('Error auto-adding to upcoming events:', error);
+    }
+}
+
+// Open event chat
+async function openEventChat(eventId) {
+    try {
+        // Cleanup previous subscription
+        if (eventMessageSubscription) {
+            await supabase.removeChannel(eventMessageSubscription);
+            eventMessageSubscription = null;
+        }
+        
+        // Load event details
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select(`
+                *,
+                event_participants(
+                    profile_id,
+                    status,
+                    profiles(id, name, avatar)
+                )
+            `)
+            .eq('id', eventId)
+            .single();
+        
+        if (eventError) throw eventError;
+        
+        currentEvent = event;
+        
+        // Get activity details
+        const activity = activities.find(a => a.id === event.activity_id);
+        
+        // Update header
+        document.getElementById('event-activity-name').textContent = 
+            `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'}`;
+        
+        const participantNames = event.event_participants
+            .map(p => p.profiles.name)
+            .join(', ');
+        document.getElementById('event-participants').textContent = participantNames;
+        
+        // Format and display event details
+        const eventDate = new Date(event.scheduled_date);
+        const dateStr = eventDate.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'long', 
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+        
+        document.getElementById('event-date').textContent = `📅 ${dateStr}`;
+        document.getElementById('event-location').textContent = 
+            event.location ? `📍 ${event.location}` : '';
+        document.getElementById('event-notes').textContent = 
+            event.notes ? `📝 ${event.notes}` : '';
+        
+        // Load messages
+        await loadEventMessages(eventId);
+        
+        // Set up real-time subscription for new messages
+        eventMessageSubscription = supabase
+            .channel(`event-messages-${eventId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'event_messages',
+                    filter: `event_id=eq.${eventId}`
+                },
+                async (payload) => {
+                    // Get sender info
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('id, name, avatar')
+                        .eq('id', payload.new.sender_id)
+                        .single();
+                    
+                    const message = {
+                        ...payload.new,
+                        sender: profile
+                    };
+                    
+                    appendMessage(message);
+                }
+            )
+            .subscribe();
+        
+        showPage('chat');
+        
+    } catch (error) {
+        console.error('Error loading event chat:', error);
+        alert('Failed to load event chat');
+    }
+}
+
+// Load messages for current event
+async function loadEventMessages(eventId) {
+    try {
+        const { data: messages, error } = await supabase
+            .from('event_messages')
+            .select(`
+                *,
+                sender:profiles(id, name, avatar)
+            `)
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true });
+        
+        if (error) throw error;
+        
+        const messagesContainer = document.getElementById('chat-messages');
+        messagesContainer.innerHTML = '';
+        
+        if (messages.length === 0) {
+            messagesContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start the conversation!</p>';
+        } else {
+            messages.forEach(message => appendMessage(message));
+        }
+        
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
+}
+
+// Append a single message to the chat
+function appendMessage(message) {
+    const messagesContainer = document.getElementById('chat-messages');
+    
+    // Remove "no messages" text if it exists
+    if (messagesContainer.querySelector('p')) {
+        messagesContainer.innerHTML = '';
+    }
+    
+    const isOwnMessage = message.sender_id === currentUser.id;
+    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit' 
+    });
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: ${isOwnMessage ? 'flex-end' : 'flex-start'};
+        margin-bottom: 15px;
+    `;
+    
+    messageDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                ${message.sender.avatar || '👤'}
+            </div>
+            <span style="font-size: 13px; color: #666; font-weight: 500;">
+                ${isOwnMessage ? 'You' : message.sender.name}
+            </span>
+            <span style="font-size: 11px; color: #999;">
+                ${messageTime}
+            </span>
+        </div>
+        <div style="
+            background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
+            color: ${isOwnMessage ? 'white' : 'black'};
+            padding: 10px 14px;
+            border-radius: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+        ">
+            ${message.content}
+        </div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Send message
+async function sendEventMessage(e) {
+    e.preventDefault();
+    
+    if (!currentEvent) return;
+    
+    const input = document.getElementById('message-input');
+    const content = input.value.trim();
+    
+    if (!content) return;
+    
+    try {
+        const { data, error } = await supabase
+            .from('event_messages')
+            .insert({
+                event_id: currentEvent.id,
+                sender_id: currentUser.id,
+                content: content
+            })
+            .select(`
+                *,
+                sender:profiles(id, name, avatar)
+            `)
+            .single();
+        
+        if (error) throw error;
+        
+        // Immediately append the message to the UI
+        appendMessage(data);
+        
+        input.value = '';
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+        alert('Failed to send message');
+    }
+}
+
+// Event options functions
+function openEventOptionsModal() {
+    document.getElementById('event-options-modal').style.display = 'flex';
+}
+
+function closeEventOptionsModal() {
+    document.getElementById('event-options-modal').style.display = 'none';
+}
+
+function editCurrentEvent() {
+    closeEventOptionsModal();
+    
+    // Populate edit form
+    const date = new Date(currentEvent.scheduled_date);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    document.getElementById('edit-event-date').value = date.toISOString().slice(0, 16);
+    document.getElementById('edit-event-location').value = currentEvent.location || '';
+    document.getElementById('edit-event-notes').value = currentEvent.notes || '';
+    
+    document.getElementById('edit-event-modal').style.display = 'flex';
+}
+
+function closeEditEventModal() {
+    document.getElementById('edit-event-modal').style.display = 'none';
+}
+
+async function saveEventEdits(e) {
+    e.preventDefault();
+    
+    try {
+        const { error } = await supabase
+            .from('events')
+            .update({
+                scheduled_date: document.getElementById('edit-event-date').value,
+                location: document.getElementById('edit-event-location').value || null,
+                notes: document.getElementById('edit-event-notes').value || null
+            })
+            .eq('id', currentEvent.id);
+        
+        if (error) throw error;
+        
+        closeEditEventModal();
+        
+        // Reload the event
+        openEventChat(currentEvent.id);
+        
+    } catch (error) {
+        console.error('Error updating event:', error);
+        alert('Failed to update event');
+    }
+}
+
+async function markEventCompleted() {
+    if (!confirm('Mark this event as completed?')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('events')
+            .update({ status: 'completed' })
+            .eq('id', currentEvent.id);
+        
+        if (error) throw error;
+        
+        closeEventOptionsModal();
+        showPage('matches');
+        await loadMatches();
+        
+    } catch (error) {
+        console.error('Error marking event as completed:', error);
+        alert('Failed to mark event as completed');
+    }
+}
+
+async function cancelEvent() {
+    if (!confirm('Cancel this event? This will notify all participants.')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('events')
+            .update({ status: 'cancelled' })
+            .eq('id', currentEvent.id);
+        
+        if (error) throw error;
+        
+        // Send a system message
+        await supabase
+            .from('event_messages')
+            .insert({
+                event_id: currentEvent.id,
+                sender_id: currentUser.id,
+                content: '❌ This event has been cancelled'
+            });
+        
+        closeEventOptionsModal();
+        showPage('matches');
+        await loadMatches();
+        
+    } catch (error) {
+        console.error('Error cancelling event:', error);
+        alert('Failed to cancel event');
+    }
+}
+
+async function leaveEvent() {
+    if (!confirm('Leave this event? You won\'t receive any more messages.')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('event_participants')
+            .delete()
+            .eq('event_id', currentEvent.id)
+            .eq('profile_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        closeEventOptionsModal();
+        showPage('matches');
+        await loadMatches();
+        
+    } catch (error) {
+        console.error('Error leaving event:', error);
+        alert('Failed to leave event');
+    }
+}
+
+async function deleteEvent() {
+    if (!confirm('Delete this event permanently? This will remove it for all participants and cannot be undone.')) return;
+    
+    // Only event creator can delete
+    if (currentEvent.created_by !== currentUser.id) {
+        alert('Only the event creator can delete this event');
+        return;
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('events')
+            .delete()
+            .eq('id', currentEvent.id);
+        
+        if (error) throw error;
+        
+        closeEventOptionsModal();
+        showPage('matches');
+        await loadMatches();
+        
+    } catch (error) {
+        console.error('Error deleting event:', error);
+        alert('Failed to delete event');
+    }
+}
         
         // Attachments & Modals
         window.sharePhoto = function() {
@@ -2417,9 +3138,16 @@ setTimeout(() => {
             document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
         }
         window.showPage = async function(pageId) {
+    // Clean up event subscription when leaving chat
+    if (pageId !== 'chat' && eventMessageSubscription) {
+        supabase.removeChannel(eventMessageSubscription);
+        eventMessageSubscription = null;
+        currentEvent = null;
+    }
+    
     // Clear current chat match when leaving chat page
     if (pageId !== 'chat') {
-        currentChatMatch = null;  // ADD THIS LINE
+        currentChatMatch = null;
         localStorage.removeItem('friendle_current_chat');
     }
     
@@ -2428,14 +3156,10 @@ setTimeout(() => {
     document.getElementById(pageId).classList.add('active');
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
+    
     if (pageId === 'circles') renderCircles();
     if (pageId === 'matches') {
-        if (selectedCircle) {
-            await checkForMatches();
-        } else {
-            await loadAllCircleMatches();
-        }
-        renderMatches();
+        await loadMatches();
     }
 }
         window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
@@ -2509,7 +3233,7 @@ if ('Notification' in window && Notification.permission === 'default') {
         await renderCircles();
         
         // Then load matches from all circles
-        await loadAllCircleMatches();
+        await loadMatches();
         
         // Restore last page or default to circles
 const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
@@ -2580,6 +3304,13 @@ const toggle = document.getElementById('show-past-events');
       renderMatches();
     });
   }
+
+// Create event form submission
+document.getElementById('create-event-form').addEventListener('submit', createEvent);
+
+// Edit event form submission
+document.getElementById('edit-event-form').addEventListener('submit', saveEventEdits);
+
 window.openManageActivitiesModal = async function() {
     if (!selectedCircle) return;
     
