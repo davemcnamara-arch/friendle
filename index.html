@@ -1853,11 +1853,10 @@ if (matches.length > 0) {
     showNotification(`Found ${matches.length} new matches!`);
     
     // Show browser notification
-    // Show browser notification
 showNotificationAlert(
     'New Activity Matches!',
     `You have ${matches.length} new friend${matches.length > 1 ? 's' : ''} ready to hang out`,
-    '✨',
+    null,
     true
 );
 } else {
@@ -2708,19 +2707,26 @@ window.saveActivityVisibility = async function() {
   initApp(); // start the app
 });   // ✅ only one of these, closes document.addEventListener
 
-function showNotificationAlert(title, body, icon = '⭕', requireHidden = false) {
+function showNotificationAlert(title, body, icon = null, requireHidden = false) {
+    console.log('🔔 showNotificationAlert called:', title, body, 'requireHidden:', requireHidden, 'document.hidden:', document.hidden);
+    
     // Check if notifications are supported and permitted
     if ('Notification' in window && Notification.permission === 'granted') {
         // For messages: only skip if actively viewing that specific chat
         // For matches: only show if tab is hidden (requireHidden = true)
         if (requireHidden && !document.hidden) return;
         
-        new Notification(title, {
+        const options = {
             body: body,
-            icon: icon,
-            badge: icon,
             vibrate: [200, 100, 200]
-        });
+        };
+        
+        // Only add icon if it's a valid URL
+        if (icon && (icon.startsWith('http://') || icon.startsWith('https://'))) {
+            options.icon = icon;
+        }
+        
+        new Notification(title, options);
     }
 }
 
@@ -2773,8 +2779,7 @@ console.log('✅ Message added to local array');
 if (!currentChatMatch || currentChatMatch.id !== matchId) {
     showNotificationAlert(
         `New message from ${newMessage.sender}`,
-        newMessage.content,
-        '💬'
+        newMessage.content
     );
 }
 
