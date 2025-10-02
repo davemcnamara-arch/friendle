@@ -2401,7 +2401,7 @@ setTimeout(() => {
                 (position) => {
                     const { latitude, longitude } = position.coords;
                     const query = currentChatMatch.activity.name;
-                    const url = `https://www.google.com/maps/search/[activity${query}/@${latitude},${longitude},14z`;
+                    const url = `https://www.google.com/maps/search/${query}/@${latitude},${longitude},14z`;
                     window.open(url, '_blank');
                 },
                 () => {
