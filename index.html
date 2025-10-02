@@ -3114,22 +3114,31 @@ async function deleteEvent() {
 }
         window.shareLocation = () => navigator.geolocation.getCurrentPosition(pos => addMessage('Location Shared', 'location', { lat: pos.coords.latitude, lng: pos.coords.longitude }), () => showNotification('Could not get location', 'error'));
         window.findNearbyPlaces = function() {
-            if (!navigator.geolocation) {
-                return alert("Geolocation is not supported by this browser. This feature works best on a mobile device.");
+    if (!navigator.geolocation) {
+        return alert("Geolocation is not supported by this browser. This feature works best on a mobile device.");
+    }
+    showNotification("Getting your location...");
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const { latitude, longitude } = position.coords;
+            
+            // Get activity name from either event or match
+            let activityName = 'activities';
+            if (currentEvent) {
+                const activity = activities.find(a => a.id === currentEvent.activity_id);
+                activityName = activity ? activity.name : 'activities';
+            } else if (currentChatMatch) {
+                activityName = currentChatMatch.activity.name;
             }
-            showNotification("Getting your location...");
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    const query = currentChatMatch.activity.name;
-                    const url = `https://www.google.com/maps/search/${query}/@${latitude},${longitude},14z`;
-                    window.open(url, '_blank');
-                },
-                () => {
-                    alert("Unable to retrieve your location. Please ensure location services are enabled. This feature works best on a mobile device.");
-                }
-            );
+            
+            const url = `https://www.google.com/maps/search/${activityName}/@${latitude},${longitude},14z`;
+            window.open(url, '_blank');
+        },
+        () => {
+            alert("Unable to retrieve your location. Please ensure location services are enabled. This feature works best on a mobile device.");
         }
+    );
+}
         window.openImageModal = src => { document.getElementById('modal-image').src = src; document.getElementById('image-modal-overlay').style.display = 'flex'; };
         window.closeImageModal = () => document.getElementById('image-modal-overlay').style.display = 'none';
         window.openMap = (lat, lng) => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
