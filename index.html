@@ -2776,7 +2776,14 @@ messages[matchId].push(newMessage);
 console.log('✅ Message added to local array');
 
 // Show notification if not viewing this specific chat
+console.log('Checking notification condition:', {
+    currentChatMatch: currentChatMatch?.id,
+    matchId: matchId,
+    shouldNotify: !currentChatMatch || currentChatMatch.id !== matchId
+});
+
 if (!currentChatMatch || currentChatMatch.id !== matchId) {
+    console.log('Calling showNotificationAlert');
     showNotificationAlert(
         `New message from ${newMessage.sender}`,
         newMessage.content
