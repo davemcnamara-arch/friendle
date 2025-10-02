@@ -2415,9 +2415,9 @@ setTimeout(() => {
             document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
         }
         window.showPage = async function(pageId) {
-    // Clean up chat subscription when leaving chat page
+    // Don't clean up subscription when navigating between pages
+    // Only remove current chat from localStorage if leaving chat page
     if (pageId !== 'chat') {
-        cleanupRealtimeMessages();
         localStorage.removeItem('friendle_current_chat');
     }
     
@@ -2429,9 +2429,8 @@ setTimeout(() => {
     if (pageId === 'circles') renderCircles();
     if (pageId === 'matches') {
         if (selectedCircle) {
-            await checkForMatches(); // Refresh matches when viewing the page
+            await checkForMatches();
         } else {
-            // Load matches from ALL circles
             await loadAllCircleMatches();
         }
         renderMatches();
