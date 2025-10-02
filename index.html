@@ -958,6 +958,10 @@ window.signUp = async function() {
         if (profileError) throw profileError;
         
         currentUser = profileData;
+	// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
         localStorage.setItem('friendle_user', JSON.stringify(currentUser));
         
         showNotification('Account created successfully!');
@@ -1844,12 +1848,19 @@ async function saveMatchesToSupabase(matches, circleId) {
     localStorage.setItem('friendle_matches', JSON.stringify(matches));
     
     updateNotificationBadge();
+
+if (matches.length > 0) {
+    showNotification(`Found ${matches.length} new matches!`);
     
-    if (matches.length > 0) {
-        showNotification(`Found ${matches.length} new matches!`);
-    } else {
-        showNotification('No matches found yet. Try selecting more activities or invite more friends!');
-    }
+    // Show browser notification
+    showNotificationAlert(
+        'New Activity Matches!',
+        `You have ${matches.length} new friend${matches.length > 1 ? 's' : ''} ready to hang out`,
+        '✨'
+    );
+} else {
+    showNotification('No matches found yet. Try selecting more activities or invite more friends!');
+}
 }
 
 async function loadAllCircleMatches() {
@@ -2685,6 +2696,21 @@ window.saveActivityVisibility = async function() {
   initApp(); // start the app
 });   // ✅ only one of these, closes document.addEventListener
 
+function showNotificationAlert(title, body, icon = '⭕') {
+    // Check if notifications are supported and permitted
+    if ('Notification' in window && Notification.permission === 'granted') {
+        // Don't show if user is currently on the page and it's visible
+        if (!document.hidden) return;
+        
+        new Notification(title, {
+            body: body,
+            icon: icon,
+            badge: icon,
+            vibrate: [200, 100, 200]
+        });
+    }
+}
+
 // Real-time messaging subscription
 let messageSubscription = null;
 
@@ -2726,12 +2752,19 @@ const newMessage = {
 };
             
             if (!messages[matchId]) messages[matchId] = [];
-            messages[matchId].push(newMessage);
-            
-            console.log('✅ Message added to local array');
-            
-            // Update UI if we're viewing this chat
-            if (currentChatMatch && currentChatMatch.id === matchId) {
+messages[matchId].push(newMessage);
+
+console.log('✅ Message added to local array');
+
+// Show notification if tab is not active
+showNotificationAlert(
+    `New message from ${newMessage.sender}`,
+    newMessage.content,
+    '💬'
+);
+
+// Update UI if we're viewing this chat
+if (currentChatMatch && currentChatMatch.id === matchId) {
                 console.log('🎨 Updating UI');
                 renderChatMessages();
             }
