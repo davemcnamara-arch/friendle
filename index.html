@@ -2113,7 +2113,10 @@ window.leaveChat = async function() {
     }
 }
         function renderChatMessages() {
+    console.log('🎬 renderChatMessages called');
     const chatMessages = document.getElementById('chat-messages');
+    console.log('Chat container:', chatMessages);
+    console.log('Messages to render:', messages[currentChatMatch.id]);
     chatMessages.innerHTML = '';
     (messages[currentChatMatch.id] || []).forEach(msg => {
         const div = document.createElement('div');
@@ -2173,7 +2176,10 @@ window.leaveChat = async function() {
         }
         chatMessages.appendChild(div);
     });
+    // Force scroll after DOM updates
+setTimeout(() => {
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}, 100);
     const banner = document.getElementById('scheduled-event-banner-container');
     banner.innerHTML = currentChatMatch.scheduledDate ? `<div class="scheduled-event-banner">🗓️ Event scheduled for ${new Date(currentChatMatch.scheduledDate).toLocaleDateString()}</div>` : '';
 }
@@ -2757,8 +2763,11 @@ const newMessage = {
     created_at: payload.payload.created_at,
     isRead: true
 };
+
+if (!messages[matchId]) messages[matchId] = [];
+messages[matchId].push(newMessage);
             
-            console.log('✅ Message added to local array');
+console.log('✅ Message added to local array');
 
 // Show notification if not viewing this specific chat
 if (!currentChatMatch || currentChatMatch.id !== matchId) {
