@@ -2493,6 +2493,10 @@ await loadDefaultActivities();
             if (error) throw error;
             
             currentUser = profileData;
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
         localStorage.setItem('friendle_user', JSON.stringify(currentUser));
         
         // Load circles first
