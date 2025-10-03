@@ -985,7 +985,7 @@
 
     <script>
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null;
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null, showingArchivedMessages = false;
 
 
 // UUID Generator
@@ -1727,6 +1727,46 @@ async function loadDefaultActivities() {
     const selectedActivityIds = activities.map(activity => activity.id);
     console.log('Activity IDs to save:', selectedActivityIds);
     
+    // Get previously selected activities to find what was deselected
+    const previousPrefs = await loadUserPreferences(selectedCircle.id);
+    const deselectedActivityIds = previousPrefs.filter(id => !selectedActivityIds.includes(id));
+    
+    console.log('Deselected activities:', deselectedActivityIds);
+    
+    // For each deselected activity, check if user has any events
+    for (const activityId of deselectedActivityIds) {
+        // Find the match for this activity
+        const { data: match } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('circle_id', selectedCircle.id)
+            .eq('activity_id', activityId)
+            .single();
+        
+        if (match) {
+            // Check if user has any events for this match
+            const { data: userEvents } = await supabase
+                .from('event_participants')
+                .select('event_id, events!inner(match_id)')
+                .eq('profile_id', currentUser.id)
+                .eq('events.match_id', match.id);
+            
+            // If no events, remove user from match participants
+            if (!userEvents || userEvents.length === 0) {
+                console.log(`Removing user from match ${match.id} (no events joined)`);
+                
+                await supabase
+                    .from('match_participants')
+                    .delete()
+                    .eq('match_id', match.id)
+                    .eq('profile_id', currentUser.id);
+            } else {
+                console.log(`Keeping user in match ${match.id} (has ${userEvents.length} event(s))`);
+            }
+        }
+    }
+    
+    // Save new preferences
     await saveUserPreferences(selectedCircle.id, selectedActivityIds);
     
     activities.forEach(act => { 
@@ -1830,34 +1870,31 @@ async function findMatches(circleId) {
                 
                 match = existingMatch;
             } else {
-                // Create new group match for this activity
-                const { data: newMatch, error: createError } = await supabase
-                    .from('matches')
-                    .insert([{
-                        circle_id: circleId,
-                        activity_id: activityId
-                    }])
-                    .select(`
-                        *,
-                        activities(id, name, emoji, category)
-                    `)
-                    .single();
+    // Create new group match (NO AUTO-EVENT CREATION)
+    const { data: newMatch, error: createError } = await supabase
+        .from('matches')
+        .insert([{
+            circle_id: circleId,
+            activity_id: activityId
+        }])
+        .select(`
+            *,
+            activities(id, name, emoji, category)
+        `)
+        .single();
 
-                if (createError) {
-                    console.error('Error creating match:', createError);
-                    continue;
-                }
+    if (createError) {
+        console.error('Error creating match:', createError);
+        continue;
+    }
 
-                // Add current user as first participant
-await supabase
-    .from('match_participants')
-    .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
+    // Add current user as first participant (NO EVENT CREATION HERE)
+    await supabase
+        .from('match_participants')
+        .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
 
-// Auto-add to any upcoming events
-await autoAddToUpcomingEvents(newMatch.id, currentUser.id);
-
-                match = { ...newMatch, match_participants: [{ profile_id: currentUser.id, profiles: currentUser }] };
-            }
+    match = { ...newMatch, match_participants: [{ profile_id: currentUser.id, profiles: currentUser }] };
+}
 
             // Get all participants for this match
             const { data: participants, error: participantError } = await supabase
@@ -2071,14 +2108,12 @@ window.renderMatches = function() {
         return;
     }
 
-    // Load activities if not already loaded
     if (activities.length === 0 && matches.length > 0) {
         const firstMatch = matches[0];
         const allActivities = await loadActivities(firstMatch.circle_id);
         activities = allActivities;
     }
 
-    // For each match, load its events
     const matchesWithEvents = await Promise.all(
         matches.map(async (match) => {
             const { data: events, error } = await supabase
@@ -2101,7 +2136,6 @@ window.renderMatches = function() {
         const activityName = activity ? activity.name : 'Unknown Activity';
         const activityEmoji = activity ? activity.emoji : '🎯';
         
-        // Separate upcoming and past events
         const now = new Date();
         const upcomingEvents = events.filter(e => 
             new Date(e.scheduled_date) >= now && e.status === 'scheduled'
@@ -2113,20 +2147,20 @@ window.renderMatches = function() {
         return `
             <div class="match-card" style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
-                    <div>
+                    <div style="flex: 1;">
                         <h3 style="margin: 0 0 8px 0;">${activityEmoji} ${activityName}</h3>
                         <p style="margin: 0; color: #666; font-size: 14px;">
                             ${match.participant_names ? match.participant_names.join(', ') : 'Loading participants...'}
                         </p>
                     </div>
-                    <button onclick="openCreateEventModal('${match.id}')" class="btn-primary" style="font-size: 14px; padding: 6px 12px;">
-                        + New Event
+                    <button onclick="openCreateEventModal('${match.id}')" class="btn" style="font-size: 14px; padding: 8px 16px; width: auto; margin: 0;">
+                        + Schedule
                     </button>
                 </div>
                 
                 ${upcomingEvents.length > 0 ? `
                     <div style="margin-bottom: 10px;">
-                        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Upcoming Events</h4>
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #666; font-weight: 600;">Upcoming</h4>
                         ${upcomingEvents.map(event => {
                             const date = new Date(event.scheduled_date);
                             const dateStr = date.toLocaleDateString('en-US', { 
@@ -2136,7 +2170,6 @@ window.renderMatches = function() {
                                 hour: 'numeric',
                                 minute: '2-digit'
                             });
-                            const unreadCount = event.event_messages?.length || 0; // You'll calculate actual unread later
                             
                             return `
                                 <div onclick="openEventChat('${event.id}')" class="event-item" style="padding: 10px; margin-bottom: 6px; background: #f5f5f5; border-radius: 6px; cursor: pointer; border-left: 4px solid #4CAF50; transition: background 0.2s;">
@@ -2145,13 +2178,16 @@ window.renderMatches = function() {
                                             <div style="font-weight: 500; margin-bottom: 2px;">📅 ${dateStr}</div>
                                             ${event.location ? `<div style="color: #666; font-size: 13px;">📍 ${event.location}</div>` : ''}
                                         </div>
-                                        ${unreadCount > 0 ? `<span class="badge" style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${unreadCount}</span>` : ''}
                                     </div>
                                 </div>
                             `;
                         }).join('')}
                     </div>
-                ` : ''}
+                ` : `
+                    <div style="padding: 15px; background: #f9f9f9; border-radius: 6px; text-align: center; color: #666; font-size: 14px; border: 1px dashed #ddd;">
+                        💬 No events scheduled yet - schedule something!
+                    </div>
+                `}
                 
                 ${pastEvents.length > 0 ? `
                     <details style="margin-top: 10px;">
@@ -2174,15 +2210,10 @@ window.renderMatches = function() {
                         </div>
                     </details>
                 ` : ''}
-                
-                ${upcomingEvents.length === 0 && pastEvents.length === 0 ? `
-                    <p style="color: #999; font-style: italic; font-size: 14px; margin: 0;">No events scheduled yet</p>
-                ` : ''}
             </div>
         `;
     }).join('');
 
-    // Add hover effect
     document.querySelectorAll('.event-item').forEach(item => {
         item.addEventListener('mouseenter', function() {
             this.style.background = '#e8e8e8';
@@ -2764,8 +2795,8 @@ async function openEventChat(eventId) {
         document.getElementById('event-notes').textContent = 
             event.notes ? `📝 ${event.notes}` : '';
         
-        // Load messages
-        await loadEventMessages(eventId);
+        // Load messages (with archive support)
+await loadEventMessages(eventId, event.created_at);
         
         // Set up real-time subscription for new messages
         eventMessageSubscription = supabase
@@ -2805,7 +2836,7 @@ async function openEventChat(eventId) {
 }
 
 // Load messages for current event
-async function loadEventMessages(eventId) {
+async function loadEventMessages(eventId, eventCreatedAt) {
     try {
         const { data: messages, error } = await supabase
             .from('event_messages')
@@ -2821,10 +2852,72 @@ async function loadEventMessages(eventId) {
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.innerHTML = '';
         
-        if (messages.length === 0) {
-            messagesContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start the conversation!</p>';
+        // Split messages into archived (before event) and current (after event)
+        const eventCreatedDate = new Date(eventCreatedAt);
+        const archivedMessages = messages.filter(m => new Date(m.created_at) < eventCreatedDate);
+        const currentMessages = messages.filter(m => new Date(m.created_at) >= eventCreatedDate);
+        
+        // Show archived messages toggle if any exist
+        if (archivedMessages.length > 0) {
+            const archiveToggle = document.createElement('div');
+            archiveToggle.style.cssText = `
+                padding: 10px;
+                background: #f0f0f0;
+                border-radius: 8px;
+                text-align: center;
+                margin-bottom: 15px;
+                cursor: pointer;
+                color: #666;
+                font-size: 14px;
+                user-select: none;
+            `;
+            archiveToggle.innerHTML = `
+                <span id="archive-toggle-text">📜 Show ${archivedMessages.length} older message${archivedMessages.length > 1 ? 's' : ''} (before event was created)</span>
+            `;
+            archiveToggle.onclick = () => toggleArchivedMessages(eventId, eventCreatedAt);
+            messagesContainer.appendChild(archiveToggle);
+            
+            // Container for archived messages (hidden by default)
+            const archivedContainer = document.createElement('div');
+            archivedContainer.id = 'archived-messages';
+            archivedContainer.style.display = 'none';
+            archivedContainer.style.cssText = `
+                border-left: 3px solid #ddd;
+                padding-left: 10px;
+                margin-bottom: 20px;
+                opacity: 0.7;
+            `;
+            messagesContainer.appendChild(archivedContainer);
+            
+            // Add archived messages to container
+            archivedMessages.forEach(message => {
+                appendMessageToContainer(message, archivedContainer);
+            });
+            
+            // Divider
+            const divider = document.createElement('div');
+            divider.style.cssText = `
+                border-top: 2px solid #ddd;
+                margin: 20px 0;
+                padding-top: 10px;
+                text-align: center;
+                color: #999;
+                font-size: 13px;
+            `;
+            divider.innerHTML = '📅 Event Created';
+            archivedContainer.appendChild(divider);
+        }
+        
+        // Show current messages
+        if (currentMessages.length === 0 && archivedMessages.length === 0) {
+            messagesContainer.innerHTML += '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start the conversation!</p>';
+        } else if (currentMessages.length === 0) {
+            const placeholder = document.createElement('p');
+            placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px;';
+            placeholder.textContent = 'No messages since event was created. Say something!';
+            messagesContainer.appendChild(placeholder);
         } else {
-            messages.forEach(message => appendMessage(message));
+            currentMessages.forEach(message => appendMessage(message));
         }
         
         // Scroll to bottom
@@ -2833,6 +2926,69 @@ async function loadEventMessages(eventId) {
     } catch (error) {
         console.error('Error loading messages:', error);
     }
+}
+
+function toggleArchivedMessages(eventId, eventCreatedAt) {
+    const archivedContainer = document.getElementById('archived-messages');
+    const toggleText = document.getElementById('archive-toggle-text');
+    
+    showingArchivedMessages = !showingArchivedMessages;
+    
+    if (showingArchivedMessages) {
+        archivedContainer.style.display = 'block';
+        toggleText.textContent = '🔼 Hide older messages';
+    } else {
+        archivedContainer.style.display = 'none';
+        const archivedCount = archivedContainer.querySelectorAll('.message').length - 1; // -1 for divider
+        toggleText.textContent = `📜 Show ${archivedCount} older message${archivedCount > 1 ? 's' : ''} (before event was created)`;
+    }
+}
+
+// Helper to append message to specific container
+function appendMessageToContainer(message, container) {
+    const isOwnMessage = message.sender_id === currentUser.id;
+    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit' 
+    });
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message';
+    messageDiv.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: ${isOwnMessage ? 'flex-end' : 'flex-start'};
+        margin-bottom: 15px;
+    `;
+    
+    let onClick = '';
+    let content = message.content;
+    
+    messageDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                ${message.sender.avatar || '👤'}
+            </div>
+            <span style="font-size: 13px; color: #666; font-weight: 500;">
+                ${isOwnMessage ? 'You' : message.sender.name}
+            </span>
+            <span style="font-size: 11px; color: #999;">
+                ${messageTime}
+            </span>
+        </div>
+        <div ${onClick} style="
+            background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
+            color: ${isOwnMessage ? 'white' : 'black'};
+            padding: 10px 14px;
+            border-radius: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+        ">
+            ${content}
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
 }
 
 function appendMessage(message) {
