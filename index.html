@@ -1235,10 +1235,9 @@ window.saveMinimumGroupSize = async function() {
         
         showNotification('Group size preference updated!');
         
-        // Refresh matches to apply new filter
+        // Just reload matches (don't call checkForMatches which re-adds you to everything)
         if (selectedCircle) {
-            await checkForMatches();
-            renderMatches();
+            await loadMatches();
         }
     } catch (error) {
         console.error('Error saving minimum group size:', error);
