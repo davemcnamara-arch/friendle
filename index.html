@@ -1767,17 +1767,20 @@ async function loadDefaultActivities() {
     }
     
     // Save new preferences
-    await saveUserPreferences(selectedCircle.id, selectedActivityIds);
-    
-    activities.forEach(act => { 
-        activityCounts[act.id] = (activityCounts[act.id] || 0) + 1; 
-    });
-    localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
-    
-    console.log('=== CHECKING FOR MATCHES ===');
-    await checkForMatches();
-    showPage('matches');
-}
+await saveUserPreferences(selectedCircle.id, selectedActivityIds);
+
+activities.forEach(act => { 
+    activityCounts[act.id] = (activityCounts[act.id] || 0) + 1; 
+});
+localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
+
+console.log('=== CHECKING FOR MATCHES ===');
+await checkForMatches();
+
+// Reload matches to reflect changes
+await loadMatches();
+
+showPage('matches');
         window.openSuggestModal = () => document.getElementById('suggest-modal-overlay').style.display = 'flex';
         window.closeSuggestModal = () => document.getElementById('suggest-modal-overlay').style.display = 'none';
         window.suggestActivity = async function() {
