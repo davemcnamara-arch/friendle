@@ -1805,7 +1805,13 @@ async function loadDefaultActivities() {
         if (error) throw error;
         
         showNotification(`Activity "${name}" added!`);
-        closeSuggestModal(); 
+        closeSuggestModal();
+        
+        // Reload user's actual preferences before re-rendering
+        const savedActivityIds = await loadUserPreferences(selectedCircle.id);
+        const allActivities = await loadActivities(selectedCircle.id);
+        activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
+        
         renderActivities();
     } catch (error) {
         console.error('Error adding custom activity:', error);
