@@ -2029,6 +2029,12 @@ async function loadMatches() {
             if (!participantError) {
                 match.participant_names = participants.map(p => p.profiles.name);
             }
+            
+            // LOAD ACTIVITIES FOR THIS CIRCLE if not already loaded
+            if (activities.length === 0 || (activities.length > 0 && activities[0].circle_id !== match.circle_id)) {
+                const allActivities = await loadActivities(match.circle_id);
+                activities = allActivities;
+            }
         }
         
         // Display matches
