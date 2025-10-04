@@ -2745,15 +2745,21 @@ async function createEvent(e) {
 // Auto-add new users to upcoming events when they join a match
 async function autoAddToUpcomingEvents(matchId, newUserId) {
     try {
+        console.log('=== AUTO-ADD TO UPCOMING EVENTS ===');
+        console.log('Match ID:', matchId);
+        console.log('New User ID:', newUserId);
+        
         // Find all upcoming events for this match
         const { data: upcomingEvents, error: eventsError } = await supabase
             .from('events')
-            .select('id')
+            .select('id, scheduled_date, location')
             .eq('match_id', matchId)
             .eq('status', 'scheduled')
             .gte('scheduled_date', new Date().toISOString());
         
         if (eventsError) throw eventsError;
+        
+        console.log('Found upcoming events:', upcomingEvents?.length || 0);
         
         if (upcomingEvents && upcomingEvents.length > 0) {
             // Add user to all upcoming events
@@ -2771,7 +2777,14 @@ async function autoAddToUpcomingEvents(matchId, newUserId) {
                 throw insertError;
             }
             
-            console.log(`Added user to ${upcomingEvents.length} upcoming events`);
+            console.log(`✓ Added user to ${upcomingEvents.length} upcoming event(s)`);
+            
+            // Notify user they were added to events
+            if (upcomingEvents.length === 1) {
+                showNotification(`You've been added to an upcoming event!`);
+            } else {
+                showNotification(`You've been added to ${upcomingEvents.length} upcoming events!`);
+            }
         }
     } catch (error) {
         console.error('Error auto-adding to upcoming events:', error);
