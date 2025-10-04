@@ -1871,15 +1871,26 @@ async function findMatches(circleId) {
         for (const activityId of userPrefs) {
             // Check if a group match already exists for this activity in this circle
             const { data: existingMatch, error: matchError } = await supabase
-                .from('matches')
-                .select(`
-                    *,
-                    activities(id, name, emoji, category),
-                    match_participants(profile_id, profiles(id, name, avatar))
-                `)
-                .eq('circle_id', circleId)
-                .eq('activity_id', activityId)
-                .single();
+    .from('matches')
+    .select('*, activities(*)')
+    .eq('circle_id', circleId)
+    .eq('activity_id', activityId)
+    .maybeSingle();
+
+if (matchError && matchError.code !== 'PGRST116') {
+    console.error('Error checking for existing match:', matchError);
+    continue;
+}
+
+// If match exists, get participants
+if (existingMatch) {
+    const { data: participants } = await supabase
+        .from('match_participants')
+        .select('profile_id, profiles(id, name, avatar)')
+        .eq('match_id', existingMatch.id);
+    
+    existingMatch.match_participants = participants || [];
+}
 
             if (matchError && matchError.code !== 'PGRST116') {
                 console.error('Error checking for existing match:', matchError);
