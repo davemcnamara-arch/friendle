@@ -594,13 +594,15 @@
         }
 
         .modal-content {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            max-width: 90%;
-            width: 350px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
+    	background: white;
+    	padding: 25px;
+    	border-radius: 15px;
+    	max-width: 90%;
+    	width: 350px;
+    	max-height: 90vh;
+    	overflow-y: auto;
+    	box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+	}
         
         .modal-image-content {
             background: transparent;
@@ -819,7 +821,7 @@
         <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
         <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
     </div>
-    <button onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 8px;">Change of Plans</button>
+    <button onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 8px;">Leave event</button>
     <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">⚙️</button>
 </div>
         
@@ -916,9 +918,9 @@
             <input type="hidden" id="new-event-match-id">
             
             <div class="form-group">
-                <label for="new-event-date">Date & Time *</label>
-                <input type="datetime-local" id="new-event-date" required>
-            </div>
+    <label for="new-event-date">Date *</label>
+    <input type="date" id="new-event-date" required>
+</div>
             
             <div class="form-group">
                 <label for="new-event-location">Location</label>
@@ -964,9 +966,9 @@
         
         <form id="edit-event-form">
             <div class="form-group">
-                <label for="edit-event-date">Date & Time *</label>
-                <input type="datetime-local" id="edit-event-date" required>
-            </div>
+    <label for="edit-event-date">Date *</label>
+    <input type="date" id="edit-event-date" required>
+</div>
             
             <div class="form-group">
                 <label for="edit-event-location">Location</label>
@@ -2669,10 +2671,9 @@ function openCreateEventModal(matchId) {
     document.getElementById('new-event-match-id').value = matchId;
     document.getElementById('create-event-form').reset();
     
-    // Set min date to now
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    document.getElementById('new-event-date').min = now.toISOString().slice(0, 16);
+    // Set min date to today
+    const today = new Date();
+    document.getElementById('new-event-date').min = today.toISOString().slice(0, 10);
     
     document.getElementById('create-event-modal').style.display = 'flex';
 }
@@ -2817,15 +2818,13 @@ async function openEventChat(eventId) {
         document.getElementById('event-participants').textContent = participantNames;
         
         // Format and display event details
-        const eventDate = new Date(event.scheduled_date);
-        const dateStr = eventDate.toLocaleDateString('en-US', { 
-            weekday: 'long',
-            month: 'long', 
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-        });
+const eventDate = new Date(event.scheduled_date);
+const dateStr = eventDate.toLocaleDateString('en-US', { 
+    weekday: 'long',
+    month: 'long', 
+    day: 'numeric',
+    year: 'numeric'
+});
         
         document.getElementById('event-date').textContent = `📅 ${dateStr}`;
         document.getElementById('event-location').textContent = 
@@ -3130,8 +3129,7 @@ function editCurrentEvent() {
     
     // Populate edit form
     const date = new Date(currentEvent.scheduled_date);
-    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-    document.getElementById('edit-event-date').value = date.toISOString().slice(0, 16);
+    document.getElementById('edit-event-date').value = date.toISOString().slice(0, 10);
     document.getElementById('edit-event-location').value = currentEvent.location || '';
     document.getElementById('edit-event-notes').value = currentEvent.notes || '';
     
