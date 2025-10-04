@@ -1512,9 +1512,10 @@ window.renameCircle = async function(circleId) {
 // Save user preferences to Supabase
 async function saveUserPreferences(circleId, selectedActivityIds) {
     try {
-        console.log('Saving preferences for circle:', circleId);
-        console.log('Selected activity IDs:', selectedActivityIds);
-        console.log('Current user ID:', currentUser.id);
+        console.log('=== SAVE USER PREFERENCES ===');
+        console.log('Circle ID:', circleId);
+        console.log('Activity IDs to save:', selectedActivityIds);
+        console.log('User ID:', currentUser.id);
 
         // First, clear existing preferences for this circle
         const { error: deleteError } = await supabase
@@ -1528,16 +1529,18 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
             throw deleteError;
         }
 
+        console.log('✓ Deleted old preferences');
+
         // Then insert new preferences (only if there are selections)
         if (selectedActivityIds.length > 0) {
             const preferences = selectedActivityIds.map(activityId => ({
                 profile_id: currentUser.id,
                 circle_id: circleId,
-                activity_id: activityId.toString(), // Convert to string
+                activity_id: activityId.toString(),
                 selected: true
             }));
 
-            console.log('Preferences to insert:', preferences);
+            console.log('Inserting preferences:', preferences);
 
             const { error: insertError } = await supabase
                 .from('preferences')
@@ -1547,6 +1550,19 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
                 console.error('Insert error:', insertError);
                 throw insertError;
             }
+
+            console.log('✓ Inserted new preferences');
+            
+            // Verify what was saved
+            const { data: verifyData } = await supabase
+                .from('preferences')
+                .select('activity_id')
+                .eq('profile_id', currentUser.id)
+                .eq('circle_id', circleId);
+            
+            console.log('✓ Verified saved preferences:', verifyData?.map(p => p.activity_id));
+        } else {
+            console.log('✓ No activities selected, cleared all preferences');
         }
         
         showNotification('Preferences saved!');
@@ -1559,6 +1575,10 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
 // Load user preferences from Supabase
 async function loadUserPreferences(circleId) {
     try {
+        console.log('=== LOAD USER PREFERENCES ===');
+        console.log('Circle ID:', circleId);
+        console.log('User ID:', currentUser.id);
+        
         const { data, error } = await supabase
             .from('preferences')
             .select('activity_id')
@@ -1568,7 +1588,10 @@ async function loadUserPreferences(circleId) {
 
         if (error) throw error;
         
-        return data.map(pref => pref.activity_id);
+        const activityIds = data.map(pref => pref.activity_id);
+        console.log('Loaded activity IDs:', activityIds);
+        
+        return activityIds;
     } catch (error) {
         console.error('Error loading preferences:', error);
         return [];
@@ -3355,9 +3378,16 @@ async function deleteEvent() {
     document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
     
     if (pageId === 'circles') renderCircles();
-    if (pageId === 'matches') {
-        await loadMatches();
-    }
+if (pageId === 'activities' && selectedCircle) {
+    // Reset activities array from saved preferences when returning to Activities page
+    const savedActivityIds = await loadUserPreferences(selectedCircle.id);
+    const allActivities = await loadActivities(selectedCircle.id);
+    activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
+    renderActivities();
+}
+if (pageId === 'matches') {
+    await loadMatches();
+}
 }
         window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
         
