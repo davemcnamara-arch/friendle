@@ -2756,14 +2756,14 @@ const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDat
 
 const { data: upcomingEvents, error: eventsError } = await supabase
     .from('events')
-    .select('id, scheduled_date, location')
+    .select('id, scheduled_date, location, status')
     .eq('match_id', matchId)
     .eq('status', 'scheduled')
     .gte('scheduled_date', todayUTC.toISOString());
 
 if (eventsError) throw eventsError;
 
-console.log('Comparison date (today at midnight):', today.toISOString());
+console.log('Comparison date (today UTC):', todayUTC.toISOString());
 console.log('Found upcoming events:', upcomingEvents?.length || 0);
 
 // Also check ALL events for this match to see what exists
