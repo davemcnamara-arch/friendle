@@ -2750,17 +2750,29 @@ async function autoAddToUpcomingEvents(matchId, newUserId) {
         console.log('New User ID:', newUserId);
         
         // Find all upcoming events for this match
-        const { data: upcomingEvents, error: eventsError } = await supabase
-            .from('events')
-            .select('id, scheduled_date, location')
-            .eq('match_id', matchId)
-            .eq('status', 'scheduled')
-            .gte('scheduled_date', new Date().toISOString());
-        
-        if (eventsError) throw eventsError;
-        
-        console.log('Found upcoming events:', upcomingEvents?.length || 0);
-        
+// Get today's date at midnight for comparison
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const { data: upcomingEvents, error: eventsError } = await supabase
+    .from('events')
+    .select('id, scheduled_date, location, status')
+    .eq('match_id', matchId)
+    .eq('status', 'scheduled')
+    .gte('scheduled_date', today.toISOString());
+
+if (eventsError) throw eventsError;
+
+console.log('Comparison date (today at midnight):', today.toISOString());
+console.log('Found upcoming events:', upcomingEvents?.length || 0);
+
+// Also check ALL events for this match to see what exists
+const { data: allEvents } = await supabase
+    .from('events')
+    .select('id, scheduled_date, status')
+    .eq('match_id', matchId);
+
+console.log('All events for this match:', allEvents);        
         if (upcomingEvents && upcomingEvents.length > 0) {
             // Add user to all upcoming events
             const participantRecords = upcomingEvents.map(event => ({
