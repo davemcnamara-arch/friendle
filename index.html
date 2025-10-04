@@ -2750,16 +2750,16 @@ async function autoAddToUpcomingEvents(matchId, newUserId) {
         console.log('New User ID:', newUserId);
         
         // Find all upcoming events for this match
-// Get today's date at midnight for comparison
-const today = new Date();
-today.setHours(0, 0, 0, 0);
+// Use current date in UTC for comparison
+const now = new Date();
+const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
 const { data: upcomingEvents, error: eventsError } = await supabase
     .from('events')
-    .select('id, scheduled_date, location, status')
+    .select('id, scheduled_date, location')
     .eq('match_id', matchId)
     .eq('status', 'scheduled')
-    .gte('scheduled_date', today.toISOString());
+    .gte('scheduled_date', todayUTC.toISOString());
 
 if (eventsError) throw eventsError;
 
