@@ -2765,12 +2765,18 @@ async function autoAddToUpcomingEvents(matchId, newUserId) {
 const now = new Date();
 const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
+console.log('Querying with match_id:', matchId);
+console.log('Querying with date >=', todayUTC.toISOString());
+
 const { data: upcomingEvents, error: eventsError } = await supabase
     .from('events')
     .select('id, scheduled_date, location, status')
     .eq('match_id', matchId)
     .eq('status', 'scheduled')
     .gte('scheduled_date', todayUTC.toISOString());
+
+console.log('Query error:', eventsError);
+console.log('Query result:', upcomingEvents);
 
 if (eventsError) throw eventsError;
 
