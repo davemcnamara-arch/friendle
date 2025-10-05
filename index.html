@@ -788,15 +788,15 @@
     </div>
     
     <div class="form-group">
-        <label for="circle-selector">Select Circle</label>
-        <select id="circle-selector" onchange="handleCircleChange()">
-            <option value="">Choose a circle...</option>
-        </select>
-    </div>
-    
-    <div class="form-group">
-        <input type="text" id="activity-search" placeholder="🔍 Search for an activity..." onkeyup="handleSearch(event)">
-    </div>
+    <label for="circle-selector">Select Circle</label>
+    <select id="circle-selector" onchange="handleCircleChange()">
+        <option value="">Choose a circle...</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <input type="text" id="activity-search" placeholder="🔍 Search for an activity..." onkeyup="handleSearch(event)">
+</div>
     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
         <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
         <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
@@ -1064,7 +1064,7 @@ if ('Notification' in window && Notification.permission === 'default') {
         showNotification('Account created successfully!');
         showPage('circles');
         updateProfile();
-        processInvite();
+        await processInviteCode();
         
     } catch (error) {
         console.error('Signup error:', error);
@@ -1104,7 +1104,7 @@ window.signIn = async function() {
         showNotification('Signed in successfully!');
         showPage('circles');
         updateProfile();
-        processInvite();
+        await processInviteCode();
         
     } catch (error) {
         console.error('Signin error:', error);
@@ -1787,22 +1787,148 @@ async function loadDefaultActivities() {
     const frequentActivities = filteredActivities.filter(a => frequentIds.includes(a.id));
     document.getElementById('frequent-section').style.display = 
         frequentActivities.length > 0 && !searchTerm ? 'block' : 'none';
-    frequentActivities.forEach(activity => createActivityCard(activity, frequentGrid));
+    for (const activity of frequentActivities) {
+    await createActivityCard(activity, frequentGrid);
+}
 
     const nonFrequentActivities = filteredActivities.filter(a => !frequentIds.includes(a.id));
-    nonFrequentActivities.forEach(activity => createActivityCard(activity, activitiesGrid));
+    for (const activity of nonFrequentActivities) {
+    await createActivityCard(activity, activitiesGrid);
 }
-        function createActivityCard(activity, grid) {
-            const card = document.createElement('div');
-            card.className = 'activity-card';
-            if (activities.some(a => a.id === activity.id)) card.classList.add('selected');
-            card.innerHTML = `<div class="activity-emoji">${activity.emoji}</div><div class="activity-name">${activity.name}</div>`;
-            card.onclick = (event) => {
-                event.stopPropagation();
-                toggleActivity(card, activity);
-            };
-            grid.appendChild(card);
+}
+        async function createActivityCard(activity, grid) {
+    const card = document.createElement('div');
+    card.className = 'activity-card';
+    card.dataset.activityId = activity.id;
+    
+    const isSelected = activities.some(a => a.id === activity.id);
+    if (isSelected) card.classList.add('selected');
+    
+    // Check if marked as "today"
+    const isToday = await isActivityAvailableToday(activity.id);
+    
+    card.innerHTML = `
+        <div class="activity-emoji">${activity.emoji}</div>
+        <div class="activity-name">${activity.name}</div>
+        ${isSelected ? `
+    <div style="position: absolute; top: 6px; right: 6px; display: flex; gap: 4px;">
+        <div onclick="event.stopPropagation(); setActivityMode('${activity.id}', false);" style="
+            background: ${!isToday ? '#667eea' : '#e0e0e0'};
+            color: ${!isToday ? 'white' : '#999'};
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.65em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        ">
+            ANYTIME
+        </div>
+        <div onclick="event.stopPropagation(); setActivityMode('${activity.id}', true);" style="
+            background: ${isToday ? '#4CAF50' : '#e0e0e0'};
+            color: ${isToday ? 'white' : '#999'};
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.65em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        ">
+            TODAY
+        </div>
+    </div>
+` : ''}
+    `;
+    
+    card.onclick = (event) => {
+        event.stopPropagation();
+        toggleActivity(card, activity);
+    };
+    
+    grid.appendChild(card);
+}
+
+async function isActivityAvailableToday(activityId) {
+    if (!selectedCircle || !currentUser) return false;
+    
+    try {
+        const { data, error } = await supabase
+            .from('activity_availability')
+            .select('available_until')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', selectedCircle.id)
+            .eq('activity_id', activityId.toString())
+            .maybeSingle();
+        
+        if (error) throw error;
+        
+        // Check if still valid
+        if (data && new Date(data.available_until) > new Date()) {
+            return true;
         }
+        
+        // If expired, clean it up
+        if (data) {
+            await supabase
+                .from('activity_availability')
+                .delete()
+                .eq('profile_id', currentUser.id)
+                .eq('circle_id', selectedCircle.id)
+                .eq('activity_id', activityId.toString());
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('Error checking activity availability:', error);
+        return false;
+    }
+}
+
+window.setActivityMode = async function(activityId, isToday) {
+    if (!selectedCircle) return;
+    
+    try {
+        if (isToday) {
+            // Set to TODAY
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            
+            await supabase
+                .from('activity_availability')
+                .upsert({
+                    profile_id: currentUser.id,
+                    circle_id: selectedCircle.id,
+                    activity_id: activityId.toString(),
+                    available_until: endOfDay.toISOString()
+                }, {
+                    onConflict: 'profile_id,circle_id,activity_id'
+                });
+            
+            showNotification('Available for this activity today!');
+        } else {
+            // Set to ANYTIME (remove from today)
+            await supabase
+                .from('activity_availability')
+                .delete()
+                .eq('profile_id', currentUser.id)
+                .eq('circle_id', selectedCircle.id)
+                .eq('activity_id', activityId.toString());
+            
+            showNotification('Switched to "Anytime"');
+        }
+        
+        // Refresh the card
+        await renderActivities();
+        
+        // Refresh matches
+        await checkForMatches();
+        
+    } catch (error) {
+        console.error('Error setting activity mode:', error);
+        showNotification('Error updating availability', 'error');
+    }
+}
+
         function toggleActivity(card, activity) {
             lastActivitiesState = [...activities];
             card.classList.toggle('selected');
@@ -2027,18 +2153,40 @@ if (existingMatch) {
                 continue;
             }
 
-            // Only show matches that have other participants
-            if (participants.length > 0) {
-                groupMatches.push({
-                    id: match.id,
-                    isGroupChat: participants.length > 1, // True if more than 2 total people
-                    circleId: circleId,
-                    users: participants.map(p => p.profiles),
-                    activity: match.activities,
-                    isRead: false,
-                    scheduledDate: match.scheduled_date ? new Date(match.scheduled_date) : null
-                });
-            }
+            // Check who marked this specific activity as "today"
+const { data: todayUsers, error: availError } = await supabase
+    .from('activity_availability')
+    .select('profile_id')
+    .eq('circle_id', circleId)
+    .eq('activity_id', activityId)
+    .gte('available_until', new Date().toISOString())
+    .in('profile_id', [currentUser.id, ...participants.map(p => p.profile_id)]);
+
+if (availError) {
+    console.error('Error checking activity availability:', availError);
+}
+
+const todayUserIds = new Set(todayUsers?.map(a => a.profile_id) || []);
+const isCurrentUserAvailableToday = todayUserIds.has(currentUser.id);
+
+// Filter to only participants who marked this activity as "today"
+const todayParticipants = participants.filter(p => 
+    todayUserIds.has(p.profile_id)
+);
+
+// Show matches if user marked as today OR if there are others available today
+if (isCurrentUserAvailableToday || todayParticipants.length > 0) {
+    groupMatches.push({
+        id: match.id,
+        isGroupChat: todayParticipants.length > 1,
+        circleId: circleId,
+        users: todayParticipants.map(p => p.profiles),
+        activity: match.activities,
+        isRead: false,
+        scheduledDate: match.scheduled_date ? new Date(match.scheduled_date) : null,
+        isWaiting: isCurrentUserAvailableToday && todayParticipants.length === 0 // NEW: flag for waiting status
+    });
+}
         }
 
         return groupMatches;
@@ -2138,12 +2286,39 @@ async function loadMatches() {
                 .from('match_participants')
                 .select(`
                     profile_id,
-                    profiles(name)
+                    profiles(name, avatar)
                 `)
                 .eq('match_id', match.id);
             
             if (!participantError) {
                 match.participant_names = participants.map(p => p.profiles.name);
+                
+                // Check if current user marked this as "today"
+                const { data: todayCheck } = await supabase
+                    .from('activity_availability')
+                    .select('profile_id')
+                    .eq('circle_id', match.circle_id)
+                    .eq('activity_id', match.activity_id)
+                    .eq('profile_id', currentUser.id)
+                    .gte('available_until', new Date().toISOString())
+                    .maybeSingle();
+                
+                const isCurrentUserAvailableToday = !!todayCheck;
+                
+                // Check if others marked it as today
+                const otherParticipantIds = participants
+                    .filter(p => p.profile_id !== currentUser.id)
+                    .map(p => p.profile_id);
+                
+                const { data: othersToday } = await supabase
+                    .from('activity_availability')
+                    .select('profile_id')
+                    .eq('circle_id', match.circle_id)
+                    .eq('activity_id', match.activity_id)
+                    .in('profile_id', otherParticipantIds)
+                    .gte('available_until', new Date().toISOString());
+                
+                match.isWaiting = isCurrentUserAvailableToday && (!othersToday || othersToday.length === 0);
             }
             
             // LOAD ACTIVITIES FOR THIS CIRCLE if not already loaded
@@ -2236,6 +2411,19 @@ window.renderMatches = function() {
         activities = allActivities;
     }
 
+    const todayActivityIds = new Set();
+    if (currentUser && matches.length > 0) {
+        const circleId = matches[0].circle_id;
+        const { data: todayActivities } = await supabase
+            .from('activity_availability')
+            .select('activity_id')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', circleId)
+            .gte('available_until', new Date().toISOString());
+        
+        todayActivities?.forEach(a => todayActivityIds.add(a.activity_id));
+    }
+
     const matchesWithEvents = await Promise.all(
         matches.map(async (match) => {
             const { data: events, error } = await supabase
@@ -2271,22 +2459,30 @@ const upcomingEvents = events.filter(e =>
 
         return `
             <div class="match-card" style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
-    <div style="flex: 1;">
-        <h3 style="margin: 0 0 8px 0;">${activityEmoji} ${activityName}</h3>
-        <p style="margin: 0; color: #666; font-size: 14px;">
-            ${match.participant_names ? match.participant_names.join(', ') : 'Loading participants...'}
-        </p>
-    </div>
+    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+        <div style="flex: 1;">
+            <h3 style="margin: 0 0 8px 0;">${activityEmoji} ${activityName}</h3>
+            <p style="margin: 0; color: #666; font-size: 14px;">
+    ${match.isWaiting ? 
+        '<span style="color: #ff9800;">You\'re available today! Waiting for others to join...</span>' : 
+        (match.participant_names ? match.participant_names.join(', ') : 'Loading participants...')
+    }
+</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
     <div style="display: flex; gap: 8px;">
-        <button onclick="openMatchChat('${match.id}')" class="btn btn-secondary" style="font-size: 14px; padding: 8px 16px; width: auto; margin: 0;">
-            💬 Chat
+        <button id="today-btn-${match.id}" onclick="markActivityAsToday('${match.activity_id}', '${match.id}')" class="btn" style="font-size: 14px; padding: 8px 16px; margin: 0; background: #4CAF50; display: none; flex: 1;">
+            ✓ Available Today
         </button>
-        <button onclick="openCreateEventModal('${match.id}')" class="btn" style="font-size: 14px; padding: 8px 16px; width: auto; margin: 0;">
+        <button onclick="openCreateEventModal('${match.id}')" class="btn" style="font-size: 14px; padding: 8px 16px; margin: 0; flex: 1;">
             + Schedule
         </button>
     </div>
+    <button onclick="openMatchChat('${match.id}')" class="btn btn-secondary" style="font-size: 14px; padding: 8px 16px; width: 100%; margin: 0;">
+        💬 Chat
+    </button>
 </div>
+    </div>
                 
                 ${upcomingEvents.length > 0 ? `
     <div style="margin-bottom: 10px;">
@@ -2350,6 +2546,15 @@ const upcomingEvents = events.filter(e =>
         `;
     }).join('');
 
+    // ADD THIS: Show "Available Today" button for activities not marked as today
+    matches.forEach(match => {
+        const isToday = todayActivityIds.has(match.activity_id.toString());
+        const button = document.getElementById(`today-btn-${match.id}`);
+        if (button && !isToday) {
+            button.style.display = 'inline-block';
+        }
+    });
+
     document.querySelectorAll('.event-item').forEach(item => {
         item.addEventListener('mouseenter', function() {
             this.style.background = '#e8e8e8';
@@ -2362,6 +2567,46 @@ const upcomingEvents = events.filter(e =>
             }
         });
     });
+}
+
+window.markActivityAsToday = async function(activityId, matchId) {
+    if (!currentUser) return;
+    
+    try {
+        // Find the circle ID from the match
+        const match = matches.find(m => m.id === matchId);
+        if (!match) return;
+        
+        // Set activity as available today
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        await supabase
+            .from('activity_availability')
+            .upsert({
+                profile_id: currentUser.id,
+                circle_id: match.circle_id,
+                activity_id: activityId.toString(),
+                available_until: endOfDay.toISOString()
+            }, {
+                onConflict: 'profile_id,circle_id,activity_id'
+            });
+        
+        showNotification('Marked as available today!');
+        
+        // Hide the button immediately
+        const button = document.getElementById(`today-btn-${matchId}`);
+        if (button) {
+            button.style.display = 'none';
+        }
+        
+        // Refresh matches to update participant list
+        await loadMatches();
+        
+    } catch (error) {
+        console.error('Error marking activity as today:', error);
+        showNotification('Error updating availability', 'error');
+    }
 }
         
 async function sendMessageToSupabase(matchId, content, type = 'text', extraData = {}) {
