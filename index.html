@@ -2750,6 +2750,19 @@ async function createEvent(e) {
 // Auto-add new users to upcoming events when they join a match
 async function autoAddToUpcomingEvents(matchId, newUserId) {
     try {
+        // Check auth status
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        console.log('=== AUTH CHECK ===');
+        console.log('Auth error:', authError);
+        console.log('Authenticated user ID:', user?.id);
+        console.log('Target user ID:', newUserId);
+        console.log('Match?', user?.id === newUserId);
+        
+        if (!user) {
+            console.error('No authenticated user - RLS will block all queries');
+            return;
+        }
+        
         console.log('=== AUTO-ADD TO UPCOMING EVENTS ===');
         console.log('Match ID:', matchId);
         console.log('New User ID:', newUserId);
