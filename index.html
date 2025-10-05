@@ -4145,7 +4145,7 @@ async function loadMatchMessages(matchId) {
                         .insert({
                             match_id: currentMatchChat.id,
                             sender_id: currentUser.id,
-                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: white; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
+                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e90ff; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
                         })
                         .select(`
                             *,
@@ -4180,7 +4180,7 @@ async function loadMatchMessages(matchId) {
                         .insert({
                             event_id: currentEvent.id,
                             sender_id: currentUser.id,
-                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: white; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
+                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e90ff; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
                         })
                         .select(`
                             *,
