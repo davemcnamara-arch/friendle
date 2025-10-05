@@ -3352,32 +3352,87 @@ async function deleteEvent() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'environment';
+    // Remove capture attribute - causes issues on some mobile browsers
     
     input.onchange = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
         
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            return showNotification('Photo too large. Maximum size is 5MB.', 'error');
+        }
+        
         showNotification('Uploading photo...');
         
         try {
-            const fileName = `${Date.now()}-${file.name}`;
+            // Generate unique filename
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+            
+            // Upload to Supabase Storage
             const { data, error } = await supabase.storage
                 .from('chat-photos')
-                .upload(fileName, file);
+                .upload(fileName, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
             
             if (error) throw error;
             
-            const { data: { publicUrl } } = supabase.storage
+            // Get public URL
+            const { data: urlData } = supabase.storage
                 .from('chat-photos')
                 .getPublicUrl(fileName);
             
-            addMessage(publicUrl, 'photo');
+            const photoUrl = urlData.publicUrl;
+            
+            // Send photo message based on chat type
+            if (currentEvent) {
+                // Event chat system
+                const { data: messageData, error: messageError } = await supabase
+                    .from('event_messages')
+                    .insert({
+                        event_id: currentEvent.id,
+                        sender_id: currentUser.id,
+                        content: `<img src="${photoUrl}" style="max-width: 200px; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
+                    })
+                    .select(`
+                        *,
+                        sender:profiles(id, name, avatar)
+                    `)
+                    .single();
+                
+                if (messageError) throw messageError;
+                
+                // Append to UI
+                appendMessage(messageData);
+                
+                // Broadcast to other users
+                const channel = supabase.channel(`event_${currentEvent.id}`);
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'new_message',
+                    payload: {
+                        id: messageData.id,
+                        sender_id: currentUser.id,
+                        sender_name: currentUser.name,
+                        sender_avatar: currentUser.avatar,
+                        content: messageData.content,
+                        created_at: messageData.created_at
+                    }
+                });
+                
+            } else if (currentChatMatch) {
+                // Old match chat system
+                addMessage(photoUrl, 'photo');
+            }
+            
             showNotification('Photo shared!');
             
         } catch (error) {
             console.error('Error uploading photo:', error);
-            showNotification('Error uploading photo', 'error');
+            showNotification('Failed to upload photo. Please try again.', 'error');
         }
     };
     
