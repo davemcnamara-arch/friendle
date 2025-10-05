@@ -2189,7 +2189,7 @@ const upcomingEvents = events.filter(e =>
     new Date(e.scheduled_date) >= today && e.status === 'scheduled'
 );
         const pastEvents = events.filter(e => 
-            new Date(e.scheduled_date) < now || e.status !== 'scheduled'
+            new Date(e.scheduled_date) < today || e.status !== 'scheduled'
         );
 
         return `
@@ -2215,8 +2215,6 @@ const upcomingEvents = events.filter(e =>
                                 weekday: 'short', 
                                 month: 'short', 
                                 day: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit'
                             });
                             
                             return `
