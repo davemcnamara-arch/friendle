@@ -2898,36 +2898,36 @@ const dateStr = eventDate.toLocaleDateString('en-US', {
         // Load messages (with archive support)
 await loadEventMessages(eventId, event.created_at);
         
-        // Set up real-time subscription for new messages
+        // Set up broadcast subscription for new messages
 eventMessageSubscription = supabase
-    .channel(`event-messages-${eventId}`)
-    .on(
-        'postgres_changes',
-        {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'event_messages',
-            filter: `event_id=eq.${eventId}`
-        },
-        async (payload) => {
-            console.log('📩 Real-time message received:', payload);
-            
-            // Get sender info
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('id, name, avatar')
-                .eq('id', payload.new.sender_id)
-                .single();
-            
-            const message = {
-                ...payload.new,
-                sender: profile
-            };
-            
-            console.log('Appending message to chat:', message);
-            appendMessage(message);
+    .channel(`event_${eventId}`)
+    .on('broadcast', { event: 'new_message' }, (payload) => {
+        console.log('📩 Broadcast message received:', payload);
+        
+        // Don't duplicate messages we sent ourselves
+        if (payload.payload.sender_id === currentUser.id) {
+            console.log('⏭️ Skipping own message');
+            return;
         }
-    )
+        
+        console.log('📥 Processing message from another user');
+        
+        // Create message object with sender info from broadcast
+        const message = {
+            id: payload.payload.id,
+            sender_id: payload.payload.sender_id,
+            content: payload.payload.content,
+            created_at: payload.payload.created_at,
+            sender: {
+                id: payload.payload.sender_id,
+                name: payload.payload.sender_name,
+                avatar: payload.payload.sender_avatar
+            }
+        };
+        
+        console.log('Appending message to chat:', message);
+        appendMessage(message);
+    })
     .subscribe((status) => {
         console.log('Event chat subscription status:', status);
     });
@@ -3174,6 +3174,21 @@ async function sendEventMessage(e) {
         
         // Immediately append the message to the UI
         appendMessage(data);
+        
+        // Broadcast to other users in this event chat
+        const channel = supabase.channel(`event_${currentEvent.id}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'new_message',
+            payload: {
+                id: data.id,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                sender_avatar: currentUser.avatar,
+                content: data.content,
+                created_at: data.created_at
+            }
+        });
         
         input.value = '';
         
