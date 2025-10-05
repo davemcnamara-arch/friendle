@@ -2212,29 +2212,32 @@ const upcomingEvents = events.filter(e =>
 </div>
                 
                 ${upcomingEvents.length > 0 ? `
-                    <div style="margin-bottom: 10px;">
-                        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #666; font-weight: 600;">Upcoming</h4>
-                        ${upcomingEvents.map(event => {
-                            const date = new Date(event.scheduled_date);
-                            const dateStr = date.toLocaleDateString('en-US', { 
-                                weekday: 'short', 
-                                month: 'short', 
-                                day: 'numeric',
-                            });
-                            
-                            return `
-                                <div onclick="openEventChat('${event.id}')" class="event-item" style="padding: 10px; margin-bottom: 6px; background: #f5f5f5; border-radius: 6px; cursor: pointer; border-left: 4px solid #4CAF50; transition: background 0.2s;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <div style="font-weight: 500; margin-bottom: 2px;">📅 ${dateStr}</div>
-                                            ${event.location ? `<div style="color: #666; font-size: 13px;">📍 ${event.location}</div>` : ''}
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
+    <div style="margin-bottom: 10px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #666; font-weight: 600;">Upcoming</h4>
+        ${upcomingEvents.map(event => {
+            const date = new Date(event.scheduled_date);
+            const dateStr = date.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric'
+            });
+            
+            return `
+                <div class="event-item" style="padding: 10px; margin-bottom: 6px; background: #f5f5f5; border-radius: 6px; border-left: 4px solid #4CAF50;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500; margin-bottom: 2px;">📅 ${dateStr}</div>
+                            ${event.location ? `<div style="color: #666; font-size: 13px;">📍 ${event.location}</div>` : ''}
+                        </div>
+                        <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                            💬 Event Chat
+                        </button>
                     </div>
-                ` : `
+                </div>
+            `;
+        }).join('')}
+    </div>
+` : `
                     <div style="padding: 15px; background: #f9f9f9; border-radius: 6px; text-align: center; color: #666; font-size: 14px; border: 1px dashed #ddd;">
                         💬 No events scheduled yet - schedule something!
                     </div>
@@ -2253,10 +2256,15 @@ const upcomingEvents = events.filter(e =>
                                 const statusEmoji = event.status === 'completed' ? '✅' : event.status === 'cancelled' ? '❌' : '📅';
                                 
                                 return `
-                                    <div onclick="openEventChat('${event.id}')" class="event-item" style="padding: 8px; margin-bottom: 4px; background: #fafafa; border-radius: 4px; cursor: pointer; opacity: 0.7; font-size: 13px;">
-                                        ${statusEmoji} ${dateStr}${event.location ? ` · ${event.location}` : ''}
-                                    </div>
-                                `;
+    <div class="event-item" style="padding: 8px; margin-bottom: 4px; background: #fafafa; border-radius: 4px; opacity: 0.7; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            ${statusEmoji} ${dateStr}${event.location ? ` · ${event.location}` : ''}
+        </div>
+        <button onclick="openEventChat('${event.id}')" class="btn btn-secondary" style="font-size: 12px; padding: 4px 8px; width: auto; margin: 0; opacity: 1;">
+            Chat
+        </button>
+    </div>
+`;
                             }).join('')}
                         </div>
                     </details>
