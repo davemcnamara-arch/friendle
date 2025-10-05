@@ -2762,6 +2762,17 @@ const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDat
 console.log('Querying with match_id:', matchId);
 console.log('Querying with date >=', todayUTC.toISOString());
 
+// Try the simplest possible query first
+const { data: testQuery, error: testError } = await supabase
+    .from('events')
+    .select('*')
+    .eq('match_id', matchId);
+
+console.log('TEST - Simple query for all events in match:');
+console.log('Error:', testError);
+console.log('Result:', testQuery);
+
+// Now try with filters
 const { data: upcomingEvents, error: eventsError } = await supabase
     .from('events')
     .select('id, scheduled_date, location, status')
