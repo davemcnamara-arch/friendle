@@ -1870,7 +1870,7 @@ async function findMatches(circleId) {
         // For each activity the user likes, find or create a group match
         for (const activityId of userPrefs) {
             // Check if a group match already exists for this activity in this circle
-            const { data: existingMatch, error: matchError } = await supabase
+const { data: existingMatch, error: matchError } = await supabase
     .from('matches')
     .select('*, activities(*)')
     .eq('circle_id', circleId)
@@ -1892,29 +1892,26 @@ if (existingMatch) {
     existingMatch.match_participants = participants || [];
 }
 
-            if (matchError && matchError.code !== 'PGRST116') {
-                console.error('Error checking for existing match:', matchError);
-                continue;
-            }
+let match;
 
-            let match;
-            
-            if (existingMatch) {
-                // Group match exists, check if user is already in it
-                const isUserInGroup = existingMatch.match_participants.some(p => p.profile_id === currentUser.id);
-                
-                if (!isUserInGroup) {
-    // Add user to existing group
-    await supabase
-        .from('match_participants')
-        .insert([{ match_id: existingMatch.id, profile_id: currentUser.id }]);
+if (existingMatch) {
+    // Group match exists, check if user is already in it
+    const isUserInGroup = existingMatch.match_participants.some(p => p.profile_id === currentUser.id);
     
-    // Auto-add to any upcoming events for this match
-    await autoAddToUpcomingEvents(existingMatch.id, currentUser.id);
-}
-                
-                match = existingMatch;
-            } else {
+    if (!isUserInGroup) {
+        console.log('Adding user to existing match:', existingMatch.id);
+        
+        // Add user to existing group
+        await supabase
+            .from('match_participants')
+            .insert([{ match_id: existingMatch.id, profile_id: currentUser.id }]);
+        
+        // Auto-add to any upcoming events for this match
+        await autoAddToUpcomingEvents(existingMatch.id, currentUser.id);
+    }
+    
+    match = existingMatch;
+} else {
     // Create new group match (NO AUTO-EVENT CREATION)
     const { data: newMatch, error: createError } = await supabase
         .from('matches')
@@ -1922,10 +1919,7 @@ if (existingMatch) {
             circle_id: circleId,
             activity_id: activityId
         }])
-        .select(`
-            *,
-            activities(id, name, emoji, category)
-        `)
+        .select('*, activities(*)')
         .single();
 
     if (createError) {
@@ -1933,7 +1927,7 @@ if (existingMatch) {
         continue;
     }
 
-    // Add current user as first participant (NO EVENT CREATION HERE)
+    // Add current user as first participant
     await supabase
         .from('match_participants')
         .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
