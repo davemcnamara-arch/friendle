@@ -2181,10 +2181,13 @@ window.renderMatches = function() {
         const activityName = activity ? activity.name : 'Unknown Activity';
         const activityEmoji = activity ? activity.emoji : '🎯';
         
-        const now = new Date();
-        const upcomingEvents = events.filter(e => 
-            new Date(e.scheduled_date) >= now && e.status === 'scheduled'
-        );
+        // Compare dates at midnight to include events happening today
+const now = new Date();
+const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+const upcomingEvents = events.filter(e => 
+    new Date(e.scheduled_date) >= today && e.status === 'scheduled'
+);
         const pastEvents = events.filter(e => 
             new Date(e.scheduled_date) < now || e.status !== 'scheduled'
         );
@@ -2896,33 +2899,38 @@ const dateStr = eventDate.toLocaleDateString('en-US', {
 await loadEventMessages(eventId, event.created_at);
         
         // Set up real-time subscription for new messages
-        eventMessageSubscription = supabase
-            .channel(`event-messages-${eventId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'event_messages',
-                    filter: `event_id=eq.${eventId}`
-                },
-                async (payload) => {
-                    // Get sender info
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('id, name, avatar')
-                        .eq('id', payload.new.sender_id)
-                        .single();
-                    
-                    const message = {
-                        ...payload.new,
-                        sender: profile
-                    };
-                    
-                    appendMessage(message);
-                }
-            )
-            .subscribe();
+eventMessageSubscription = supabase
+    .channel(`event-messages-${eventId}`)
+    .on(
+        'postgres_changes',
+        {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'event_messages',
+            filter: `event_id=eq.${eventId}`
+        },
+        async (payload) => {
+            console.log('📩 Real-time message received:', payload);
+            
+            // Get sender info
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, name, avatar')
+                .eq('id', payload.new.sender_id)
+                .single();
+            
+            const message = {
+                ...payload.new,
+                sender: profile
+            };
+            
+            console.log('Appending message to chat:', message);
+            appendMessage(message);
+        }
+    )
+    .subscribe((status) => {
+        console.log('Event chat subscription status:', status);
+    });
         
         showPage('chat');
         
