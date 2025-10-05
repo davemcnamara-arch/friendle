@@ -758,7 +758,43 @@
 <body>
     <div class="app-container">
         <div id="pages-container" style="flex: 1; overflow-y: auto; position: relative;">
-            <div id="welcome" class="page active">
+<div id="onboarding" class="page active">
+    <div class="header">
+        <div class="logo">⭕ Friendle</div>
+        <div class="tagline" id="onboarding-tagline">Coordinate hangouts with friends</div>
+    </div>
+    
+    <div id="onboarding-content" style="padding: 20px;">
+        <!-- Invite context (shown when invite_code exists) -->
+        <div id="invite-context" style="display: none; text-align: center; margin-bottom: 30px;">
+            <div style="font-size: 1.2em; font-weight: 600; margin-bottom: 10px;">
+                You've been invited to join
+            </div>
+            <div id="invite-circle-name" style="font-size: 1.5em; font-weight: bold; color: #667eea; margin-bottom: 20px;">
+                Loading...
+            </div>
+        </div>
+        
+        <!-- Generic pitch (shown when no invite_code) -->
+        <div id="generic-pitch" style="margin-bottom: 30px;">
+            <div style="font-size: 1.1em; line-height: 1.6; color: #555;">
+                <p style="margin-bottom: 15px;">Stop coordinating plans through endless group chat messages.</p>
+                <p style="margin-bottom: 15px;">With Friendle:</p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 10px;">✓ Share what activities you're interested in</li>
+                    <li style="margin-bottom: 10px;">✓ See who else wants to do the same things</li>
+                    <li style="margin-bottom: 10px;">✓ Schedule hangouts with people who are actually available</li>
+                </ul>
+            </div>
+        </div>
+        
+        <button class="btn" id="onboarding-cta" onclick="showWelcomeFromOnboarding()">Get Started</button>
+        <div style="text-align: center; margin-top: 15px; color: #666; font-size: 0.9em;">
+            Already have an account? <a href="#" onclick="showWelcomeFromOnboarding(); return false;" style="color: #667eea; text-decoration: underline;">Sign in</a>
+        </div>
+    </div>
+</div>
+            <div id="welcome" class="page">
     <div class="header"><div class="logo">⭕ Friendle</div><div class="tagline">What do you feel like doing?</div></div>
     
     <div id="login-form">
@@ -4627,8 +4663,13 @@ if (pageId === 'matches') {
             }
 }
 
+window.showWelcomeFromOnboarding = function() {
+    document.getElementById('onboarding').classList.remove('active');
+    document.getElementById('welcome').classList.add('active');
+}
+
         async function initApp() {
-await loadDefaultActivities();
+    await loadDefaultActivities();
     const urlParams = new URLSearchParams(window.location.search);
     const inviteCode = urlParams.get('invite_code');
     
@@ -4654,63 +4695,93 @@ await loadDefaultActivities();
             if (error) throw error;
             
             currentUser = profileData;
-// Request notification permission
-if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-}
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
-        
-        // Load circles first
-        await renderCircles();
-        
-        // Then load matches from all circles
-        await loadMatches();
-        
-        // Restore last page or default to circles
-const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
-
-// Try to restore chat if we were on chat page
-if (lastPage === 'chat') {
-    const savedChat = localStorage.getItem('friendle_current_chat');
-    if (savedChat) {
-        try {
-            const chatMatch = JSON.parse(savedChat);
-            // Find the match in our loaded matches
-            const foundMatch = matches.find(m => m.id === chatMatch.id);
-            if (foundMatch) {
-                await openChat(foundMatch);
-            } else {
-                showPage('circles');
+            
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
             }
-        } catch (e) {
-            console.error('Error restoring chat:', e);
-            showPage('circles');
-        }
-    } else {
-        showPage('circles');
-    }
-} else if (lastPage === 'activities' && !selectedCircle) {
-    showPage('circles');
-} else {
-    showPage(lastPage);
-}
-        
-        updateProfile();
-        
-        // Process invite code if present
-        await processInviteCode();
+            
+            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+            
+            await renderCircles();
+            await loadMatches();
+            
+            const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
+
+            if (lastPage === 'chat') {
+                const savedChat = localStorage.getItem('friendle_current_chat');
+                if (savedChat) {
+                    try {
+                        const chatMatch = JSON.parse(savedChat);
+                        const foundMatch = matches.find(m => m.id === chatMatch.id);
+                        if (foundMatch) {
+                            await openChat(foundMatch);
+                        } else {
+                            showPage('circles');
+                        }
+                    } catch (e) {
+                        console.error('Error restoring chat:', e);
+                        showPage('circles');
+                    }
+                } else {
+                    showPage('circles');
+                }
+            } else if (lastPage === 'activities' && !selectedCircle) {
+                showPage('circles');
+            } else {
+                showPage(lastPage);
+            }
+            
+            updateProfile();
+            await processInviteCode();
             
         } catch (error) {
             console.error('Error loading profile:', error);
             await supabase.auth.signOut();
-            showPage('welcome');
+            showOnboarding();
         }
     } else {
-        // No authenticated session, show login
+        // No authenticated session, show onboarding
         currentUser = null;
         localStorage.removeItem('friendle_user');
-        showPage('welcome');
+        showOnboarding();
     }
+}
+
+async function showOnboarding() {
+    // Check if there's a pending invite
+    const inviteCode = sessionStorage.getItem('pending_invite_code');
+    
+    if (inviteCode) {
+        // Show invite context
+        document.getElementById('invite-context').style.display = 'block';
+        document.getElementById('generic-pitch').style.display = 'none';
+        document.getElementById('onboarding-cta').textContent = 'Join Circle';
+        
+        // Try to load circle name
+        try {
+            const { data: circle, error } = await supabase
+                .from('circles')
+                .select('name')
+                .eq('code', inviteCode)
+                .single();
+            
+            if (circle) {
+                document.getElementById('invite-circle-name').textContent = `"${circle.name}"`;
+            } else {
+                document.getElementById('invite-circle-name').textContent = 'this circle';
+            }
+        } catch (error) {
+            console.error('Error loading circle name:', error);
+            document.getElementById('invite-circle-name').textContent = 'this circle';
+        }
+    } else {
+        // Show generic pitch
+        document.getElementById('invite-context').style.display = 'none';
+        document.getElementById('generic-pitch').style.display = 'block';
+        document.getElementById('onboarding-cta').textContent = 'Get Started';
+    }
+    
+    showPage('onboarding');
 }
 
 // ✅ Run after DOM is ready
