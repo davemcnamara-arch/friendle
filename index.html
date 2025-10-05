@@ -3352,7 +3352,7 @@ async function deleteEvent() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    // Remove capture attribute - causes issues on some mobile browsers
+    input.capture = 'environment'; // Rear camera
     
     input.onchange = async function(event) {
         const file = event.target.files[0];
