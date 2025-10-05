@@ -783,8 +783,17 @@
             <div id="circles" class="page"><div class="header"><div class="logo">⭕ Circles</div><div class="tagline">Who do you want to hang with?</div></div><div id="circles-list"></div><button class="btn" onclick="showCreateCircle()">Create New Circle</button><button class="btn btn-secondary" onclick="showJoinCircle()">Join Circle</button></div>
             <div id="activities" class="page">
     <div class="header">
-        <div class="logo" id="activity-circle-name">⭕ Activities</div><div class="tagline">What do you want to do?</div>
+        <div class="logo">⭕ Activities</div>
+        <div class="tagline">What do you want to do?</div>
     </div>
+    
+    <div class="form-group">
+        <label for="circle-selector">Select Circle</label>
+        <select id="circle-selector" onchange="handleCircleChange()">
+            <option value="">Choose a circle...</option>
+        </select>
+    </div>
+    
     <div class="form-group">
         <input type="text" id="activity-search" placeholder="🔍 Search for an activity..." onkeyup="handleSearch(event)">
     </div>
@@ -1603,6 +1612,9 @@ async function loadUserPreferences(circleId) {
         window.selectCircle = async function(circleId) {
     selectedCircle = circles.find(c => c.id === circleId);
     
+    // Store as last used circle
+    localStorage.setItem('friendle_last_circle', circleId);
+    
     // Load preferences from Supabase instead of localStorage
     const savedActivityIds = await loadUserPreferences(selectedCircle.id);
     const allActivities = await loadActivities(selectedCircle.id);
@@ -1611,8 +1623,73 @@ async function loadUserPreferences(circleId) {
     activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
     
     showPage('activities');
-    document.getElementById('activity-circle-name').textContent = selectedCircle.name;
+    
+    // Set the dropdown value if on activities page
+    const selector = document.getElementById('circle-selector');
+    if (selector) {
+        selector.value = circleId;
+    }
+    
     renderActivities();
+}
+
+async function populateCircleSelector() {
+    const selector = document.getElementById('circle-selector');
+    if (!selector) return;
+    
+    // Clear existing options except the first one
+    selector.innerHTML = '<option value="">Choose a circle...</option>';
+    
+    // Add all circles
+    circles.forEach(circle => {
+        const option = document.createElement('option');
+        option.value = circle.id;
+        option.textContent = circle.name;
+        selector.appendChild(option);
+    });
+    
+    // Auto-select last used circle or first circle
+    const lastCircleId = localStorage.getItem('friendle_last_circle');
+    if (lastCircleId && circles.find(c => c.id === lastCircleId)) {
+        selector.value = lastCircleId;
+        await handleCircleChange(false); // Load without navigating
+    } else if (circles.length > 0) {
+        selector.value = circles[0].id;
+        await handleCircleChange(false);
+    }
+}
+
+window.handleCircleChange = async function(shouldScroll = true) {
+    const selector = document.getElementById('circle-selector');
+    const circleId = selector.value;
+    
+    if (!circleId) {
+        // No circle selected, clear activities
+        selectedCircle = null;
+        activities = [];
+        document.getElementById('activities-grid').innerHTML = '';
+        document.getElementById('frequent-grid').innerHTML = '';
+        document.getElementById('frequent-section').style.display = 'none';
+        return;
+    }
+    
+    // Store last selected circle
+    localStorage.setItem('friendle_last_circle', circleId);
+    
+    // Load circle and activities (same logic as selectCircle)
+    selectedCircle = circles.find(c => c.id === circleId);
+    
+    const savedActivityIds = await loadUserPreferences(selectedCircle.id);
+    const allActivities = await loadActivities(selectedCircle.id);
+    
+    activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
+    
+    renderActivities();
+    
+    if (shouldScroll) {
+        // Scroll to activities grid
+        document.getElementById('activity-search').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 async function loadActivities(circleId) {
@@ -4027,12 +4104,8 @@ if (pageId !== 'chat') {
     document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
     
     if (pageId === 'circles') renderCircles();
-if (pageId === 'activities' && selectedCircle) {
-    // Reset activities array from saved preferences when returning to Activities page
-    const savedActivityIds = await loadUserPreferences(selectedCircle.id);
-    const allActivities = await loadActivities(selectedCircle.id);
-    activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
-    renderActivities();
+if (pageId === 'activities') {
+    await populateCircleSelector();
 }
 if (pageId === 'matches') {
     await loadMatches();
