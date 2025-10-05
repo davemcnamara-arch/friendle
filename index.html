@@ -2344,14 +2344,8 @@ window.renderMatches = function() {
     // Filter matches based on toggle and search
     let filteredMatches = matches;
     
-    if (!showPastEvents) {
-        filteredMatches = filteredMatches.filter(match => {
-            if (!match.scheduledDate) return true;
-            const scheduledDate = new Date(match.scheduledDate);
-            const today = new Date();
-            return scheduledDate >= today;
-        });
-    }
+    // This will be updated after we load events - for now just keep all matches
+let matchesToShow = filteredMatches;
     
     if (searchTerm) {
         filteredMatches = filteredMatches.filter(match => {
@@ -2399,6 +2393,7 @@ window.renderMatches = function() {
 }
         async function displayMatches() {
     const matchesList = document.getElementById('matches-list');
+    const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
     
     if (!matches || matches.length === 0) {
         matchesList.innerHTML = '<p>No matches yet. Select some activities to get started!</p>';
@@ -2424,22 +2419,40 @@ window.renderMatches = function() {
         todayActivities?.forEach(a => todayActivityIds.add(a.activity_id));
     }
 
-    const matchesWithEvents = await Promise.all(
-        matches.map(async (match) => {
-            const { data: events, error } = await supabase
-                .from('events')
-                .select(`
-                    *,
-                    event_participants!inner(profile_id, status),
-                    event_messages(id)
-                `)
-                .eq('match_id', match.id)
-                .eq('event_participants.profile_id', currentUser.id)
-                .order('scheduled_date', { ascending: true });
-            
-            return { match, events: events || [] };
-        })
-    );
+    let matchesWithEvents = await Promise.all(
+    matches.map(async (match) => {
+        const { data: events, error } = await supabase
+            .from('events')
+            .select(`
+                *,
+                event_participants!inner(profile_id, status),
+                event_messages(id)
+            `)
+            .eq('match_id', match.id)
+            .eq('event_participants.profile_id', currentUser.id)
+            .order('scheduled_date', { ascending: true });
+        
+        return { match, events: events || [] };
+    })
+);
+
+// Filter out matches with only past events if toggle is off
+if (!showPastEvents) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    matchesWithEvents = matchesWithEvents.filter(({ match, events }) => {
+        // Keep if no events exist
+        if (!events || events.length === 0) return true;
+        
+        // Keep if any event is upcoming
+        const hasUpcoming = events.some(e => 
+            new Date(e.scheduled_date) >= today && e.status === 'scheduled'
+        );
+        
+        return hasUpcoming;
+    });
+}
 
     matchesList.innerHTML = matchesWithEvents.map(({ match, events }) => {
         const activity = activities.find(a => a.id === match.activity_id);
