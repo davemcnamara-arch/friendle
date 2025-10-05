@@ -2511,9 +2511,9 @@ setTimeout(() => {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
-    // Check if we're in an event chat or old-style match chat
-    if (currentEvent) {
-        // Use event message function
+    // Check if we're in match chat, event chat, or old-style match chat
+    if (currentMatchChat || currentEvent) {
+        // Use unified message function for both match chat and event chat
         const fakeEvent = { preventDefault: () => {} };
         await sendEventMessage(fakeEvent);
     } else if (currentChatMatch) {
