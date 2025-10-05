@@ -4666,6 +4666,12 @@ if (pageId === 'matches') {
 window.showWelcomeFromOnboarding = function() {
     document.getElementById('onboarding').classList.remove('active');
     document.getElementById('welcome').classList.add('active');
+    
+    // If they have an invite code, show registration form instead of login
+    const inviteCode = sessionStorage.getItem('pending_invite_code');
+    if (inviteCode) {
+        showRegister();
+    }
 }
 
         async function initApp() {
