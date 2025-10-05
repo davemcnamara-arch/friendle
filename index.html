@@ -2617,6 +2617,101 @@ setTimeout(() => {
             const menu = document.getElementById(`menu-${msgId}`);
             menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
         }
+window.toggleEventMessageActions = function(msgId) {
+    const menu = document.getElementById(`event-menu-${msgId}`);
+    if (menu) {
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+    
+    // Close other open menus
+    document.querySelectorAll('.message-actions-menu').forEach(m => {
+        if (m.id !== `event-menu-${msgId}`) {
+            m.style.display = 'none';
+        }
+    });
+}
+
+window.editEventMessage = async function(msgId, currentContent) {
+    // Close the menu
+    const menu = document.getElementById(`event-menu-${msgId}`);
+    if (menu) menu.style.display = 'none';
+    
+    // Check if this is a special message type (photo, location, search link)
+    if (currentContent.includes('<img') || currentContent.includes('<a')) {
+        showNotification('Photos and links cannot be edited, only deleted', 'error');
+        return;
+    }
+    
+    const newContent = prompt('Edit your message:', currentContent);
+    
+    if (!newContent || newContent.trim() === currentContent.trim()) return;
+    
+    try {
+        const { error } = await supabase
+            .from('event_messages')
+            .update({ content: newContent.trim() })
+            .eq('id', msgId)
+            .eq('sender_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        // Broadcast the edit to other users
+        const channel = supabase.channel(`event_${currentEvent.id}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'message_edited',
+            payload: {
+                id: msgId,
+                content: newContent.trim()
+            }
+        });
+        
+        // Reload messages to show the edit
+        await loadEventMessages(currentEvent.id, currentEvent.created_at);
+        
+        showNotification('Message updated');
+        
+    } catch (error) {
+        console.error('Error editing message:', error);
+        showNotification('Failed to edit message', 'error');
+    }
+}
+
+window.deleteEventMessage = async function(msgId) {
+    const menu = document.getElementById(`event-menu-${msgId}`);
+    if (menu) menu.style.display = 'none';
+    
+    if (!confirm('Delete this message?')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('event_messages')
+            .delete()
+            .eq('id', msgId)
+            .eq('sender_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        // Broadcast the deletion to other users
+        const channel = supabase.channel(`event_${currentEvent.id}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'message_deleted',
+            payload: {
+                id: msgId
+            }
+        });
+        
+        // Reload messages to reflect deletion
+        await loadEventMessages(currentEvent.id, currentEvent.created_at);
+        
+        showNotification('Message deleted');
+        
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        showNotification('Failed to delete message', 'error');
+    }
+}
         window.editMessage = async function(msgId) {
     const message = messages[currentChatMatch.id].find(m => m.id === msgId);
     const newContent = prompt('Edit your message:', message.content);
@@ -2908,7 +3003,7 @@ eventMessageSubscription = supabase
             return;
         }
         
-        console.log('📥 Processing message from another user');
+        console.log('🔥 Processing message from another user');
         
         // Create message object with sender info from broadcast
         const message = {
@@ -2925,6 +3020,14 @@ eventMessageSubscription = supabase
         
         console.log('Appending message to chat:', message);
         appendMessage(message);
+    })
+    .on('broadcast', { event: 'message_edited' }, (payload) => {
+        console.log('✏️ Message edited:', payload);
+        loadEventMessages(currentEvent.id, currentEvent.created_at);
+    })
+    .on('broadcast', { event: 'message_deleted' }, (payload) => {
+        console.log('🗑️ Message deleted:', payload);
+        loadEventMessages(currentEvent.id, currentEvent.created_at);
     })
     .subscribe((status) => {
         console.log('Event chat subscription status:', status);
@@ -3079,17 +3182,21 @@ function appendMessageToContainer(message, container) {
                 ${messageTime}
             </span>
         </div>
-        <div ${onClick} style="
-            background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
-            color: ${isOwnMessage ? 'white' : 'black'};
-            padding: 10px 14px;
-            border-radius: 12px;
-            max-width: 70%;
-            word-wrap: break-word;
-        ">
-            ${content}
+        <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
+            <div ${onClick} style="
+                background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
+                color: ${isOwnMessage ? 'white' : 'black'};
+                padding: 10px 14px;
+                border-radius: 12px;
+                max-width: 70%;
+                word-wrap: break-word;
+            ">
+                ${content}
+            </div>
         </div>
     `;
+    
+    // Add edit/delete for own messages (archived messages are read-only for simplicity)
     
     container.appendChild(messageDiv);
 }
@@ -3127,15 +3234,26 @@ function appendMessage(message) {
                 ${messageTime}
             </span>
         </div>
-        <div style="
-            background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
-            color: ${isOwnMessage ? 'white' : 'black'};
-            padding: 10px 14px;
-            border-radius: 12px;
-            max-width: 70%;
-            word-wrap: break-word;
-        ">
-            ${message.content}
+        <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
+            <div style="
+                background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
+                color: ${isOwnMessage ? 'white' : 'black'};
+                padding: 10px 14px;
+                border-radius: 12px;
+                max-width: 70%;
+                word-wrap: break-word;
+            ">
+                ${message.content}
+            </div>
+            ${isOwnMessage ? `
+    <div class="message-actions" style="position: relative;">
+        <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
+        <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
+            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
+            <button onclick="deleteEventMessage('${message.id}')" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Delete</button>
+        </div>
+    </div>
+` : ''}
         </div>
     `;
     
@@ -3487,6 +3605,76 @@ async function deleteEvent() {
         window.openImageModal = src => { document.getElementById('modal-image').src = src; document.getElementById('image-modal-overlay').style.display = 'flex'; };
         window.closeImageModal = () => document.getElementById('image-modal-overlay').style.display = 'none';
         window.openMap = (lat, lng) => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+window.findNearbyPlaces = async function() {
+            if (!navigator.geolocation) {
+                return showNotification('Geolocation not supported on this device', 'error');
+            }
+            
+            if (!currentEvent) {
+                return showNotification('This feature is only available in event chats', 'error');
+            }
+            
+            showNotification('Finding nearby places...');
+            
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    
+                    const activity = activities.find(a => a.id === currentEvent.activity_id);
+                    const activityName = activity ? activity.name : 'restaurants';
+                    
+                    const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(activityName)}/@${lat},${lng},15z`;
+                    
+                    try {
+                        const { data, error } = await supabase
+                            .from('event_messages')
+                            .insert({
+                                event_id: currentEvent.id,
+                                sender_id: currentUser.id,
+                                content: `🔍 <a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline; font-weight: 500;">Find nearby ${activityName} spots</a>`
+                            })
+                            .select(`*, sender:profiles(id, name, avatar)`)
+                            .single();
+                        
+                        if (error) throw error;
+                        
+                        appendMessage(data);
+                        
+                        const channel = supabase.channel(`event_${currentEvent.id}`);
+                        await channel.send({
+                            type: 'broadcast',
+                            event: 'new_message',
+                            payload: {
+                                id: data.id,
+                                sender_id: currentUser.id,
+                                sender_name: currentUser.name,
+                                sender_avatar: currentUser.avatar,
+                                content: data.content,
+                                created_at: data.created_at
+                            }
+                        });
+                        
+                        showNotification('Search link shared!');
+                    } catch (error) {
+                        console.error('Error sharing nearby places:', error);
+                        showNotification('Failed to share search. Please try again.', 'error');
+                    }
+                },
+                (error) => {
+                    let errorMessage = 'Could not get location';
+                    if (error.code === error.PERMISSION_DENIED) {
+                        errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
+                    } else if (error.code === error.POSITION_UNAVAILABLE) {
+                        errorMessage = 'Location information unavailable. Please try again.';
+                    } else if (error.code === error.TIMEOUT) {
+                        errorMessage = 'Location request timed out. Please try again.';
+                    }
+                    showNotification(errorMessage, 'error');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
         function updateNotificationBadge() {
             const hasUnread = matches.some(m => !m.isRead) || Object.values(messages).flat().some(msg => !msg.isRead && msg.sender !== currentUser.name);
             document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
