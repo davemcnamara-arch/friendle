@@ -2026,7 +2026,7 @@ window.setActivityMode = async function(activityId, isToday) {
     const previousPrefs = await loadUserPreferences(selectedCircle.id);
     const deselectedActivityIds = previousPrefs.filter(id => !selectedActivityIds.includes(id));
     
-        // For each deselected activity, check if user has any events
+    // For each deselected activity, check if user has any events
     for (const activityId of deselectedActivityIds) {
         // Find the match for this activity
         const { data: match } = await supabase
@@ -2046,14 +2046,11 @@ window.setActivityMode = async function(activityId, isToday) {
             
             // If no events, remove user from match participants
             if (!userEvents || userEvents.length === 0) {
-                
                 await supabase
                     .from('match_participants')
                     .delete()
                     .eq('match_id', match.id)
                     .eq('profile_id', currentUser.id);
-            } else {
-
             }
         }
     }
@@ -2067,9 +2064,7 @@ window.setActivityMode = async function(activityId, isToday) {
     localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
     
     await checkForMatches();
-    
-    // Reload matches to reflect changes
-    await loadMatches();
+    await loadMatches(); // ADD THIS LINE - reload matches with proper isUserJoined flags
     
     showPage('matches');
 }
@@ -2138,58 +2133,73 @@ async function findMatches(circleId) {
         for (const activityId of userPrefs) {
             
             // Check if a group match already exists for this activity in this circle
-const { data: existingMatches, error: matchError } = await supabase
-    .from('matches')
-    .select('id, circle_id, activity_id, created_at')
-    .eq('circle_id', circleId)
-    .eq('activity_id', activityId);
+            const { data: existingMatches, error: matchError } = await supabase
+                .from('matches')
+                .select('id, circle_id, activity_id, created_at')
+                .eq('circle_id', circleId)
+                .eq('activity_id', activityId);
 
-if (matchError) {
-    console.error('Error checking for existing match:', matchError);
-    continue;
-}
+            if (matchError) {
+                console.error('Error checking for existing match:', matchError);
+                continue;
+            }
 
-const existingMatch = existingMatches?.[0] || null;
+            const existingMatch = existingMatches?.[0] || null;
 
+            // If match exists, get participants
+            if (existingMatch) {
+                const { data: participants } = await supabase
+                    .from('match_participants')
+                    .select('profile_id, profiles(id, name, avatar)')
+                    .eq('match_id', existingMatch.id);
+                
+                existingMatch.match_participants = participants || [];
+            }
 
-// If match exists, get participants
-if (existingMatch) {
-    const { data: participants } = await supabase
-        .from('match_participants')
-        .select('profile_id, profiles(id, name, avatar)')
-        .eq('match_id', existingMatch.id);
-    
-    existingMatch.match_participants = participants || [];
-}
+            let match;
 
-let match;
+            if (existingMatch) {
+                // Group match exists - user will see it and can choose to join
+                match = existingMatch;
+            } else {
+                // Create new group match AND auto-join user (they're first)
+                const { data: newMatch, error: createError } = await supabase
+                    .from('matches')
+                    .insert([{
+                        circle_id: circleId,
+                        activity_id: activityId
+                    }])
+                    .select('*, activities(*)')
+                    .single();
 
-if (existingMatch) {
-    // Group match exists - user will see it and can choose to join
-    match = existingMatch;
-} else {
-    // Create new group match AND auto-join user (they're first)
-    const { data: newMatch, error: createError } = await supabase
-        .from('matches')
-        .insert([{
-            circle_id: circleId,
-            activity_id: activityId
-        }])
-        .select('*, activities(*)')
-        .single();
+                if (createError) {
+                    console.error('Error creating match:', createError);
+                    continue;
+                }
 
-    if (createError) {
-        console.error('Error creating match:', createError);
-        continue;
-    }
+                // Auto-add user as first participant
+                const { error: participantError } = await supabase
+                    .from('match_participants')
+                    .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
 
-    // Auto-add user as first participant
-    await supabase
-        .from('match_participants')
-        .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
+                if (participantError) {
+                    console.error('Error auto-adding to match:', participantError);
+                } else {
+                    console.log('✓ Auto-added as first participant to match', newMatch.id);
+                }
 
-    match = { ...newMatch, match_participants: [{ profile_id: currentUser.id, profiles: currentUser }] };
-}
+                // Verify the insert worked by querying it back
+                const { data: verifyParticipant } = await supabase
+                    .from('match_participants')
+                    .select('profile_id')
+                    .eq('match_id', newMatch.id)
+                    .eq('profile_id', currentUser.id)
+                    .maybeSingle();
+
+                console.log('Verification - participant exists:', !!verifyParticipant);
+
+                match = { ...newMatch, match_participants: [{ profile_id: currentUser.id, profiles: currentUser }] };
+            }
 
             // Get all participants for this match
             const { data: participants, error: participantError } = await supabase
@@ -2207,39 +2217,37 @@ if (existingMatch) {
             }
 
             // Check who marked this specific activity as "today"
-const { data: todayUsers, error: availError } = await supabase
-    .from('activity_availability')
-    .select('profile_id')
-    .eq('circle_id', circleId)
-    .eq('activity_id', activityId)
-    .gte('available_until', new Date().toISOString())
-    .in('profile_id', [currentUser.id, ...participants.map(p => p.profile_id)]);
+            const { data: todayUsers, error: availError } = await supabase
+                .from('activity_availability')
+                .select('profile_id')
+                .eq('circle_id', circleId)
+                .eq('activity_id', activityId)
+                .gte('available_until', new Date().toISOString())
+                .in('profile_id', [currentUser.id, ...participants.map(p => p.profile_id)]);
 
-if (availError) {
-    console.error('Error checking activity availability:', availError);
-}
+            if (availError) {
+                console.error('Error checking activity availability:', availError);
+            }
 
-const todayUserIds = new Set(todayUsers?.map(a => a.profile_id) || []);
-const isCurrentUserAvailableToday = todayUserIds.has(currentUser.id);
+            const todayUserIds = new Set(todayUsers?.map(a => a.profile_id) || []);
+            const isCurrentUserAvailableToday = todayUserIds.has(currentUser.id);
 
-// Filter to only participants who marked this activity as "today"
-const todayParticipants = participants.filter(p => 
-    todayUserIds.has(p.profile_id)
-);
+            // Filter to only participants who marked this activity as "today"
+            const todayParticipants = participants.filter(p => 
+                todayUserIds.has(p.profile_id)
+            );
 
-// Show matches if user marked as today OR if there are others available today
-if (isCurrentUserAvailableToday || todayParticipants.length > 0) {
-    groupMatches.push({
-        id: match.id,
-        isGroupChat: todayParticipants.length > 1,
-        circleId: circleId,
-        users: todayParticipants.map(p => p.profiles),
-        activity: match.activities,
-        isRead: false,
-        scheduledDate: match.scheduled_date ? new Date(match.scheduled_date) : null,
-        isWaiting: isCurrentUserAvailableToday && todayParticipants.length === 0 // NEW: flag for waiting status
-    });
-}
+            // Always show match if user has this activity selected (auto-joined)
+            groupMatches.push({
+                id: match.id,
+                isGroupChat: todayParticipants.length > 1,
+                circleId: circleId,
+                users: todayParticipants.map(p => p.profiles),
+                activity: match.activities,
+                isRead: false,
+                scheduledDate: match.scheduled_date ? new Date(match.scheduled_date) : null,
+                isWaiting: !isCurrentUserAvailableToday && todayParticipants.length === 0
+            });
         }
 
         return groupMatches;
@@ -2248,6 +2256,7 @@ if (isCurrentUserAvailableToday || todayParticipants.length > 0) {
         return [];
     }
 }
+
 // Save matches to Supabase
 async function saveMatchesToSupabase(matches, circleId) {
     try {
@@ -2346,19 +2355,24 @@ async function loadMatches() {
         
         // Get participant names for each match
         for (let match of matches) {
-            const { data: participants, error: participantError } = await supabase
+            // Get ALL participants for this match
+            const { data: allParticipants, error: participantError } = await supabase
                 .from('match_participants')
                 .select(`
                     profile_id,
                     profiles(name, avatar)
                 `)
                 .eq('match_id', match.id);
-            
-            if (!participantError) {
-                match.participant_names = participants.map(p => p.profiles.name);
-                match.isUserJoined = participants.some(p => p.profile_id === currentUser.id);
+
+            if (!participantError && allParticipants) {
+                // Check if current user is a participant
+                match.isUserJoined = allParticipants.some(p => p.profile_id === currentUser.id);
                 
-                // Check availability logic (keep existing code)
+                // Get names of OTHER participants (for display)
+                const otherParticipants = allParticipants.filter(p => p.profile_id !== currentUser.id);
+                match.participant_names = otherParticipants.map(p => p.profiles.name);
+                
+                // Check availability logic
                 const { data: todayCheck } = await supabase
                     .from('activity_availability')
                     .select('profile_id')
@@ -2369,7 +2383,7 @@ async function loadMatches() {
                     .maybeSingle();
                 
                 const isCurrentUserAvailableToday = !!todayCheck;
-                const otherParticipantIds = participants.map(p => p.profile_id);
+                const otherParticipantIds = otherParticipants.map(p => p.profile_id);
                 
                 const { data: othersToday } = await supabase
                     .from('activity_availability')
@@ -2380,6 +2394,10 @@ async function loadMatches() {
                     .gte('available_until', new Date().toISOString());
                 
                 match.isWaiting = isCurrentUserAvailableToday && (!othersToday || othersToday.length === 0);
+            } else {
+                match.isUserJoined = false;
+                match.participant_names = [];
+                match.isWaiting = false;
             }
             
             // Load activities if needed
