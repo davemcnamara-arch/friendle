@@ -1068,7 +1068,7 @@
 
     <script>
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [];
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false;
 
 
 // UUID Generator
@@ -1612,10 +1612,6 @@ window.renameCircle = async function(circleId) {
 // Save user preferences to Supabase
 async function saveUserPreferences(circleId, selectedActivityIds) {
     try {
-        console.log('=== SAVE USER PREFERENCES ===');
-        console.log('Circle ID:', circleId);
-        console.log('Activity IDs to save:', selectedActivityIds);
-        console.log('User ID:', currentUser.id);
 
         // First, clear existing preferences for this circle
         const { error: deleteError } = await supabase
@@ -1629,8 +1625,6 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
             throw deleteError;
         }
 
-        console.log('✓ Deleted old preferences');
-
         // Then insert new preferences (only if there are selections)
         if (selectedActivityIds.length > 0) {
             const preferences = selectedActivityIds.map(activityId => ({
@@ -1640,8 +1634,6 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
                 selected: true
             }));
 
-            console.log('Inserting preferences:', preferences);
-
             const { error: insertError } = await supabase
                 .from('preferences')
                 .insert(preferences);
@@ -1650,8 +1642,6 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
                 console.error('Insert error:', insertError);
                 throw insertError;
             }
-
-            console.log('✓ Inserted new preferences');
             
             // Verify what was saved
             const { data: verifyData } = await supabase
@@ -1659,10 +1649,9 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
                 .select('activity_id')
                 .eq('profile_id', currentUser.id)
                 .eq('circle_id', circleId);
-            
-            console.log('✓ Verified saved preferences:', verifyData?.map(p => p.activity_id));
+
         } else {
-            console.log('✓ No activities selected, cleared all preferences');
+
         }
         
         showNotification('Preferences saved!');
@@ -1675,9 +1664,6 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
 // Load user preferences from Supabase
 async function loadUserPreferences(circleId) {
     try {
-        console.log('=== LOAD USER PREFERENCES ===');
-        console.log('Circle ID:', circleId);
-        console.log('User ID:', currentUser.id);
         
         const { data, error } = await supabase
             .from('preferences')
@@ -1689,7 +1675,6 @@ async function loadUserPreferences(circleId) {
         if (error) throw error;
         
         const activityIds = data.map(pref => pref.activity_id);
-        console.log('Loaded activity IDs:', activityIds);
         
         return activityIds;
     } catch (error) {
@@ -1698,22 +1683,20 @@ async function loadUserPreferences(circleId) {
     }
 }
 
-        window.selectCircle = async function(circleId) {
+        // In selectCircle, after filtering:
+window.selectCircle = async function(circleId) {
     selectedCircle = circles.find(c => c.id === circleId);
     
-    // Store as last used circle
     localStorage.setItem('friendle_last_circle', circleId);
     
-    // Load preferences from Supabase instead of localStorage
     const savedActivityIds = await loadUserPreferences(selectedCircle.id);
     const allActivities = await loadActivities(selectedCircle.id);
     
-    // Rebuild the activities array from saved preferences
     activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
     
+        skipAutoLoad = true;
     showPage('activities');
     
-    // Set the dropdown value if on activities page
     const selector = document.getElementById('circle-selector');
     if (selector) {
         selector.value = circleId;
@@ -1726,10 +1709,8 @@ async function populateCircleSelector() {
     const selector = document.getElementById('circle-selector');
     if (!selector) return;
     
-    // Clear existing options except the first one
     selector.innerHTML = '<option value="">Choose a circle...</option>';
     
-    // Add all circles
     circles.forEach(circle => {
         const option = document.createElement('option');
         option.value = circle.id;
@@ -1737,11 +1718,16 @@ async function populateCircleSelector() {
         selector.appendChild(option);
     });
     
+    if (skipAutoLoad) {
+        skipAutoLoad = false;
+        return;
+    }
+    
     // Auto-select last used circle or first circle
     const lastCircleId = localStorage.getItem('friendle_last_circle');
     if (lastCircleId && circles.find(c => c.id === lastCircleId)) {
         selector.value = lastCircleId;
-        await handleCircleChange(false); // Load without navigating
+        await handleCircleChange(false);
     } else if (circles.length > 0) {
         selector.value = circles[0].id;
         await handleCircleChange(false);
@@ -1753,7 +1739,6 @@ window.handleCircleChange = async function(shouldScroll = true) {
     const circleId = selector.value;
     
     if (!circleId) {
-        // No circle selected, clear activities
         selectedCircle = null;
         activities = [];
         document.getElementById('activities-grid').innerHTML = '';
@@ -1762,10 +1747,8 @@ window.handleCircleChange = async function(shouldScroll = true) {
         return;
     }
     
-    // Store last selected circle
     localStorage.setItem('friendle_last_circle', circleId);
     
-    // Load circle and activities (same logic as selectCircle)
     selectedCircle = circles.find(c => c.id === circleId);
     
     const savedActivityIds = await loadUserPreferences(selectedCircle.id);
@@ -1776,7 +1759,6 @@ window.handleCircleChange = async function(shouldScroll = true) {
     renderActivities();
     
     if (shouldScroll) {
-        // Scroll to activities grid
         document.getElementById('activity-search').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }
@@ -1790,7 +1772,6 @@ async function loadActivities(circleId) {
         
         if (activitiesError) throw activitiesError;
         
-        // Get circle-level activity visibility (member-controlled)
         const { data: circleActivities, error: visibilityError } = await supabase
             .from('circle_activities')
             .select('activity_id, is_visible')
@@ -1798,19 +1779,15 @@ async function loadActivities(circleId) {
         
         if (visibilityError) throw visibilityError;
         
-        // Build map of activity visibility
         const visibilityMap = {};
         circleActivities?.forEach(ca => {
             visibilityMap[ca.activity_id] = ca.is_visible;
         });
         
-        // Filter default activities based on circle visibility settings
-        // If not in map, core activities default to visible, extended default to hidden
         const visibleDefaultActivities = defaultActivities.filter(a => {
             if (visibilityMap.hasOwnProperty(a.id)) {
-                return visibilityMap[a.id]; // Use explicit setting
+                return visibilityMap[a.id];
             }
-            // Default: core visible, extended hidden
             return coreActivityIds.includes(a.id);
         });
         
@@ -1858,7 +1835,7 @@ async function loadDefaultActivities() {
 }
         // Activity Management
         async function renderActivities(searchTerm = '') {
-		// Check if no circle is selected
+     		// Check if no circle is selected
     if (!selectedCircle) {
         document.getElementById('activities-grid').innerHTML = '<div style="text-align: center; padding: 40px 20px; color: #666;"><div style="font-size: 3em; margin-bottom: 20px;">🎯</div><h3 style="margin-bottom: 15px; color: #333;">Select a Circle First</h3><p>Choose a circle from the dropdown above to see available activities.</p></div>';
         document.getElementById('frequent-grid').innerHTML = '';
@@ -2043,21 +2020,13 @@ window.setActivityMode = async function(activityId, isToday) {
         window.saveActivities = async function() {
     if (!selectedCircle) return showNotification('Please select a circle first', 'error');
     
-    console.log('=== SAVING ACTIVITIES ===');
-    console.log('Current user:', currentUser.id);
-    console.log('Selected circle:', selectedCircle.id);
-    console.log('Selected activities:', activities);
-    
     const selectedActivityIds = activities.map(activity => activity.id);
-    console.log('Activity IDs to save:', selectedActivityIds);
-    
+        
     // Get previously selected activities to find what was deselected
     const previousPrefs = await loadUserPreferences(selectedCircle.id);
     const deselectedActivityIds = previousPrefs.filter(id => !selectedActivityIds.includes(id));
     
-    console.log('Deselected activities:', deselectedActivityIds);
-    
-    // For each deselected activity, check if user has any events
+        // For each deselected activity, check if user has any events
     for (const activityId of deselectedActivityIds) {
         // Find the match for this activity
         const { data: match } = await supabase
@@ -2077,7 +2046,6 @@ window.setActivityMode = async function(activityId, isToday) {
             
             // If no events, remove user from match participants
             if (!userEvents || userEvents.length === 0) {
-                console.log(`Removing user from match ${match.id} (no events joined)`);
                 
                 await supabase
                     .from('match_participants')
@@ -2085,7 +2053,7 @@ window.setActivityMode = async function(activityId, isToday) {
                     .eq('match_id', match.id)
                     .eq('profile_id', currentUser.id);
             } else {
-                console.log(`Keeping user in match ${match.id} (has ${userEvents.length} event(s))`);
+
             }
         }
     }
@@ -2098,7 +2066,6 @@ window.setActivityMode = async function(activityId, isToday) {
     });
     localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
     
-    console.log('=== CHECKING FOR MATCHES ===');
     await checkForMatches();
     
     // Reload matches to reflect changes
@@ -2169,18 +2136,21 @@ async function findMatches(circleId) {
 
         // For each activity the user likes, find or create a group match
         for (const activityId of userPrefs) {
+            
             // Check if a group match already exists for this activity in this circle
-const { data: existingMatch, error: matchError } = await supabase
+const { data: existingMatches, error: matchError } = await supabase
     .from('matches')
-    .select('*, activities(*)')
+    .select('id, circle_id, activity_id, created_at')
     .eq('circle_id', circleId)
-    .eq('activity_id', activityId)
-    .maybeSingle();
+    .eq('activity_id', activityId);
 
-if (matchError && matchError.code !== 'PGRST116') {
+if (matchError) {
     console.error('Error checking for existing match:', matchError);
     continue;
 }
+
+const existingMatch = existingMatches?.[0] || null;
+
 
 // If match exists, get participants
 if (existingMatch) {
@@ -2310,15 +2280,11 @@ async function saveMatchesToSupabase(matches, circleId) {
         async function checkForMatches() {
     if (!selectedCircle) return;
     
-    console.log('Finding matches for circle:', selectedCircle.id);
-    
     // Find real matches based on preferences
     const foundMatches = await findMatches(selectedCircle.id);
     
     // Update global matches array
     matches = foundMatches;
-    
-    console.log('Found matches:', matches);
     
     // Save to localStorage for now (we can migrate this later)
     localStorage.setItem('friendle_matches', JSON.stringify(matches));
@@ -2341,11 +2307,13 @@ showNotificationAlert(
 }
 
 async function loadMatches() {
+    
     if (!currentUser) return;
     
     try {
-        // Get user's preferences to find relevant matches
         const userCircles = circles.map(c => c.id);
+        
+        // Get user's preferences (circle + activity pairs)
         const { data: userPrefs } = await supabase
             .from('preferences')
             .select('activity_id, circle_id')
@@ -2358,7 +2326,10 @@ async function loadMatches() {
             return;
         }
         
-        // Get all matches for activities user is interested in
+        // Create a Set of "circleId|activityId" strings for filtering
+        const prefSet = new Set(userPrefs.map(p => `${p.circle_id}|${p.activity_id}`));
+        
+        // Get all potential matches
         const activityIds = [...new Set(userPrefs.map(p => p.activity_id))];
         const { data: allMatches, error: matchError } = await supabase
             .from('matches')
@@ -2368,7 +2339,10 @@ async function loadMatches() {
         
         if (matchError) throw matchError;
         
-        matches = allMatches || [];
+        // Filter to only matches where user has that activity selected in THAT circle
+        matches = (allMatches || []).filter(match => 
+            prefSet.has(`${match.circle_id}|${match.activity_id}`)
+        );
         
         // Get participant names for each match
         for (let match of matches) {
@@ -2384,7 +2358,7 @@ async function loadMatches() {
                 match.participant_names = participants.map(p => p.profiles.name);
                 match.isUserJoined = participants.some(p => p.profile_id === currentUser.id);
                 
-                // Check if current user marked this as "today"
+                // Check availability logic (keep existing code)
                 const { data: todayCheck } = await supabase
                     .from('activity_availability')
                     .select('profile_id')
@@ -2395,8 +2369,6 @@ async function loadMatches() {
                     .maybeSingle();
                 
                 const isCurrentUserAvailableToday = !!todayCheck;
-                
-                // Check if others marked it as today
                 const otherParticipantIds = participants.map(p => p.profile_id);
                 
                 const { data: othersToday } = await supabase
@@ -2410,14 +2382,13 @@ async function loadMatches() {
                 match.isWaiting = isCurrentUserAvailableToday && (!othersToday || othersToday.length === 0);
             }
             
-            // LOAD ACTIVITIES FOR THIS CIRCLE if not already loaded
+            // Load activities if needed
             if (activities.length === 0 || (activities.length > 0 && activities[0].circle_id !== match.circle_id)) {
                 const allActivities = await loadActivities(match.circle_id);
                 activities = allActivities;
             }
         }
         
-        // Display matches
         await displayMatches();
         
     } catch (error) {
@@ -2505,8 +2476,8 @@ let matchesToShow = filteredMatches;
             .eq('circle_id', circleId)
             .gte('available_until', new Date().toISOString());
         
-        todayActivities?.forEach(a => todayActivityIds.add(a.activity_id));
-    }
+        todayActivities?.forEach(a => todayActivityIds.add(a.activity_id.toString()));
+}
 
     let matchesWithEvents = await Promise.all(
     matches.map(async (match) => {
@@ -2706,14 +2677,14 @@ const upcomingEvents = events.filter(e =>
         `;
     }).join('');
 
-    // ADD THIS: Show "Available Today" button for activities not marked as today
-    matches.forEach(match => {
-        const isToday = todayActivityIds.has(match.activity_id.toString());
-        const button = document.getElementById(`today-btn-${match.id}`);
-        if (button && !isToday) {
-            button.style.display = 'inline-block';
-        }
-    });
+    // Around line 2016-2024, replace the button visibility logic:
+matches.forEach(match => {
+    const isToday = todayActivityIds.has(match.activity_id.toString());
+    const button = document.getElementById(`today-btn-${match.id}`);
+    if (button) {
+        button.style.display = isToday ? 'none' : 'inline-block';
+    }
+});
 
     document.querySelectorAll('.event-item').forEach(item => {
         item.addEventListener('mouseenter', function() {
@@ -2967,10 +2938,7 @@ window.leaveChat = async function() {
     }
 }
         function renderChatMessages() {
-    console.log('🎬 renderChatMessages called');
     const chatMessages = document.getElementById('chat-messages');
-    console.log('Chat container:', chatMessages);
-    console.log('Messages to render:', messages[currentChatMatch.id]);
     chatMessages.innerHTML = '';
     (messages[currentChatMatch.id] || []).forEach(msg => {
         const div = document.createElement('div');
@@ -4113,12 +4081,8 @@ window.openMatchChat = async function(matchId) {
                 .eq('id', match.activity_id)
                 .single();
             
-            console.log('Fetching activity from DB:', match.activity_id, 'Result:', activityData, 'Error:', activityError);
-            
             activity = activityData;
         }
-        
-        console.log('Final activity object:', activity);
         
         // Get all participants
         const { data: participants, error: participantsError } = await supabase
@@ -4130,7 +4094,6 @@ window.openMatchChat = async function(matchId) {
         
         // Update header
         const headerText = `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'}`;
-        console.log('Setting header to:', headerText);
         document.getElementById('event-activity-name').textContent = headerText;
         
         const participantNames = participants
@@ -4176,10 +4139,8 @@ window.openMatchChat = async function(matchId) {
             .subscribe();
     
     allActiveSubscriptions.push(matchMessageSubscription);
-    
-    console.log('Subscription set up, about to show chat page');
+
     showPage('chat');
-    console.log('Chat page shown');
         
     } catch (error) {
         console.error('Error loading match chat:', error);
@@ -4833,7 +4794,6 @@ document.addEventListener("DOMContentLoaded", () => {
 const toggle = document.getElementById('show-past-events');
   if (toggle) {
     toggle.addEventListener('change', function() {
-      console.log('Toggle changed to:', this.checked);
       renderMatches();
     });
   }
@@ -4933,7 +4893,6 @@ window.closeManageActivitiesModal = () => {
 
 window.toggleActivityVisibility = function(card, activityId) {
     card.classList.toggle('selected');
-    console.log('Toggled activity:', activityId, 'Selected:', card.classList.contains('selected'));
 }
 
 window.saveActivityVisibility = async function() {
@@ -4973,21 +4932,13 @@ window.saveActivityVisibility = async function() {
 });   // ✅ only one of these, closes document.addEventListener
 
 function showNotificationAlert(title, body) {
-    console.log('=== NOTIFICATION DEBUG ===');
-    console.log('Title:', title);
-    console.log('Body:', body);
-    console.log('Notification in window:', 'Notification' in window);
-    console.log('Permission:', Notification?.permission);
-    console.log('Document hidden:', document.hidden);
-    console.log('Document visibility:', document.visibilityState);
-    
+        
     if (!('Notification' in window)) {
-        console.log('Browser does not support notifications');
+
         return;
     }
     
     if (Notification.permission !== 'granted') {
-        console.log('Notification permission not granted');
         return;
     }
     
@@ -4998,8 +4949,6 @@ function showNotificationAlert(title, body) {
             requireInteraction: false,
             silent: false
         });
-        
-        console.log('Notification created successfully');
         
         // Handle notification click
         notification.onclick = function() {
@@ -5016,12 +4965,9 @@ function showNotificationAlert(title, body) {
 let messageSubscription = null;
 
 function setupRealtimeMessages(matchId) {
-    console.log('=== SETTING UP REALTIME ===');
-    console.log('Match ID:', matchId);
     
     // Clean up existing subscription
     if (messageSubscription) {
-        console.log('Cleaning up old subscription');
         supabase.removeChannel(messageSubscription);
         const index = allActiveSubscriptions.indexOf(messageSubscription);
         if (index > -1) allActiveSubscriptions.splice(index, 1);
@@ -5031,15 +4977,11 @@ function setupRealtimeMessages(matchId) {
     messageSubscription = supabase
         .channel(`match_${matchId}`)
         .on('broadcast', { event: 'new_message' }, (payload) => {
-            console.log('🔔 NEW MESSAGE RECEIVED:', payload);
             
             // Don't duplicate messages we sent ourselves
             if (payload.payload.sender_id === currentUser.id) {
-                console.log('⏭️ Skipping own message');
                 return;
             }
-            
-            console.log('📥 Processing message from another user');
             
             // Add to local messages array
             const newMessage = {
@@ -5057,8 +4999,6 @@ function setupRealtimeMessages(matchId) {
             if (!messages[matchId]) messages[matchId] = [];
             messages[matchId].push(newMessage);
             
-            console.log('✅ Message added to local array');
-            
             // Always attempt notification for new messages
             showNotificationAlert(
                 `New message from ${newMessage.sender}`,
@@ -5067,16 +5007,13 @@ function setupRealtimeMessages(matchId) {
             
             // Update UI if we're viewing this chat
             if (currentChatMatch && currentChatMatch.id === matchId) {
-                console.log('🎨 Updating UI');
                 renderChatMessages();
             }
           
         })
         .subscribe((status) => {
-            console.log('Subscription status:', status);
         });
     
-    console.log('✅ Subscription created');
     allActiveSubscriptions.push(messageSubscription);
 }
 
