@@ -851,15 +851,40 @@
     <input type="text" id="activity-search" placeholder="🔍 Search for an activity..." onkeyup="handleSearch(event)">
 </div>
     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
-        <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
+    <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
+    <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
+</div>
+
+<div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+    <button id="grid-view-btn" class="btn btn-secondary btn-small" onclick="switchToGridView()">📋 Grid View</button>
+    <button id="swipe-view-btn" class="btn btn-secondary btn-small" onclick="switchToSwipeView()" style="background: #667eea; color: white;">👆 Swipe View</button>
+</div>
+    
+                <!-- Swipe View Container -->
+<div id="swipe-view-container" style="display: block;">
+    <div id="swipe-container" style="position: relative; height: 500px; display: flex; align-items: center; justify-content: center;">
+        <div id="card-stack" style="position: relative; width: 100%; max-width: 350px; height: 450px;"></div>
     </div>
     
-                <div id="frequent-section"><div class="section-title">⭐ Frequently Used</div><div class="frequent-grid" id="frequent-grid"></div></div>
-                <div class="section-title">All Activities</div>
-                <div class="bulk-controls"><h4>Quick Select</h4><div class="bulk-btn" onclick="selectBulk('food')">Food & Drinks</div><div class="bulk-btn" onclick="selectBulk('active')">Active</div><div class="bulk-btn" onclick="selectBulk('entertainment')">Entertainment</div><div class="bulk-btn" onclick="selectBulk('relax')">Relax & Creative</div><div class="bulk-btn" onclick="selectBulk('clear')">Clear All</div></div>
-                <div class="activities-grid" id="activities-grid"></div>
-                <button class="btn sticky-save" onclick="saveActivities()">Save Preferences</button>
+    <div style="text-align: center; margin: 20px 0;">
+        <span id="swipe-progress" style="font-size: 0.9em; color: #666;">0 of 0</span>
+    </div>
+    
+    <div style="display: flex; gap: 15px; justify-content: center; margin: 20px 0;">
+    <button onclick="swipeLeft()" class="btn btn-secondary" style="width: 80px; padding: 15px;">👎</button>
+    <button onclick="undoSwipe()" class="btn btn-secondary" style="width: 80px; padding: 15px;">↩️</button>
+    <button onclick="swipeRight()" class="btn btn-secondary" style="width: 80px; padding: 15px;">👍</button>
+</div>
+</div>
+
+<!-- Grid View Container (existing) -->
+<div id="grid-view-container" style="display: none;">
+    <div id="frequent-section"><div class="section-title">⭐ Frequently Used</div><div class="frequent-grid" id="frequent-grid"></div></div>
+    <div class="section-title">All Activities</div>
+    <div class="bulk-controls"><h4>Quick Select</h4><div class="bulk-btn" onclick="selectBulk('food')">Food & Drinks</div><div class="bulk-btn" onclick="selectBulk('active')">Active</div><div class="bulk-btn" onclick="selectBulk('entertainment')">Entertainment</div><div class="bulk-btn" onclick="selectBulk('relax')">Relax & Creative</div><div class="bulk-btn" onclick="selectBulk('clear')">Clear All</div></div>
+    <div class="activities-grid" id="activities-grid"></div>
+</div>
+                <button id="grid-save-button" class="btn sticky-save" onclick="saveActivities()" style="display: none;">Save Preferences</button>
                 
             </div>
             <div id="matches" class="page">
@@ -1732,6 +1757,11 @@ async function populateCircleSelector() {
         selector.value = circles[0].id;
         await handleCircleChange(false);
     }
+    
+    // Initialize swipe view if we're in swipe mode
+    if (viewMode === 'swipe' && selectedCircle) {
+        await initializeSwipeView();
+    }
 }
 
 window.handleCircleChange = async function(shouldScroll = true) {
@@ -1761,6 +1791,462 @@ window.handleCircleChange = async function(shouldScroll = true) {
     if (shouldScroll) {
         document.getElementById('activity-search').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+}
+
+// View mode switching
+let viewMode = 'swipe'; // Default to swipe view
+
+window.switchToGridView = function() {
+    viewMode = 'grid';
+    document.getElementById('swipe-view-container').style.display = 'none';
+    document.getElementById('grid-view-container').style.display = 'block';
+    
+    // Update button styles
+    document.getElementById('grid-view-btn').style.background = '#667eea';
+    document.getElementById('grid-view-btn').style.color = 'white';
+    document.getElementById('swipe-view-btn').style.background = '#f8f9fa';
+    document.getElementById('swipe-view-btn').style.color = '#333';
+    
+    // Show save button in grid mode
+    document.getElementById('grid-save-button').style.display = 'block';
+    
+    renderActivities(); // Render grid view
+}
+
+window.switchToSwipeView = function() {
+    viewMode = 'swipe';
+    document.getElementById('grid-view-container').style.display = 'none';
+    document.getElementById('swipe-view-container').style.display = 'block';
+    
+    // Update button styles
+    document.getElementById('swipe-view-btn').style.background = '#667eea';
+    document.getElementById('swipe-view-btn').style.color = 'white';
+    document.getElementById('grid-view-btn').style.background = '#f8f9fa';
+    document.getElementById('grid-view-btn').style.color = '#333';
+    
+    // Hide save button in swipe mode
+    document.getElementById('grid-save-button').style.display = 'none';
+    
+    initializeSwipeView(); // Initialize swipe cards
+}
+
+// Swipe view state
+let currentCardIndex = 0;
+let swipeHistory = [];
+let sortedActivities = [];
+
+window.initializeSwipeView = async function() {
+    if (!selectedCircle) {
+        document.getElementById('card-stack').innerHTML = '<div style="text-align: center; padding: 60px; color: #666;">Please select a circle first</div>';
+        return;
+    }
+    
+    // Load and sort activities
+    sortedActivities = await loadActivitiesForSwiping(selectedCircle.id);
+    currentCardIndex = 0;
+    swipeHistory = [];
+    
+    // Clear card stack
+    document.getElementById('card-stack').innerHTML = '';
+    
+    if (sortedActivities.length === 0) {
+        document.getElementById('card-stack').innerHTML = '<div style="text-align: center; padding: 60px; color: #666;">No activities available</div>';
+        return;
+    }
+    
+    // Show first card
+    showNextCard();
+}
+
+async function loadActivitiesForSwiping(circleId) {
+    // Get all visible activities
+    const allActivities = await loadActivities(circleId);
+    
+    // Get user's current preferences to filter out already selected
+    const userPrefs = await loadUserPreferences(circleId);
+    // Convert all IDs to strings for consistent comparison
+const alreadySelectedIds = new Set(userPrefs.map(id => id.toString()));
+    
+    // Filter out activities user has already selected
+// Convert both to strings for comparison since IDs might be mixed types
+const availableActivities = allActivities.filter(activity => 
+    !alreadySelectedIds.has(activity.id.toString())
+);
+    
+    // Get what others in circle have selected
+    const { data: circlePrefs } = await supabase
+        .from('preferences')
+        .select('activity_id, profile_id')
+        .eq('circle_id', circleId)
+        .neq('profile_id', currentUser.id);
+    
+    // Count popularity
+    const popularityCounts = {};
+    circlePrefs?.forEach(pref => {
+        popularityCounts[pref.activity_id] = (popularityCounts[pref.activity_id] || 0) + 1;
+    });
+    
+    // Sort activities by priority
+    return availableActivities.sort((a, b) => {
+        const aPopular = popularityCounts[a.id] || 0;
+        const bPopular = popularityCounts[b.id] || 0;
+        const aFrequent = activityCounts[a.id] || 0;
+        const bFrequent = activityCounts[b.id] || 0;
+        const aCore = coreActivityIds.includes(a.id) ? 1 : 0;
+        const bCore = coreActivityIds.includes(b.id) ? 1 : 0;
+        
+        // Priority: popular > frequent > core > alphabetical
+        if (aPopular !== bPopular) return bPopular - aPopular;
+        if (aFrequent !== bFrequent) return bFrequent - aFrequent;
+        if (aCore !== bCore) return bCore - aCore;
+        return a.name.localeCompare(b.name);
+    }).map(activity => ({
+        ...activity,
+        popularityCount: popularityCounts[activity.id] || 0
+    }));
+}
+
+function showNextCard() {
+    if (currentCardIndex >= sortedActivities.length) {
+    // All done!
+    document.getElementById('card-stack').innerHTML = `
+        <div style="text-align: center; padding: 60px;">
+            <div style="font-size: 4em;">🎉</div>
+            <h2>All done!</h2>
+            <p>You've reviewed all activities</p>
+            <button class="btn" onclick="showPage('matches')">View Matches</button>
+        </div>
+    `;
+    document.getElementById('swipe-progress').textContent = 'Complete!';
+    return;
+}
+    
+    const activity = sortedActivities[currentCardIndex];
+    const card = renderSwipeCard(activity);
+    document.getElementById('card-stack').innerHTML = '';
+    document.getElementById('card-stack').appendChild(card);
+    updateProgress();
+}
+
+function updateProgress() {
+    const total = sortedActivities.length;
+    const current = Math.min(currentCardIndex + 1, total);
+    document.getElementById('swipe-progress').textContent = `${current} of ${total}`;
+}
+
+function renderSwipeCard(activity) {
+    const card = document.createElement('div');
+    card.className = 'swipe-card';
+    card.id = `card-${activity.id}`;
+    card.style.cssText = `
+        position: absolute;
+        width: 100%;
+        max-width: 350px;
+        height: 400px;
+        background: white;
+        border: 3px solid #e1e5e9;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        cursor: grab;
+        user-select: none;
+        transition: transform 0.1s ease-out;
+    `;
+    
+    const isAlreadySelected = activities.some(a => a.id === activity.id);
+    
+    card.innerHTML = `
+        <div style="font-size: 5em; margin-bottom: 20px;">${activity.emoji}</div>
+        <h2 style="font-size: 1.8em; margin-bottom: 10px; text-align: center;">${activity.name}</h2>
+        ${activity.popularityCount > 0 ? `
+            <div style="
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 0.9em;
+                margin-top: 10px;
+            ">
+                ✨ ${activity.popularityCount} friend${activity.popularityCount > 1 ? 's' : ''} interested
+            </div>
+        ` : ''}
+        ${isAlreadySelected ? `
+            <div style="
+                background: #4CAF50;
+                color: white;
+                padding: 6px 12px;
+                border-radius: 15px;
+                font-size: 0.85em;
+                margin-top: 10px;
+            ">
+                ✓ Already selected
+            </div>
+        ` : ''}
+    `;
+    
+    setupSwipeDetection(card, activity);
+    return card;
+}
+
+// Animation functions (must be defined before setupSwipeDetection)
+async function animateSwipeRight(card, activity) {
+    
+    card.style.transition = 'all 0.3s ease-out';
+    card.style.transform = 'translateX(500px) rotate(30deg)';
+    card.style.opacity = '0';
+    
+    // Add to selected activities
+    if (!activities.some(a => a.id === activity.id)) {
+        activities.push(activity);
+        console.log('Added activity to array');
+    } else {
+        console.log('Activity already in array - skipping');
+    }
+    
+    console.log('activities array after add:', activities.map(a => a.id));
+    
+    // Save to history for undo
+    swipeHistory.push({ activity, wasSelected: true });
+    
+    // Auto-save preference immediately
+    const selectedActivityIds = activities.map(a => a.id);
+    console.log('Saving to database:', selectedActivityIds.length, 'activities');
+    await saveUserPreferences(selectedCircle.id, selectedActivityIds);
+    
+    // Update activity counts
+    activityCounts[activity.id] = (activityCounts[activity.id] || 0) + 1;
+    localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
+    
+    console.log('Calling loadMatches...');
+    // Just reload matches to see any changes - don't call checkForMatches which auto-joins everything
+    loadMatches();
+    
+    setTimeout(() => {
+        currentCardIndex++;
+        showNextCard();
+    }, 300);
+}
+
+function animateSwipeLeft(card, activity) {
+    card.style.transition = 'all 0.3s ease-out';
+    card.style.transform = 'translateX(-500px) rotate(-30deg)';
+    card.style.opacity = '0';
+    
+    // Remove from selected activities if it was there
+    const index = activities.findIndex(a => a.id === activity.id);
+    const wasSelected = index > -1;
+    if (wasSelected) {
+        activities.splice(index, 1);
+    }
+    
+    // Save to history for undo
+    swipeHistory.push({ activity, wasSelected });
+    
+    setTimeout(() => {
+        currentCardIndex++;
+        showNextCard();
+    }, 300);
+}
+
+function setupSwipeDetection(card, activity) {
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let isDragging = false;
+    
+    // Touch events for mobile
+    card.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        card.style.cursor = 'grabbing';
+    });
+    
+    card.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+        const deltaX = currentX - startX;
+        const deltaY = currentY - startY;
+        
+        // Move card and rotate slightly
+        card.style.transform = `translateX(${deltaX}px) translateY(${deltaY}px) rotate(${deltaX * 0.1}deg)`;
+        card.style.transition = 'none';
+        
+        // Color hint
+        if (deltaX > 50) {
+            card.style.borderColor = '#4CAF50'; // Green for like
+        } else if (deltaX < -50) {
+            card.style.borderColor = '#f44336'; // Red for pass
+        } else {
+            card.style.borderColor = '#e1e5e9';
+        }
+    });
+    
+    card.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        card.style.cursor = 'grab';
+        
+        const deltaX = currentX - startX;
+        
+        if (deltaX > 100) {
+            // Swiped right - interested
+            animateSwipeRight(card, activity);
+        } else if (deltaX < -100) {
+            // Swiped left - pass
+            animateSwipeLeft(card, activity);
+        } else {
+            // Reset position
+            card.style.transition = 'transform 0.3s ease-out';
+            card.style.transform = '';
+            card.style.borderColor = '#e1e5e9';
+        }
+    });
+    
+    // Mouse events for desktop
+    card.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        startY = e.clientY;
+        isDragging = true;
+        card.style.cursor = 'grabbing';
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        currentX = e.clientX;
+        currentY = e.clientY;
+        const deltaX = currentX - startX;
+        const deltaY = currentY - startY;
+        
+        // Move card and rotate slightly
+        card.style.transform = `translateX(${deltaX}px) translateY(${deltaY}px) rotate(${deltaX * 0.1}deg)`;
+        card.style.transition = 'none';
+        
+        // Color hint
+        if (deltaX > 50) {
+            card.style.borderColor = '#4CAF50';
+        } else if (deltaX < -50) {
+            card.style.borderColor = '#f44336';
+        } else {
+            card.style.borderColor = '#e1e5e9';
+        }
+    });
+    
+    document.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        card.style.cursor = 'grab';
+        
+        const deltaX = currentX - startX;
+        
+        if (deltaX > 100) {
+            animateSwipeRight(card, activity);
+        } else if (deltaX < -100) {
+            animateSwipeLeft(card, activity);
+        } else {
+            card.style.transition = 'transform 0.3s ease-out';
+            card.style.transform = '';
+            card.style.borderColor = '#e1e5e9';
+        }
+    });
+}
+
+function animateSwipeLeft(card, activity) {
+    card.style.transition = 'all 0.3s ease-out';
+    card.style.transform = 'translateX(-500px) rotate(-30deg)';
+    card.style.opacity = '0';
+    
+    // Remove from selected activities if it was there
+    const index = activities.findIndex(a => a.id === activity.id);
+    const wasSelected = index > -1;
+    if (wasSelected) {
+        activities.splice(index, 1);
+    }
+    
+    // Save to history for undo
+    swipeHistory.push({ activity, wasSelected });
+    
+    setTimeout(() => {
+        currentCardIndex++;
+        showNextCard();
+    }, 300);
+}
+
+// Button functions for non-touch devices
+window.swipeRight = function() {
+    if (currentCardIndex >= sortedActivities.length) return;
+    
+    const card = document.getElementById(`card-${sortedActivities[currentCardIndex].id}`);
+    const activity = sortedActivities[currentCardIndex];
+    
+    if (card) {
+        animateSwipeRight(card, activity);
+    }
+}
+
+window.swipeLeft = function() {
+    if (currentCardIndex >= sortedActivities.length) return;
+    
+    const card = document.getElementById(`card-${sortedActivities[currentCardIndex].id}`);
+    const activity = sortedActivities[currentCardIndex];
+    
+    if (card) {
+        animateSwipeLeft(card, activity);
+    }
+}
+
+window.undoSwipe = async function() {
+    
+    if (swipeHistory.length === 0) {
+        showNotification('Nothing to undo', 'error');
+        return;
+    }
+    
+    const lastAction = swipeHistory.pop();
+    console.log('Undoing action:', lastAction);
+    
+    // Reverse the swipe action
+    if (lastAction.wasSelected) {
+        // If they swiped right (selected), now remove it
+        const index = activities.findIndex(a => a.id === lastAction.activity.id);
+        if (index > -1) {
+            activities.splice(index, 1);
+            console.log('Removed activity:', lastAction.activity.id);
+        }
+    } else {
+        // If they swiped left (passed), now add it back
+        if (!activities.some(a => a.id === lastAction.activity.id)) {
+            activities.push(lastAction.activity);
+            console.log('Added back activity:', lastAction.activity.id);
+        }
+    }
+    
+    console.log('activities AFTER undo:', activities.map(a => a.id));
+    
+    // Save the reverted preference state immediately
+    const selectedActivityIds = activities.map(a => a.id);
+    console.log('Saving preferences:', selectedActivityIds);
+    await saveUserPreferences(selectedCircle.id, selectedActivityIds);
+    
+    console.log('Skipping loadMatches to avoid auto-join');
+    // Don't call loadMatches here - it might trigger auto-join logic
+    // await loadMatches();
+    
+    // Go back one card
+    currentCardIndex = Math.max(0, currentCardIndex - 1);
+    showNextCard();
+    
+    console.log('=== UNDO END ===');
+    showNotification('Undone!');
 }
 
 async function loadActivities(circleId) {
@@ -2398,12 +2884,6 @@ async function loadMatches() {
                 match.isUserJoined = false;
                 match.participant_names = [];
                 match.isWaiting = false;
-            }
-            
-            // Load activities if needed
-            if (activities.length === 0 || (activities.length > 0 && activities[0].circle_id !== match.circle_id)) {
-                const allActivities = await loadActivities(match.circle_id);
-                activities = allActivities;
             }
         }
         
