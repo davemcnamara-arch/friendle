@@ -976,6 +976,27 @@
 </div>
         </div>
         
+<!-- Pull to Refresh Indicator -->
+        <div id="pull-refresh-indicator" style="
+            position: fixed;
+            top: -60px;
+            left: 0;
+            right: 0;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: top 0.3s ease;
+            z-index: 9998;
+        ">
+            <div style="text-align: center;">
+                <div id="pull-refresh-icon" style="font-size: 1.5em; margin-bottom: 5px;">↓</div>
+                <div id="pull-refresh-text" style="font-size: 0.85em; color: #666;">Pull to refresh</div>
+            </div>
+        </div>
+
         <div class="bottom-nav">
             <div class="nav-item active" onclick="showPage('circles')"><div class="nav-icon">👥</div><div class="nav-label">Circles</div></div>
             <div class="nav-item" onclick="showPage('activities')"><div class="nav-icon">🎯</div><div class="nav-label">Activities</div></div>
@@ -5479,6 +5500,9 @@ if (pageId === 'matches') {
 }
 
         async function initApp() {
+    // Show loader immediately while checking auth
+    showLoader('Loading...');
+    
     await loadDefaultActivities();
     const urlParams = new URLSearchParams(window.location.search);
     const inviteCode = urlParams.get('invite_code');
@@ -5544,15 +5568,19 @@ if (pageId === 'matches') {
             updateProfile();
             await processInviteCode();
             
+            hideLoader(); // Hide loader after everything loads
+            
         } catch (error) {
             console.error('Error loading profile:', error);
             await supabase.auth.signOut();
+            hideLoader();
             showOnboarding();
         }
     } else {
         // No authenticated session, show onboarding
         currentUser = null;
         localStorage.removeItem('friendle_user');
+        hideLoader();
         showOnboarding();
     }
 }
@@ -5592,6 +5620,116 @@ async function showOnboarding() {
     }
     
     showPage('onboarding');
+}
+
+// Pull-to-Refresh functionality
+let pullStartY = 0;
+let pullMoveY = 0;
+let isPulling = false;
+let pullThreshold = 80; // pixels to pull before refresh triggers
+
+function initPullToRefresh() {
+    const indicator = document.getElementById('pull-refresh-indicator');
+    const icon = document.getElementById('pull-refresh-icon');
+    const text = document.getElementById('pull-refresh-text');
+    
+    document.addEventListener('touchstart', (e) => {
+        // Only allow pull at top of page
+        if (window.scrollY === 0) {
+            pullStartY = e.touches[0].clientY;
+            isPulling = true;
+        }
+    });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (!isPulling) return;
+        
+        pullMoveY = e.touches[0].clientY;
+        const pullDistance = pullMoveY - pullStartY;
+        
+        // Only respond to downward pulls
+        if (pullDistance > 0) {
+            // Prevent default scroll
+            if (window.scrollY === 0) {
+                e.preventDefault();
+            }
+            
+            // Calculate indicator position (with resistance)
+            const indicatorTop = Math.min(pullDistance * 0.5, 60);
+            indicator.style.top = (indicatorTop - 60) + 'px';
+            
+            // Update icon and text based on pull distance
+            if (pullDistance > pullThreshold) {
+                icon.textContent = '↻';
+                icon.style.transform = 'rotate(180deg)';
+                text.textContent = 'Release to refresh';
+                text.style.color = '#667eea';
+            } else {
+                icon.textContent = '↓';
+                icon.style.transform = 'rotate(0deg)';
+                text.textContent = 'Pull to refresh';
+                text.style.color = '#666';
+            }
+        }
+    }, { passive: false });
+    
+    document.addEventListener('touchend', async (e) => {
+        if (!isPulling) return;
+        
+        const pullDistance = pullMoveY - pullStartY;
+        
+        if (pullDistance > pullThreshold) {
+            // Trigger refresh
+            icon.textContent = '⟳';
+            icon.style.animation = 'spin 1s linear infinite';
+            text.textContent = 'Refreshing...';
+            
+            // Determine which page to refresh
+            const activePage = document.querySelector('.page.active').id;
+            
+            try {
+                if (activePage === 'matches') {
+                    await loadMatches();
+                } else if (activePage === 'circles') {
+                    await renderCircles();
+                } else if (activePage === 'activities') {
+                    await renderActivities();
+                }
+                
+                // Brief success state
+                icon.textContent = '✓';
+                icon.style.animation = 'none';
+                text.textContent = 'Refreshed!';
+                
+                setTimeout(() => {
+                    resetPullIndicator();
+                }, 500);
+            } catch (error) {
+                console.error('Error refreshing:', error);
+                resetPullIndicator();
+            }
+        } else {
+            // Didn't pull far enough - reset
+            resetPullIndicator();
+        }
+        
+        isPulling = false;
+        pullStartY = 0;
+        pullMoveY = 0;
+    });
+}
+
+function resetPullIndicator() {
+    const indicator = document.getElementById('pull-refresh-indicator');
+    const icon = document.getElementById('pull-refresh-icon');
+    const text = document.getElementById('pull-refresh-text');
+    
+    indicator.style.top = '-60px';
+    icon.textContent = '↓';
+    icon.style.transform = 'rotate(0deg)';
+    icon.style.animation = 'none';
+    text.textContent = 'Pull to refresh';
+    text.style.color = '#666';
 }
 
 // Global error handlers - catch unexpected errors
@@ -5636,6 +5774,9 @@ window.addEventListener('offline', () => {
 // ✅ Run after DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   console.log("DOM ready, attaching avatar clicks...");
+  
+  // Initialize pull-to-refresh
+  initPullToRefresh();
 
   const avatars = document.querySelectorAll(".avatar-option");
   console.log("Found avatars:", avatars.length);
