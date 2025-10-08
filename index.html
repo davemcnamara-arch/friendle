@@ -5626,7 +5626,8 @@ async function showOnboarding() {
 let pullStartY = 0;
 let pullMoveY = 0;
 let isPulling = false;
-let pullThreshold = 80; // pixels to pull before refresh triggers
+let pullThreshold = 100; // pixels to pull before refresh triggers (increased from 80)
+let pullStartThreshold = 30; // minimum pull distance before we start showing indicator
 
 function initPullToRefresh() {
     const indicator = document.getElementById('pull-refresh-indicator');
@@ -5634,10 +5635,16 @@ function initPullToRefresh() {
     const text = document.getElementById('pull-refresh-text');
     
     document.addEventListener('touchstart', (e) => {
-        // Only allow pull at top of page
-        if (window.scrollY === 0) {
-            pullStartY = e.touches[0].clientY;
-            isPulling = true;
+        // Only allow pull at top of page AND in scrollable containers
+        const target = e.target;
+        const scrollableParent = target.closest('.page, .chat-messages');
+        
+        if (scrollableParent) {
+            // Check if at top of scrollable container
+            if (scrollableParent.scrollTop === 0 && window.scrollY === 0) {
+                pullStartY = e.touches[0].clientY;
+                isPulling = true;
+            }
         }
     });
     
@@ -5647,15 +5654,17 @@ function initPullToRefresh() {
         pullMoveY = e.touches[0].clientY;
         const pullDistance = pullMoveY - pullStartY;
         
-        // Only respond to downward pulls
-        if (pullDistance > 0) {
-            // Prevent default scroll
-            if (window.scrollY === 0) {
+        // Only respond to downward pulls that exceed the start threshold
+        if (pullDistance > pullStartThreshold) {
+            // Prevent default scroll only when we're actually pulling
+            const target = e.target;
+            const scrollableParent = target.closest('.page, .chat-messages');
+            if (scrollableParent && scrollableParent.scrollTop === 0 && window.scrollY === 0) {
                 e.preventDefault();
             }
             
-            // Calculate indicator position (with resistance)
-            const indicatorTop = Math.min(pullDistance * 0.5, 60);
+            // Calculate indicator position (with more resistance)
+            const indicatorTop = Math.min((pullDistance - pullStartThreshold) * 0.4, 60);
             indicator.style.top = (indicatorTop - 60) + 'px';
             
             // Update icon and text based on pull distance
