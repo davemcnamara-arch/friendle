@@ -5699,6 +5699,7 @@ function initPullToRefresh() {
                 // Brief success state
                 icon.textContent = '✓';
                 icon.style.animation = 'none';
+                icon.style.transform = 'rotate(0deg)'; // Reset rotation for checkmark
                 text.textContent = 'Refreshed!';
                 
                 setTimeout(() => {
