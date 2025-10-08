@@ -752,6 +752,17 @@
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2V3a2piaHh0ZnFieXRmdGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NTE4ODQsImV4cCI6MjA3NDQyNzg4NH0.-A-7VOQWOaQqYOO6NxiKxGywddfS-pmwvzHISJqz2AQ";
 
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  
+  // Add global Supabase error handler
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      console.log('User signed out');
+    } else if (event === 'TOKEN_REFRESHED') {
+      console.log('Token refreshed');
+    } else if (event === 'USER_UPDATED') {
+      console.log('User updated');
+    }
+  });
 </script>
 
 </head>
@@ -1091,7 +1102,38 @@
     </div>
 </div>
 
+<!-- Match Notification Modal -->
+<div class="modal-overlay" id="match-notification-modal" style="z-index: 10000;">
+    <div class="modal-content" style="max-width: 350px; text-align: center; animation: slideUp 0.3s ease-out;">
+        <div style="font-size: 4em; margin-bottom: 15px; animation: bounce 0.6s ease-in-out;">🎉</div>
+        <div style="font-size: 1.5em; font-weight: 700; color: #667eea; margin-bottom: 10px;">It's a Match!</div>
+        <div id="match-notification-activity" style="font-size: 2em; margin-bottom: 15px;">🎯</div>
+        <div id="match-notification-text" style="color: #666; margin-bottom: 20px; line-height: 1.6;"></div>
+        <button class="btn" onclick="joinMatchFromNotification()" style="margin-bottom: 10px; background: #4CAF50;">✓ Join Match</button>
+        <button class="btn btn-secondary" onclick="closeMatchNotification()">Keep Swiping</button>
+    </div>
+</div>
+
+<style>
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+</style>
+
     <script>
+
         // App State
         let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false;
 
@@ -2103,8 +2145,30 @@ async function animateSwipeRight(card, activity) {
     activityCounts[activity.id] = (activityCounts[activity.id] || 0) + 1;
     localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
     
+    // Check if match exists and get other interested users
+    const { data: existingMatch } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('circle_id', selectedCircle.id)
+        .eq('activity_id', activity.id)
+        .single();
+    
+    if (existingMatch) {
+        // Get other users interested in this activity
+        const { data: otherParticipants } = await supabase
+            .from('match_participants')
+            .select('profile_id, profiles(id, name, avatar)')
+            .eq('match_id', existingMatch.id)
+            .neq('profile_id', currentUser.id);
+        
+        const otherUsers = otherParticipants?.map(p => p.profiles) || [];
+        
+        // Show match notification
+        showMatchNotification(activity, existingMatch.id, otherUsers);
+    }
+    
     console.log('Calling loadMatches...');
-    // Just reload matches to see any changes - don't call checkForMatches which auto-joins everything
+    // Reload matches to see any changes
     loadMatches();
     
     setTimeout(() => {
@@ -3177,7 +3241,11 @@ const upcomingEvents = events.filter(e =>
         (match.participant_names ? 
             (match.participant_names.length <= 3 ? 
                 match.participant_names.join(', ') : 
-                match.participant_names.slice(0, 3).join(', ') + `, and ${match.participant_names.length - 3} other${match.participant_names.length - 3 > 1 ? 's' : ''}`
+                (() => {
+                    const hiddenNames = match.participant_names.slice(3).join('\\n');
+                    return match.participant_names.slice(0, 3).join(', ') + 
+                        `, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('Also interested:\\n\\n${hiddenNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${match.participant_names.length - 3} other${match.participant_names.length - 3 > 1 ? 's' : ''}</a>`;
+                })()
             ) : 
             'Loading participants...')
     }
@@ -4981,6 +5049,81 @@ window.sharePhoto = function() {
     input.click();
 }
 
+// Match notification functions
+let currentMatchNotification = null;
+
+function showMatchNotification(activity, matchId, otherUsers) {
+    currentMatchNotification = matchId;
+    
+    // Set activity emoji
+    document.getElementById('match-notification-activity').textContent = activity.emoji + ' ' + activity.name;
+    
+    // Set message based on whether others are interested
+    let messageHTML = '';
+    if (otherUsers && otherUsers.length > 0) {
+        if (otherUsers.length === 1) {
+            messageHTML = `${otherUsers[0].name} is also interested! Start chatting to plan something.`;
+        } else if (otherUsers.length === 2) {
+            messageHTML = `${otherUsers[0].name} and ${otherUsers[1].name} are also interested! Start planning together.`;
+        } else {
+            const hiddenUsers = otherUsers.slice(2);
+            const hiddenNames = hiddenUsers.map(u => u.name).join(', ');
+            messageHTML = `${otherUsers[0].name}, ${otherUsers[1].name}, and <a href="#" onclick="event.preventDefault(); alert('Also interested:\\n\\n${hiddenNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${otherUsers.length - 2} other${otherUsers.length - 2 > 1 ? 's' : ''}</a> are interested! Let's make it happen.`;
+        }
+    } else {
+        messageHTML = `You're the first one interested! Others in your circle will see this and can join.`;
+    }
+    
+    document.getElementById('match-notification-text').innerHTML = messageHTML;
+    document.getElementById('match-notification-modal').style.display = 'flex';
+}
+
+window.closeMatchNotification = function() {
+    document.getElementById('match-notification-modal').style.display = 'none';
+    currentMatchNotification = null;
+}
+
+window.joinMatchFromNotification = async function() {
+    if (!currentMatchNotification) {
+        closeMatchNotification();
+        return;
+    }
+    
+    showLoader('Joining match...');
+    
+    try {
+        // Add user to match participants
+        const { error } = await supabase
+            .from('match_participants')
+            .insert([{ 
+                match_id: currentMatchNotification, 
+                profile_id: currentUser.id 
+            }]);
+        
+        if (error) {
+            // If error is duplicate key (user already joined), that's fine
+            if (error.code !== '23505') {
+                throw error;
+            }
+        }
+        
+        closeMatchNotification();
+        hideLoader();
+        
+        // Reload matches and go to matches page
+        await loadMatches();
+        showPage('matches');
+        
+        showNotification('Joined match! You can now chat and schedule events.');
+        
+    } catch (error) {
+        hideLoader();
+        closeMatchNotification();
+        console.error('Error joining match:', error);
+        showNotification('Error joining match', 'error');
+    }
+}
+
 function openLocationPermissionModal() {
     document.getElementById('location-permission-modal').style.display = 'flex';
 }
@@ -5451,6 +5594,45 @@ async function showOnboarding() {
     showPage('onboarding');
 }
 
+// Global error handlers - catch unexpected errors
+window.addEventListener('error', (event) => {
+    console.error('Global error caught:', event.error);
+    
+    // Don't show notification for script loading errors (external resources)
+    if (event.message && event.message.includes('Script error')) {
+        return;
+    }
+    
+    // Show user-friendly error message
+    showNotification('Something went wrong. Please refresh the page if issues persist.', 'error');
+    
+    // Hide any active loaders
+    hideLoader();
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    
+    // Show user-friendly error message
+    showNotification('An error occurred. Please try again.', 'error');
+    
+    // Hide any active loaders
+    hideLoader();
+    
+    // Prevent default browser console error
+    event.preventDefault();
+});
+
+// Detect network connectivity issues
+window.addEventListener('online', () => {
+    showNotification('Connection restored!');
+});
+
+window.addEventListener('offline', () => {
+    showNotification('No internet connection. Some features may not work.', 'error');
+    hideLoader(); // Hide any pending loaders
+});
+
 // ✅ Run after DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   console.log("DOM ready, attaching avatar clicks...");
@@ -5499,15 +5681,19 @@ circleActivities?.forEach(ca => {
         
         const grid = document.getElementById('manage-activities-grid');
         
-        // Create sections for core and extended activities
+        // Create sections for core, extended, and custom activities
         grid.innerHTML = `
     <div style="margin-bottom: 30px;">
         <h3 style="margin-bottom: 15px; color: #555; font-size: 1.1em; font-weight: 600; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px;">Core Activities</h3>
         <div class="activities-grid" id="core-activities-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
     </div>
-    <div>
+    <div style="margin-bottom: 30px;">
         <h3 style="margin-bottom: 15px; color: #555; font-size: 1.1em; font-weight: 600; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px;">Additional Activities</h3>
         <div class="activities-grid" id="extended-activities-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
+    </div>
+    <div>
+        <h3 style="margin-bottom: 15px; color: #555; font-size: 1.1em; font-weight: 600; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px;">Custom Activities</h3>
+        <div id="custom-activities-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
     </div>
 `;
         
@@ -5554,6 +5740,47 @@ extendedActivitiesArray.forEach(activity => {
     `;
     extendedGrid.appendChild(card);
 });
+
+        // Load and display custom activities
+        const { data: customActivities, error: customError } = await supabase
+            .from('activities')
+            .select('*')
+            .eq('circle_id', selectedCircle.id)
+            .order('name');
+        
+        if (customError) {
+            console.error('Error loading custom activities:', customError);
+        }
+        
+        const customList = document.getElementById('custom-activities-list');
+        
+        if (!customActivities || customActivities.length === 0) {
+            customList.innerHTML = '<p style="color: #999; font-size: 14px; padding: 10px; text-align: center;">No custom activities yet. Use "Suggest a New Activity" to add one.</p>';
+        } else {
+            customActivities.forEach(activity => {
+                const item = document.createElement('div');
+                item.style.cssText = `
+                    display: flex;
+                    gap: 10px;
+                    align-items: center;
+                    padding: 12px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                    border: 2px solid #e1e5e9;
+                `;
+               item.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span style="font-size: 1.5em;">${activity.emoji}</span>
+                        <span style="flex: 1; font-weight: 500;">${activity.name}</span>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="event.stopPropagation(); editCustomActivity('${activity.id}', '${activity.name.replace(/'/g, "\\'")}', '${activity.emoji}')" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; flex: 1;">✏️ Edit</button>
+                        <button onclick="event.stopPropagation(); deleteCustomActivity('${activity.id}', '${activity.name.replace(/'/g, "\\'")}');" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; background: #dc3545; color: white; flex: 1;">🗑️ Delete</button>
+                    </div>
+                `;
+                customList.appendChild(item);
+            });
+        }
         
         document.getElementById('manage-activities-modal-overlay').style.display = 'flex';
         
@@ -5564,6 +5791,92 @@ extendedActivitiesArray.forEach(activity => {
 
 window.closeManageActivitiesModal = () => {
     document.getElementById('manage-activities-modal-overlay').style.display = 'none';
+}
+
+window.editCustomActivity = async function(activityId, currentName, currentEmoji) {
+    const newName = prompt('Edit activity name:', currentName);
+    
+    if (!newName || newName.trim() === currentName) {
+        return; // User cancelled or no change
+    }
+    
+    try {
+        showLoader('Updating activity...');
+        
+        const { error } = await supabase
+            .from('activities')
+            .update({ name: newName.trim() })
+            .eq('id', activityId)
+            .eq('circle_id', selectedCircle.id); // Safety check - only edit activities in this circle
+        
+        if (error) throw error;
+        
+        hideLoader();
+        showNotification('Activity updated!');
+        
+        // Refresh the modal
+        openManageActivitiesModal();
+        
+        // Refresh activities if on activities page
+        if (document.getElementById('activities').classList.contains('active')) {
+            renderActivities();
+        }
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error editing activity:', error);
+        showNotification('Error updating activity', 'error');
+    }
+}
+
+window.deleteCustomActivity = async function(activityId, activityName) {
+    if (!confirm(`Delete "${activityName}"?\n\nThis will remove it for all circle members and delete any associated preferences.`)) {
+        return;
+    }
+    
+    try {
+        showLoader('Deleting activity...');
+        
+        // First delete any preferences for this activity
+        const { error: prefError } = await supabase
+            .from('preferences')
+            .delete()
+            .eq('activity_id', activityId)
+            .eq('circle_id', selectedCircle.id);
+        
+        if (prefError) throw prefError;
+        
+        // Then delete the activity itself
+        const { error: activityError } = await supabase
+            .from('activities')
+            .delete()
+            .eq('id', activityId)
+            .eq('circle_id', selectedCircle.id); // Safety check
+        
+        if (activityError) throw activityError;
+        
+        // Remove from local activities array if present
+        const index = activities.findIndex(a => a.id === activityId);
+        if (index > -1) {
+            activities.splice(index, 1);
+        }
+        
+        hideLoader();
+        showNotification('Activity deleted!');
+        
+        // Refresh the modal
+        openManageActivitiesModal();
+        
+        // Refresh activities if on activities page
+        if (document.getElementById('activities').classList.contains('active')) {
+            renderActivities();
+        }
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error deleting activity:', error);
+        showNotification('Error deleting activity', 'error');
+    }
 }
 
 window.toggleActivityVisibility = function(card, activityId) {
