@@ -812,6 +812,9 @@
         <div class="form-group"><label for="login-password">Password</label><input type="password" id="login-password" placeholder="Enter your password"></div>
         <button class="btn" onclick="signIn()">Sign In</button>
         <button class="btn btn-secondary" onclick="showRegister()">Create Account</button>
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="#" onclick="showForgotPassword(); return false;" style="color: #667eea; text-decoration: underline; font-size: 0.9em;">Forgot password?</a>
+        </div>
     </div>
     
     <div id="register-form" style="display: none;">
@@ -827,6 +830,12 @@
     Already have an account?
 </div>
 <button class="btn btn-secondary" onclick="showLogin()">Sign In</button>
+    </div>
+    
+    <div id="forgot-password-form" style="display: none;">
+        <div class="form-group"><label for="reset-email">Email</label><input type="email" id="reset-email" placeholder="Enter your email"></div>
+        <button class="btn" onclick="sendPasswordReset()">Send Reset Link</button>
+        <button class="btn btn-secondary" onclick="showLogin()">Back to Sign In</button>
     </div>
 </div>
             <div id="circles" class="page">
@@ -1156,7 +1165,7 @@
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], messages = {}, currentChatMatch = null, undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false;
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false;
 
 
 // UUID Generator
@@ -1170,12 +1179,48 @@
 // Authentication functions
 function showRegister() {
     document.getElementById('login-form').style.display = 'none';
+    document.getElementById('forgot-password-form').style.display = 'none';
     document.getElementById('register-form').style.display = 'block';
 }
 
 function showLogin() {
     document.getElementById('register-form').style.display = 'none';
+    document.getElementById('forgot-password-form').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
+}
+
+function showForgotPassword() {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('forgot-password-form').style.display = 'block';
+}
+
+async function sendPasswordReset() {
+    const email = document.getElementById('reset-email').value.trim();
+    
+    if (!email) {
+        return showNotification('Please enter your email address', 'error');
+    }
+    
+    try {
+        showLoader('Sending reset link...');
+        
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + '/reset-password'
+        });
+        
+        if (error) throw error;
+        
+        hideLoader();
+        showNotification('Password reset link sent! Check your email.');
+        showLogin();
+        document.getElementById('reset-email').value = '';
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Password reset error:', error);
+        showNotification(error.message || 'Error sending reset link', 'error');
+    }
 }
 
 window.showWelcomeFromOnboarding = function() {
@@ -3480,295 +3525,16 @@ window.markActivityAsToday = async function(activityId, matchId) {
         showNotification('Error updating availability', 'error');
     }
 }
-        
-async function sendMessageToSupabase(matchId, content, type = 'text', extraData = {}) {
-    try {
-        const { data, error } = await supabase
-            .from('messages')
-            .insert([{
-                match_id: matchId,
-                sender_id: currentUser.id,
-                content: content,
-                type: type,
-                lat: extraData.lat || null,
-                lng: extraData.lng || null
-            }])
-            .select(`
-                *,
-                profiles(id, name, avatar)
-            `)
-            .single();
 
-        if (error) throw error;
-        return data;
-    } catch (error) {
-        console.error('Error sending message:', error);
-        return null;
-    }
-}
-
-// Load messages from Supabase for a match
-async function loadMessagesFromSupabase(matchId) {
-    try {
-        const { data, error } = await supabase
-            .from('messages')
-            .select(`
-                *,
-                profiles(id, name, avatar)
-            `)
-            .eq('match_id', matchId)
-            .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        return data || [];
-    } catch (error) {
-        console.error('Error loading messages:', error);
-        return [];
-    }
-}
-
-        // Chat System
-        window.openChat = async function(match) {
-    currentChatMatch = matches.find(m => m.id === match.id);
-    if(currentChatMatch) currentChatMatch.isRead = true;
-    
-    // Set chat header for group or individual chat
-    const chatName = currentChatMatch.isGroupChat ? 
-        `${currentChatMatch.activity.name} Group` : 
-        currentChatMatch.users[0].name;
-    
-    const chatAvatar = currentChatMatch.isGroupChat ? 
-        currentChatMatch.activity.emoji : 
-        currentChatMatch.users[0].avatar;
-    
-    document.getElementById('chat-name').textContent = chatName;
-    document.getElementById('chat-avatar').textContent = chatAvatar;
-    
-    // Update subtitle for group chats
-    const subtitle = currentChatMatch.isGroupChat ? 
-        `${currentChatMatch.users.length + 1} members: You, ${currentChatMatch.users.map(u => u.name).join(', ')}` :
-        currentChatMatch.activity.name;
-    
-    document.getElementById('chat-activity').textContent = subtitle;
-
-    // Load messages from Supabase
-    const supabaseMessages = await loadMessagesFromSupabase(currentChatMatch.id);
-    
-    // Convert Supabase messages to your existing format
-messages[currentChatMatch.id] = supabaseMessages.map(msg => ({
-    id: msg.id,
-    sender: msg.profiles.name,
-    sender_id: msg.sender_id,  // ADD THIS LINE
-    content: msg.content,
-    type: msg.type,
-    lat: msg.lat,
-    lng: msg.lng,
-    created_at: msg.created_at,
-    isRead: true
-}));
-
-    renderChatMessages(); 
-    showPage('chat');
-    
-    // Set up real-time subscription for this chat
-    setupRealtimeMessages(currentChatMatch.id);
-    
-    localStorage.setItem('friendle_current_chat', JSON.stringify(currentChatMatch));
-// Messages now loaded from Supabase, no need to cache JSON.stringify(currentChatMatch));    
-updateNotificationBadge();
-}
-
-window.leaveChat = async function() {
-    // Clean up real-time subscription
-    cleanupRealtimeMessages();
-    localStorage.removeItem('friendle_current_chat');
-    
-    if (!confirm('Change of plans? You can rejoin by reselecting this activity.')) {
-        return;
-    }
-    
-    try {
-        // Remove user from match participants
-        const { error: deleteError } = await supabase
-            .from('match_participants')
-            .delete()
-            .eq('match_id', currentChatMatch.id)
-            .eq('profile_id', currentUser.id);
-        
-        if (deleteError) throw deleteError;
-        
-        // Also remove this activity from user's preferences
-        const { error: prefError } = await supabase
-            .from('preferences')
-            .delete()
-            .eq('profile_id', currentUser.id)
-            .eq('circle_id', currentChatMatch.circleId)
-            .eq('activity_id', currentChatMatch.activity.id);
-        
-        if (prefError) throw prefError;
-        
-        // Update local activities array to remove this activity
-        const activityIndex = activities.findIndex(a => a.id === currentChatMatch.activity.id);
-        if (activityIndex > -1) {
-            activities.splice(activityIndex, 1);
-        }
-        
-        // Remove from local matches array
-        const matchIndex = matches.findIndex(m => m.id === currentChatMatch.id);
-        if (matchIndex > -1) {
-            matches.splice(matchIndex, 1);
-        }
-        
-        showNotification('You left the chat');
-        showPage('matches');
-        renderMatches();
-        
-    } catch (error) {
-        console.error('Error leaving chat:', error);
-        showNotification('Error leaving chat', 'error');
-    }
-}
-        function renderChatMessages() {
-    const chatMessages = document.getElementById('chat-messages');
-    chatMessages.innerHTML = '';
-    (messages[currentChatMatch.id] || []).forEach(msg => {
-        const div = document.createElement('div');
-        
-        // Determine if this message is from current user by comparing IDs
-        const isOwnMessage = msg.sender_id === currentUser.id;
-        
-        div.className = `message ${isOwnMessage ? 'own' : ''} ${msg.type === 'system' ? 'system' : ''}`;
-        let bubble = '';
-        if (msg.type === 'photo') bubble = `<img src="${msg.content}" class="message-photo" onclick="openImageModal('${msg.content}')">`;
-        else if (msg.type === 'location') bubble = `<div class="message-location" onclick="openMap(${msg.lat}, ${msg.lng})">📍 Location Shared</div>`;
-        else if (msg.type === 'text') bubble = `<div class="message-bubble">${msg.content}</div>`;
-        else { div.textContent = msg.content; }
-        
-        if (msg.type !== 'system') {
-            const senderName = isOwnMessage ? 'You' : msg.sender;
-            const avatar = isOwnMessage ? currentUser.avatar : (currentChatMatch.users.find(u => u.name === msg.sender)?.avatar || '👤');
-            
-            const timestamp = msg.created_at ? 
-                new Date(msg.created_at + 'Z').toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
-
-            div.innerHTML = `
-                <div class="message-avatar">${avatar}</div>
-                <div class="message-content">
-                    <div class="message-sender">${senderName}${timestamp ? '<span class="message-timestamp">' + timestamp + '</span>' : ''}</div>
-                    ${bubble}
-                </div>`;
-            
-            // Add message actions using DOM manipulation for own messages
-            if (isOwnMessage) {
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'message-actions';
-                
-                const actionsBtn = document.createElement('button');
-                actionsBtn.className = 'message-actions-btn';
-                actionsBtn.textContent = '...';
-                actionsBtn.onclick = () => toggleMessageActions(msg.id);
-                
-                const actionsMenu = document.createElement('div');
-                actionsMenu.className = 'message-actions-menu';
-                actionsMenu.id = `menu-${msg.id}`;
-                
-                const editBtn = document.createElement('button');
-                editBtn.textContent = 'Edit';
-                editBtn.onclick = () => editMessage(msg.id);
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = () => deleteMessage(msg.id);
-                
-                actionsMenu.appendChild(editBtn);
-                actionsMenu.appendChild(deleteBtn);
-                actionsDiv.appendChild(actionsBtn);
-                actionsDiv.appendChild(actionsMenu);
-                div.appendChild(actionsDiv);
-            }
-        }
-        chatMessages.appendChild(div);
-    });
-    // Force scroll after DOM updates
-setTimeout(() => {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}, 100);
-    const banner = document.getElementById('scheduled-event-banner-container');
-    banner.innerHTML = currentChatMatch.scheduledDate ? `<div class="scheduled-event-banner">🗓️ Event scheduled for ${new Date(currentChatMatch.scheduledDate).toLocaleDateString()}</div>` : '';
-}
         window.sendMessage = async function() {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
-    // Check if we're in match chat, event chat, or old-style match chat
+    // Check if we're in match chat or event chat
     if (currentMatchChat || currentEvent) {
         // Use unified message function for both match chat and event chat
         const fakeEvent = { preventDefault: () => {} };
         await sendEventMessage(fakeEvent);
-    } else if (currentChatMatch) {
-        // Old match chat logic (keep for backward compatibility)
-        console.log('Sending message, current user:', currentUser);
-        
-        const savedMessage = await sendMessageToSupabase(currentChatMatch.id, input.value.trim(), 'text');
-        
-        if (savedMessage) {
-            const message = {
-                id: savedMessage.id,
-                sender: currentUser.name,
-                sender_id: currentUser.id,
-                content: savedMessage.content,
-                type: savedMessage.type,
-                lat: savedMessage.lat,
-                lng: savedMessage.lng,
-                created_at: savedMessage.created_at,
-                isRead: true
-            };
-            
-            if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
-            messages[currentChatMatch.id].push(message);
-            
-            const channel = supabase.channel(`match_${currentChatMatch.id}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'new_message',
-                payload: {
-                    id: savedMessage.id,
-                    sender_id: currentUser.id,
-                    sender_name: currentUser.name,
-                    content: savedMessage.content,
-                    type: savedMessage.type,
-                    lat: savedMessage.lat,
-                    lng: savedMessage.lng,
-                    created_at: savedMessage.created_at
-                }
-            });
-
-            renderChatMessages();
-        }
-        
-        input.value = '';
-    }
-}
-        async function addMessage(content, type, extraData = {}) {
-    // Send to Supabase
-    const savedMessage = await sendMessageToSupabase(currentChatMatch.id, content, type, extraData);
-    
-    if (savedMessage) {
-        // Add to local messages for immediate display
-        const message = {
-            id: savedMessage.id,
-            sender: currentUser.name,
-            content: savedMessage.content,
-            type: savedMessage.type,
-            lat: savedMessage.lat,
-            lng: savedMessage.lng,
-            isRead: true
-        };
-        
-        if (!messages[currentChatMatch.id]) messages[currentChatMatch.id] = [];
-        messages[currentChatMatch.id].push(message);
-        
-        renderChatMessages();
     }
 }
         
@@ -3939,53 +3705,6 @@ window.deleteEventMessage = async function(msgId) {
     } catch (error) {
         console.error('Error deleting message:', error);
         showNotification('Failed to delete message', 'error');
-    }
-}
-        window.editMessage = async function(msgId) {
-    const message = messages[currentChatMatch.id].find(m => m.id === msgId);
-    const newContent = prompt('Edit your message:', message.content);
-    if (newContent) {
-        try {
-            const { error } = await supabase
-                .from('messages')
-                .update({ content: newContent })
-                .eq('id', msgId)
-                .eq('sender_id', currentUser.id); // Only allow editing own messages
-
-            if (error) throw error;
-
-            // Update local message
-            message.content = newContent;
-            localStorage.setItem('friendle_messages', JSON.stringify(messages));
-            renderChatMessages();
-        } catch (error) {
-            console.error('Error editing message:', error);
-            showNotification('Error editing message', 'error');
-        }
-    }
-}
-        window.deleteMessage = async function(msgId) {
-    if (!confirm('Delete this message?')) return;
-    
-    try {
-        const { error } = await supabase
-            .from('messages')
-            .delete()
-            .eq('id', msgId)
-            .eq('sender_id', currentUser.id); // Only allow deleting own messages
-
-        if (error) throw error;
-
-        // Remove from local messages
-        const index = messages[currentChatMatch.id].findIndex(m => m.id === msgId);
-        if (index > -1) {
-            messages[currentChatMatch.id].splice(index, 1);
-            localStorage.setItem('friendle_messages', JSON.stringify(messages));
-            renderChatMessages();
-        }
-    } catch (error) {
-        console.error('Error deleting message:', error);
-        showNotification('Error deleting message', 'error');
     }
 }
 
@@ -5445,12 +5164,6 @@ if (pageId !== 'chat') {
     document.getElementById('event-details').style.display = 'block';
 }
     
-    // Clear current chat match when leaving chat page
-    if (pageId !== 'chat') {
-        currentChatMatch = null;
-        localStorage.removeItem('friendle_current_chat');
-    }
-    
     localStorage.setItem('friendle_current_page', pageId);
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
@@ -5541,25 +5254,7 @@ if (pageId === 'matches') {
             
             const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
 
-            if (lastPage === 'chat') {
-                const savedChat = localStorage.getItem('friendle_current_chat');
-                if (savedChat) {
-                    try {
-                        const chatMatch = JSON.parse(savedChat);
-                        const foundMatch = matches.find(m => m.id === chatMatch.id);
-                        if (foundMatch) {
-                            await openChat(foundMatch);
-                        } else {
-                            showPage('circles');
-                        }
-                    } catch (e) {
-                        console.error('Error restoring chat:', e);
-                        showPage('circles');
-                    }
-                } else {
-                    showPage('circles');
-                }
-            } else if (lastPage === 'activities' && !selectedCircle) {
+            if (lastPage === 'activities' && !selectedCircle) {
                 showPage('circles');
             } else {
                 showPage(lastPage);
@@ -6102,70 +5797,6 @@ function showNotificationAlert(title, body) {
         
     } catch (error) {
         console.error('Error creating notification:', error);
-    }
-}
-
-// Real-time messaging subscription
-let messageSubscription = null;
-
-function setupRealtimeMessages(matchId) {
-    
-    // Clean up existing subscription
-    if (messageSubscription) {
-        supabase.removeChannel(messageSubscription);
-        const index = allActiveSubscriptions.indexOf(messageSubscription);
-        if (index > -1) allActiveSubscriptions.splice(index, 1);
-    }
-    
-    // Use Realtime Presence/Broadcast instead of postgres_changes
-    messageSubscription = supabase
-        .channel(`match_${matchId}`)
-        .on('broadcast', { event: 'new_message' }, (payload) => {
-            
-            // Don't duplicate messages we sent ourselves
-            if (payload.payload.sender_id === currentUser.id) {
-                return;
-            }
-            
-            // Add to local messages array
-            const newMessage = {
-                id: payload.payload.id,
-                sender: payload.payload.sender_name,
-                sender_id: payload.payload.sender_id,
-                content: payload.payload.content,
-                type: payload.payload.type,
-                lat: payload.payload.lat,
-                lng: payload.payload.lng,
-                created_at: payload.payload.created_at,
-                isRead: true
-            };
-            
-            if (!messages[matchId]) messages[matchId] = [];
-            messages[matchId].push(newMessage);
-            
-            // Always attempt notification for new messages
-            showNotificationAlert(
-                `New message from ${newMessage.sender}`,
-                newMessage.content
-            );
-            
-            // Update UI if we're viewing this chat
-            if (currentChatMatch && currentChatMatch.id === matchId) {
-                renderChatMessages();
-            }
-          
-        })
-        .subscribe((status) => {
-        });
-    
-    allActiveSubscriptions.push(messageSubscription);
-}
-
-function cleanupRealtimeMessages() {
-    if (messageSubscription) {
-        supabase.removeChannel(messageSubscription);
-        messageSubscription = null;
-        console.log('Unsubscribed from messages');
     }
 }
 
