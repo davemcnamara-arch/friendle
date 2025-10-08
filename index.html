@@ -5626,8 +5626,10 @@ async function showOnboarding() {
 let pullStartY = 0;
 let pullMoveY = 0;
 let isPulling = false;
-let pullThreshold = 100; // pixels to pull before refresh triggers (increased from 80)
-let pullStartThreshold = 30; // minimum pull distance before we start showing indicator
+let pullThreshold = 150; // Much higher threshold - need a very deliberate pull
+let pullStartThreshold = 60; // Don't even show indicator until 60px pull
+let pullStartTime = 0;
+let minPullDuration = 200; // Must pull for at least 200ms to prevent accidental triggers
 
 function initPullToRefresh() {
     const indicator = document.getElementById('pull-refresh-indicator');
@@ -5643,6 +5645,7 @@ function initPullToRefresh() {
             // Check if at top of scrollable container
             if (scrollableParent.scrollTop === 0 && window.scrollY === 0) {
                 pullStartY = e.touches[0].clientY;
+                pullStartTime = Date.now();
                 isPulling = true;
             }
         }
@@ -5663,8 +5666,8 @@ function initPullToRefresh() {
                 e.preventDefault();
             }
             
-            // Calculate indicator position (with more resistance)
-            const indicatorTop = Math.min((pullDistance - pullStartThreshold) * 0.4, 60);
+            // Calculate indicator position (with much more resistance)
+            const indicatorTop = Math.min((pullDistance - pullStartThreshold) * 0.25, 60);
             indicator.style.top = (indicatorTop - 60) + 'px';
             
             // Update icon and text based on pull distance
@@ -5686,8 +5689,10 @@ function initPullToRefresh() {
         if (!isPulling) return;
         
         const pullDistance = pullMoveY - pullStartY;
+        const pullDuration = Date.now() - pullStartTime;
         
-        if (pullDistance > pullThreshold) {
+        // Only trigger if pulled far enough AND held long enough
+        if (pullDistance > pullThreshold && pullDuration > minPullDuration) {
             // Trigger refresh
             icon.textContent = '⟳';
             icon.style.animation = 'spin 1s linear infinite';
