@@ -911,12 +911,6 @@
     <div class="header">
         <div class="logo">⭕ Matches</div>
         <div class="tagline">Who else wants to do what you want to do?</div>
-        <div style="margin-top: 15px;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #666;">
-                <input type="checkbox" id="show-past-events" checked onchange="window.renderMatches()">
-                Show past events
-            </label>
-        </div>
     </div>
     <div id="matches-list"></div>
 </div>
@@ -3853,61 +3847,6 @@ async function loadMatches() {
     }
 }
 
-window.renderMatches = function() {
-    const list = document.getElementById('matches-list');
-    const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
-    const searchTerm = document.getElementById('matches-search')?.value.toLowerCase() || '';
-    
-    // Filter matches based on toggle and search
-    let filteredMatches = matches;
-    
-    // This will be updated after we load events - for now just keep all matches
-let matchesToShow = filteredMatches;
-    
-    if (searchTerm) {
-        filteredMatches = filteredMatches.filter(match => {
-            const userName = match.users.map(u => u.name).join(' ').toLowerCase();
-            const activityName = match.activity?.name.toLowerCase() || '';
-            return userName.includes(searchTerm) || activityName.includes(searchTerm);
-        });
-    }
-    
-    // Filter by minimum group size
-    const minGroupSize = currentUser.minimum_group_size || 2;
-    filteredMatches = filteredMatches.filter(match => {
-        const totalParticipants = match.users.length + 1; // +1 for current user
-        return totalParticipants >= minGroupSize;
-    });
-    
-    if (filteredMatches.length === 0) {
-        const message = searchTerm ? 
-            'No matches found for your search.' :
-            (showPastEvents ? 'No matches yet.' : 'No upcoming events. Check "Show past events" to see completed activities.');
-        return list.innerHTML = `<div style="text-align: center; margin: 40px 0; color: #666;">${message}</div>`;
-    }
-    
-    list.innerHTML = filteredMatches.map(match => {
-        const title = match.isGroupChat ? 
-            `${match.activity.name} Group` : 
-            `${match.users[0].name} - ${match.activity.name}`;
-        
-        const members = match.isGroupChat ? 
-            `${match.users.length + 1} members` : 
-            'Chat ready';
-
-        return `
-        <div class="circle-card" onclick='openChat(${JSON.stringify(match)})'>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div style="font-size: 1.5em;">${match.activity.emoji}</div>
-                <div style="flex: 1;">
-                    <div class="circle-name">${title}</div>
-                    <div class="circle-members">${members}</div>
-                </div>
-                <div style="color: #667eea; font-size: 1.2em;">${!match.isRead ? '🔔' : (match.isGroupChat ? '👥' : '💬')}</div>
-            </div>
-        </div>`;
-    }).join('');
-}
         async function displayMatches() {
     const matchesList = document.getElementById('matches-list');
     const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
@@ -6208,13 +6147,6 @@ document.addEventListener("DOMContentLoaded", () => {
       option.classList.add("selected");
     });
   });
-
-const toggle = document.getElementById('show-past-events');
-  if (toggle) {
-    toggle.addEventListener('change', function() {
-      renderMatches();
-    });
-  }
 
 // Create event form submission
 document.getElementById('create-event-form').addEventListener('submit', createEvent);
