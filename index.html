@@ -928,6 +928,7 @@
         <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
         <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
     </div>
+    <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 8px; display: none;">📅 Add to Calendar</button>
     <button onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 8px;">Leave event</button>
     <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">⚙️</button>
 </div>
@@ -1165,7 +1166,7 @@
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false;
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null;
 
 
 // UUID Generator
@@ -1915,7 +1916,7 @@ async function populateCircleSelector() {
         await handleCircleChange(false);
     }
     
-    // Initialize swipe view if we're in swipe mode
+    // Initialize swipe view if we're in swipe mode AFTER circle is loaded
     if (viewMode === 'swipe' && selectedCircle) {
         await initializeSwipeView();
     }
@@ -1948,6 +1949,11 @@ window.handleCircleChange = async function(shouldScroll = true) {
     
     renderActivities();
     
+    // If in swipe mode, reinitialize swipe view
+    if (viewMode === 'swipe') {
+        await initializeSwipeView();
+    }
+    
     hideLoader();
     
     if (shouldScroll) {
@@ -1975,7 +1981,7 @@ window.switchToGridView = function() {
     renderActivities(); // Render grid view
 }
 
-window.switchToSwipeView = function() {
+window.switchToSwipeView = async function() {
     viewMode = 'swipe';
     document.getElementById('grid-view-container').style.display = 'none';
     document.getElementById('swipe-view-container').style.display = 'block';
@@ -1989,7 +1995,7 @@ window.switchToSwipeView = function() {
     // Hide save button in swipe mode
     document.getElementById('grid-save-button').style.display = 'none';
     
-    initializeSwipeView(); // Initialize swipe cards
+    await initializeSwipeView(); // Initialize swipe cards
 }
 
 // Swipe view state
@@ -2834,7 +2840,6 @@ window.setActivityMode = async function(activityId, isToday) {
             document.getElementById('undo-container').style.display = 'none';
             clearTimeout(undoTimeout);
         }
-// Replace your findMatches function with this version:
 async function findMatches(circleId) {
     try {
         // Get current user's preferences
@@ -2845,10 +2850,10 @@ async function findMatches(circleId) {
 
         const groupMatches = [];
 
-        // For each activity the user likes, find or create a group match
+        // For each activity the user likes, find or create a match
         for (const activityId of userPrefs) {
             
-            // Check if a group match already exists for this activity in this circle
+            // Check if a match already exists for this activity in this circle
             const { data: existingMatches, error: matchError } = await supabase
                 .from('matches')
                 .select('id, circle_id, activity_id, created_at')
@@ -2860,32 +2865,17 @@ async function findMatches(circleId) {
                 continue;
             }
 
-            const existingMatch = existingMatches?.[0] || null;
+            let match = existingMatches?.[0] || null;
 
-            // If match exists, get participants
-            if (existingMatch) {
-                const { data: participants } = await supabase
-                    .from('match_participants')
-                    .select('profile_id, profiles(id, name, avatar)')
-                    .eq('match_id', existingMatch.id);
-                
-                existingMatch.match_participants = participants || [];
-            }
-
-            let match;
-
-            if (existingMatch) {
-                // Group match exists - user will see it and can choose to join
-                match = existingMatch;
-            } else {
-                // Create new group match AND auto-join user (they're first)
+            if (!match) {
+                // Create new match (but DON'T auto-add user)
                 const { data: newMatch, error: createError } = await supabase
                     .from('matches')
                     .insert([{
                         circle_id: circleId,
                         activity_id: activityId
                     }])
-                    .select('*, activities(*)')
+                    .select('*')
                     .single();
 
                 if (createError) {
@@ -2893,76 +2883,58 @@ async function findMatches(circleId) {
                     continue;
                 }
 
-                // Auto-add user as first participant
-                const { error: participantError } = await supabase
-                    .from('match_participants')
-                    .insert([{ match_id: newMatch.id, profile_id: currentUser.id }]);
-
-                if (participantError) {
-                    console.error('Error auto-adding to match:', participantError);
-                } else {
-                    console.log('✓ Auto-added as first participant to match', newMatch.id);
-                }
-
-                // Verify the insert worked by querying it back
-                const { data: verifyParticipant } = await supabase
-                    .from('match_participants')
-                    .select('profile_id')
-                    .eq('match_id', newMatch.id)
-                    .eq('profile_id', currentUser.id)
-                    .maybeSingle();
-
-                console.log('Verification - participant exists:', !!verifyParticipant);
-
-                match = { ...newMatch, match_participants: [{ profile_id: currentUser.id, profiles: currentUser }] };
+                match = newMatch;
             }
 
-            // Get all participants for this match
-            const { data: participants, error: participantError } = await supabase
-                .from('match_participants')
-                .select(`
-                    profile_id,
-                    profiles(id, name, avatar)
-                `)
-                .eq('match_id', match.id)
-                .neq('profile_id', currentUser.id); // Exclude current user
+            // Get all users who have this activity in their preferences (interested)
+            const { data: interestedUsers, error: prefsError } = await supabase
+                .from('preferences')
+                .select('profile_id, profiles(id, name, avatar)')
+                .eq('circle_id', circleId)
+                .eq('activity_id', activityId)
+                .neq('profile_id', currentUser.id);
 
-            if (participantError) {
-                console.error('Error loading participants:', participantError);
+            if (prefsError) {
+                console.error('Error loading interested users:', prefsError);
                 continue;
             }
 
-            // Check who marked this specific activity as "today"
-            const { data: todayUsers, error: availError } = await supabase
-                .from('activity_availability')
+            // Get who's actually in the general chat
+            const { data: chatParticipants, error: chatError } = await supabase
+                .from('match_participants')
                 .select('profile_id')
-                .eq('circle_id', circleId)
-                .eq('activity_id', activityId)
-                .gte('available_until', new Date().toISOString())
-                .in('profile_id', [currentUser.id, ...participants.map(p => p.profile_id)]);
+                .eq('match_id', match.id);
 
-            if (availError) {
-                console.error('Error checking activity availability:', availError);
+            if (chatError) {
+                console.error('Error loading chat participants:', chatError);
             }
 
-            const todayUserIds = new Set(todayUsers?.map(a => a.profile_id) || []);
-            const isCurrentUserAvailableToday = todayUserIds.has(currentUser.id);
+            const chatParticipantIds = new Set(chatParticipants?.map(p => p.profile_id) || []);
+            const userInChat = chatParticipantIds.has(currentUser.id);
 
-            // Filter to only participants who marked this activity as "today"
-            const todayParticipants = participants.filter(p => 
-                todayUserIds.has(p.profile_id)
-            );
+            // Get activity details
+            const activity = activities.find(a => a.id === activityId);
+            if (!activity) {
+                // Load activity if not in current array
+                const { data: activityData } = await supabase
+                    .from('activities')
+                    .select('*')
+                    .eq('id', activityId)
+                    .single();
+                
+                if (activityData) {
+                    activities.push(activityData);
+                }
+            }
 
-            // Always show match if user has this activity selected (auto-joined)
             groupMatches.push({
                 id: match.id,
-                isGroupChat: todayParticipants.length > 1,
                 circleId: circleId,
-                users: todayParticipants.map(p => p.profiles),
-                activity: match.activities,
-                isRead: false,
-                scheduledDate: match.scheduled_date ? new Date(match.scheduled_date) : null,
-                isWaiting: !isCurrentUserAvailableToday && todayParticipants.length === 0
+                activity: activity || activities.find(a => a.id === activityId),
+                interestedUsers: interestedUsers?.map(u => u.profiles) || [],
+                inChatCount: chatParticipants?.length || 0,
+                userInChat: userInChat,
+                isRead: true // We'll handle notifications differently now
             });
         }
 
@@ -2970,6 +2942,835 @@ async function findMatches(circleId) {
     } catch (error) {
         console.error('Error finding matches:', error);
         return [];
+    }
+}
+
+// Helper function to join match chat
+async function joinMatchChat(matchId) {
+    try {
+        // Check if already in chat
+        const { data: existing } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id)
+            .maybeSingle();
+        
+        if (existing) {
+            console.log('Already in chat');
+            return true;
+        }
+        
+        // Add to match_participants
+        const { error } = await supabase
+            .from('match_participants')
+            .insert([{ 
+                match_id: matchId, 
+                profile_id: currentUser.id 
+            }]);
+        
+        if (error) throw error;
+        
+        console.log('✓ Joined match chat');
+        return true;
+        
+    } catch (error) {
+        console.error('Error joining match chat:', error);
+        return false;
+    }
+}
+
+// Helper function to leave match chat
+async function leaveMatchChat(matchId) {
+    try {
+        const { error } = await supabase
+            .from('match_participants')
+            .delete()
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        console.log('✓ Left match chat');
+        return true;
+        
+    } catch (error) {
+        console.error('Error leaving match chat:', error);
+        return false;
+    }
+}
+
+// Join chat as first person
+window.joinMatchChatFirst = async function(matchId) {
+    showLoader('Joining chat...');
+    
+    const success = await joinMatchChat(matchId);
+    
+    if (success) {
+        hideLoader();
+        showNotification('You\'re in! Others can now see and join.');
+        await loadMatches();
+    } else {
+        hideLoader();
+        showNotification('Error joining chat', 'error');
+    }
+}
+
+// Skip joining for now
+window.skipJoinChat = async function(matchId) {
+    // Just close/refresh - user stays interested but not in chat
+    showNotification('You can join the chat anytime from here');
+}
+
+// Join chat as normal (not first)
+window.joinMatchChatNormal = async function(matchId) {
+    showLoader('Joining chat...');
+    
+    const success = await joinMatchChat(matchId);
+    
+    if (success) {
+        hideLoader();
+        showNotification('Joined chat!');
+        await loadMatches();
+    } else {
+        hideLoader();
+        showNotification('Error joining chat', 'error');
+    }
+}
+
+// Open threaded chat view
+window.openMatchChatThreaded = async function(matchId) {
+    try {
+        showLoader('Loading chat...');
+        
+        // Store current match ID
+        currentMatchId = matchId;
+        
+        // Find the match
+        const match = matches.find(m => m.id === matchId);
+        currentMatchChat = match; // Store the match object for delete/edit operations
+        
+        if (!match) {
+            hideLoader();
+            showNotification('Match not found', 'error');
+            return;
+        }
+        
+        // Get activity details
+        let activity = activities.find(a => a.id === match.activity_id);
+        if (!activity) {
+            const { data: activityData } = await supabase
+                .from('activities')
+                .select('*')
+                .eq('id', match.activity_id)
+                .single();
+            activity = activityData;
+        }
+        
+        // Get all chat participants
+        const { data: participants } = await supabase
+            .from('match_participants')
+            .select('profile_id, profiles(id, name, avatar)')
+            .eq('match_id', matchId);
+        
+        // Get all events for this match
+        const { data: allEvents } = await supabase
+            .from('events')
+            .select(`
+                *,
+                event_participants(profile_id, profiles(id, name, avatar))
+            `)
+            .eq('match_id', matchId)
+            .order('scheduled_date', { ascending: true });
+        
+        // Update header
+        document.getElementById('event-activity-name').textContent = 
+            `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Activity'} Chat`;
+        
+        const participantNames = participants?.map(p => p.profiles.name).join(', ') || 'Just you';
+        document.getElementById('event-participants').textContent = 
+            `${participants?.length || 1} in chat: ${participantNames}`;
+        
+        // Hide event details section (not needed for general chat view)
+        document.getElementById('event-details').style.display = 'none';
+        
+	// Hide add to calendar button (only for event chats)
+        const calendarBtn = document.getElementById('add-to-calendar-btn');
+        if (calendarBtn) {
+            calendarBtn.style.display = 'none';
+        }
+
+        // Render threaded chat UI
+        await renderThreadedChat(matchId, allEvents || []);
+        
+        // Set up real-time subscription
+        await setupMatchChatSubscription(matchId);
+        
+        hideLoader();
+        showPage('chat');
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error opening threaded chat:', error);
+        showNotification('Error loading chat', 'error');
+    }
+}
+
+async function renderThreadedChat(matchId, events) {
+    const messagesContainer = document.getElementById('chat-messages');
+    messagesContainer.innerHTML = '';
+    
+    // Separate events into upcoming and past
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const upcomingEvents = events.filter(e => 
+        (!e.scheduled_date || new Date(e.scheduled_date) >= today) && e.status === 'scheduled'
+    );
+    const pastEvents = events.filter(e => 
+        e.scheduled_date && new Date(e.scheduled_date) < today || e.status !== 'scheduled'
+    );
+    
+    // Create upcoming events section
+    if (upcomingEvents.length > 0) {
+        const upcomingSection = document.createElement('div');
+        upcomingSection.style.cssText = 'margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px;';
+        upcomingSection.innerHTML = '<h4 style="margin: 0 0 12px 0; font-size: 14px; color: #666; font-weight: 600;">📌 UPCOMING EVENTS</h4>';
+        
+        upcomingEvents.forEach(event => {
+            const eventCard = createEventCard(event, matchId);
+            upcomingSection.appendChild(eventCard);
+        });
+        
+        messagesContainer.appendChild(upcomingSection);
+    }
+    
+    // Create event button
+    const createBtn = document.createElement('button');
+    createBtn.className = 'btn btn-secondary';
+    createBtn.textContent = '+ Create Event';
+    createBtn.style.cssText = 'width: 100%; margin-bottom: 20px; font-size: 14px;';
+    createBtn.onclick = () => openCreateEventModal(matchId);
+    messagesContainer.appendChild(createBtn);
+    
+    // General chat header
+    const generalHeader = document.createElement('div');
+    generalHeader.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
+    generalHeader.innerHTML = '<h4 style="margin: 0; font-size: 14px; color: #666; font-weight: 600;">💬 GENERAL CHAT</h4>';
+    messagesContainer.appendChild(generalHeader);
+    
+    // Load and display general messages (event_id = null)
+    await loadAndDisplayGeneralMessages(matchId);
+    
+    // Past events section (collapsed)
+    if (pastEvents.length > 0) {
+        const pastSection = document.createElement('details');
+        pastSection.style.cssText = 'margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 10px;';
+        pastSection.innerHTML = `
+            <summary style="cursor: pointer; font-size: 14px; color: #666; font-weight: 600; padding: 5px;">
+                📂 Past Events (${pastEvents.length})
+            </summary>
+        `;
+        
+        const pastContainer = document.createElement('div');
+        pastContainer.style.marginTop = '10px';
+        
+        pastEvents.forEach(event => {
+            const eventCard = createEventCard(event, matchId, true);
+            pastContainer.appendChild(eventCard);
+        });
+        
+        pastSection.appendChild(pastContainer);
+        messagesContainer.appendChild(pastSection);
+    }
+    
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function createEventCard(event, matchId, isPast = false) {
+    const eventCard = document.createElement('div');
+    
+    // Check if user has joined this event
+    const isUserJoined = event.event_participants?.some(p => p.profile_id === currentUser.id) || false;
+    
+    eventCard.style.cssText = `
+        padding: 12px;
+        margin-bottom: 10px;
+        background: ${isPast ? '#fafafa' : (isUserJoined ? '#f0f9ff' : '#fff8e1')};
+        border-radius: 8px;
+        border-left: 4px solid ${isPast ? '#ccc' : (isUserJoined ? '#4CAF50' : '#FFA726')};
+        ${isPast ? 'opacity: 0.7;' : ''}
+    `;
+    
+    // Format date
+    const dateStr = event.scheduled_date ? 
+        new Date(event.scheduled_date).toLocaleDateString('en-US', { 
+            weekday: 'short',
+            month: 'short', 
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        }) : 'Date TBD';
+    
+    // Get participant count
+    const participantCount = event.event_participants?.length || 0;
+    const participantNames = event.event_participants?.map(p => p.profiles?.name || 'Unknown').slice(0, 3).join(', ') || 'No one yet';
+    
+    // Count messages for this event
+    let messageCount = 0;
+    // We'll load this dynamically later, for now just show the thread link
+    
+    eventCard.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">
+                    📅 ${dateStr}
+                </div>
+                ${event.location ? `
+                    <div style="font-size: 13px; color: #666; margin-bottom: 4px;">
+                        📍 ${event.location}
+                    </div>
+                ` : ''}
+                ${event.notes ? `
+                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
+                        📝 ${event.notes}
+                    </div>
+                ` : ''}
+                <div style="font-size: 12px; color: #666; margin-top: 6px;">
+                    👥 ${participantCount} going${participantCount > 0 ? ': ' + participantNames : ''}
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                ${isUserJoined ? `
+                    <button onclick="addToCalendar('${event.id}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 10px; margin: 0; width: 100%;">
+                        📅 Add to Calendar
+                    </button>
+                    ${!isPast ? `
+                        <button onclick="openEventChat('${event.id}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 10px; margin: 0; width: 100%;">
+                            💬 Open Event Chat
+                        </button>
+                    ` : ''}
+                ` : `
+                    <button onclick="joinEventFromChat('${event.id}', '${matchId}')" class="btn" style="font-size: 12px; padding: 6px 10px; margin: 0; background: #4CAF50; width: 100%;">
+                        Join Event
+                    </button>
+                `}
+            </div>
+        </div>
+    `;
+    
+    return eventCard;
+}
+
+async function loadAndDisplayGeneralMessages(matchId) {
+    try {
+        // Load general messages from match_messages table
+        const { data: messages, error } = await supabase
+            .from('match_messages')
+            .select(`
+                *,
+                sender:profiles(id, name, avatar)
+            `)
+            .eq('match_id', matchId)
+            .order('created_at', { ascending: true })
+            .limit(50);
+        
+        if (error) throw error;
+        
+        const messagesContainer = document.getElementById('chat-messages');
+        
+        if (!messages || messages.length === 0) {
+            const placeholder = document.createElement('p');
+            placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px; font-size: 14px;';
+            placeholder.textContent = 'No messages yet. Start the conversation!';
+            messagesContainer.appendChild(placeholder);
+            return;
+        }
+        
+        // Display each message
+        messages.forEach(message => {
+            appendGeneralMessage(message);
+        });
+        
+    } catch (error) {
+        console.error('Error loading general messages:', error);
+    }
+}
+
+function appendGeneralMessage(message) {
+    const messagesContainer = document.getElementById('chat-messages');
+    
+    // Remove placeholder text if it exists
+    const placeholder = messagesContainer.querySelector('p');
+    if (placeholder && placeholder.textContent.includes('No messages yet')) {
+        placeholder.remove();
+    }
+    
+    const isOwnMessage = message.sender_id === currentUser.id;
+    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit' 
+    });
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: ${isOwnMessage ? 'flex-end' : 'flex-start'};
+        margin-bottom: 15px;
+    `;
+    
+    messageDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                ${message.sender.avatar || '👤'}
+            </div>
+            <span style="font-size: 13px; color: #666; font-weight: 500;">
+                ${isOwnMessage ? 'You' : message.sender.name}
+            </span>
+            <span style="font-size: 11px; color: #999;">
+                ${messageTime}
+            </span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
+            <div style="
+                background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
+                color: ${isOwnMessage ? 'white' : 'black'};
+                padding: 10px 14px;
+                border-radius: 12px;
+                max-width: 70%;
+                word-wrap: break-word;
+            ">
+                ${message.content}
+            </div>
+            ${isOwnMessage ? `
+                <div class="message-actions" style="position: relative;">
+                    <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
+                    <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
+                        ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
+                        <button onclick="deleteEventMessage('${message.id}')" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Delete</button>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+}
+
+async function setupMatchChatSubscription(matchId) {
+    // Clean up existing subscription
+    if (matchMessageSubscription) {
+        await supabase.removeChannel(matchMessageSubscription);
+        const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
+        if (index > -1) allActiveSubscriptions.splice(index, 1);
+        matchMessageSubscription = null;
+    }
+    
+    // Subscribe to new messages for this match using postgres_changes
+    matchMessageSubscription = supabase
+        .channel(`match_chat_${matchId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'match_messages',
+                filter: `match_id=eq.${matchId}`
+            },
+            (payload) => {
+                console.log('📩 New match message received:', payload);
+                
+                // Don't duplicate messages we sent ourselves
+                if (payload.new.sender_id === currentUser.id) {
+                    return;
+                }
+                
+                // Load full message with sender info
+                loadSingleMessage(payload.new.id);
+            }
+        )
+        .on('broadcast', { event: 'new_general_message' }, (payload) => {
+            console.log('📩 New general message received:', payload);
+            
+            // Don't duplicate messages we sent ourselves
+            if (payload.payload.sender_id === currentUser.id) {
+                return;
+            }
+            
+            // Append message to general chat
+            const message = {
+                id: payload.payload.id,
+                sender_id: payload.payload.sender_id,
+                content: payload.payload.content,
+                created_at: payload.payload.created_at,
+                sender: {
+                    id: payload.payload.sender_id,
+                    name: payload.payload.sender_name,
+                    avatar: payload.payload.sender_avatar
+                }
+            };
+            
+            appendGeneralMessage(message);
+        })
+        .subscribe((status) => {
+            console.log('Match chat subscription status:', status);
+        });
+    
+    allActiveSubscriptions.push(matchMessageSubscription);
+}
+
+// Load a single message with sender info
+async function loadSingleMessage(messageId) {
+    try {
+        const { data: message, error } = await supabase
+            .from('match_messages')
+            .select(`
+                *,
+                sender:profiles(id, name, avatar)
+            `)
+            .eq('id', messageId)
+            .single();
+        
+        if (error) throw error;
+        
+        if (message) {
+            appendGeneralMessage(message);
+            
+            // Show notification
+            showNotificationAlert(
+                `New message from ${message.sender.name}`,
+                message.content
+            );
+        }
+    } catch (error) {
+        console.error('Error loading single message:', error);
+    }
+}
+
+// View event thread (expand messages within the event card)
+window.viewEventThread = async function(eventId) {
+    // For now, just open the event chat
+    // Later we can make this show inline thread
+    openEventChat(eventId);
+}
+
+// Join event from within the chat
+window.joinEventFromChat = async function(eventId, matchId) {
+    try {
+        showLoader('Joining event...');
+        
+        // Add user to event participants
+        const { error } = await supabase
+            .from('event_participants')
+            .insert([{ 
+                event_id: eventId, 
+                profile_id: currentUser.id,
+                status: 'accepted'
+            }]);
+        
+        if (error) throw error;
+        
+        // Auto-join general chat if not already in it
+        await joinMatchChat(matchId);
+        
+        hideLoader();
+        showNotification('Joined event! You can now access the event chat.');
+        
+        // Refresh the threaded chat view
+        const match = matches.find(m => m.id === matchId);
+        if (match) {
+            const { data: allEvents } = await supabase
+                .from('events')
+                .select(`
+                    *,
+                    event_participants(profile_id, profiles(id, name, avatar))
+                `)
+                .eq('match_id', matchId)
+                .order('scheduled_date', { ascending: true });
+            
+            await renderThreadedChat(matchId, allEvents || []);
+        }
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error joining event:', error);
+        showNotification('Error joining event', 'error');
+    }
+}
+
+// Add to Calendar function
+window.addToCalendar = async function(eventId) {
+    console.log('addToCalendar called with eventId:', eventId);
+    
+    // Find the event - try from current context first, then query database
+    let event = null;
+    
+    // Try to find in matches (if we're on matches page)
+    if (matches && matches.length > 0) {
+        for (const match of matches) {
+            if (match.events) {
+                event = match.events.find(e => e && e.id === eventId);
+                if (event) break;
+            }
+        }
+    }
+    
+    console.log('Event found in matches:', event);
+    
+    // If not found, query from database
+    if (!event) {
+        console.log('Querying database for event...');
+        const { data, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+        
+        console.log('Database query result:', data, error);
+        
+        if (error || !data) {
+            showNotification('Event not found', 'error');
+            return;
+        }
+        event = data;
+    }
+    
+    if (!event) {
+        showNotification('Event not found', 'error');
+        return;
+    }
+    
+    console.log('Found event:', event);
+    
+    // Get activity details
+    const match = matches.find(m => m.events?.some(e => e.id === eventId));
+    console.log('Found match:', match);
+    
+    let activity = match?.activity || activities.find(a => a.id === (match?.activity_id || event.activity_id));
+    
+    // If still not found, query database
+    if (!activity) {
+        console.log('Activity not in array, querying database for activity_id:', event.activity_id);
+        const { data: activityData } = await supabase
+            .from('activities')
+            .select('*')
+            .eq('id', event.activity_id)
+            .single();
+        
+        activity = activityData;
+    }
+    
+    console.log('Found activity:', activity);
+    
+    if (!activity) {
+        showNotification('Activity details not found', 'error');
+        return;
+    }
+    
+    console.log('About to show modal');
+    
+    // Show modal with calendar options
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 350px;">
+            <span class="close-modal-btn" onclick="this.closest('.modal-overlay').remove()">×</span>
+            <div class="modal-header">Add to Calendar</div>
+            <button onclick="downloadICSFile('${eventId}')" class="btn" style="width: 100%; margin-bottom: 10px;">
+                📥 Download .ics file
+            </button>
+            <button onclick="openGoogleCalendar('${eventId}')" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;">
+                📧 Google Calendar
+            </button>
+            <button onclick="downloadICSFile('${eventId}')" class="btn btn-secondary" style="width: 100%;">
+                📱 Apple Calendar
+            </button>
+            <p style="font-size: 12px; color: #666; margin-top: 15px; text-align: center;">
+                Apple Calendar: Download the file and open it
+            </p>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// Download .ics file
+window.downloadICSFile = async function(eventId) {
+    // Find event (same logic as addToCalendar)
+    let event = null;
+    if (matches && matches.length > 0) {
+        for (const match of matches) {
+            if (match.events) {
+                event = match.events.find(e => e && e.id === eventId);
+                if (event) break;
+            }
+        }
+    }
+    
+    if (!event) {
+        const { data } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+        event = data;
+    }
+    
+    if (!event) return;
+    
+    // Find activity
+    const match = matches.find(m => m.events?.some(e => e.id === eventId));
+    let activity = match?.activity || activities.find(a => a.id === (match?.activity_id || event.activity_id));
+    
+    if (!activity) {
+        const { data: activityData } = await supabase
+            .from('activities')
+            .select('*')
+            .eq('id', event.activity_id)
+            .single();
+        activity = activityData;
+    }
+    
+    if (!activity) return;
+    
+    const startDate = new Date(event.scheduled_date);
+    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours default
+    
+    // Format dates for .ics (YYYYMMDDTHHMMSS)
+    const formatDate = (date) => {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+    };
+    
+    const icsContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Friendle//Event//EN',
+        'BEGIN:VEVENT',
+        `UID:${event.id}@friendle.app`,
+        `DTSTAMP:${formatDate(new Date())}`,
+        `DTSTART:${formatDate(startDate)}`,
+        `DTEND:${formatDate(endDate)}`,
+        `SUMMARY:${activity.emoji} ${activity.name}`,
+        event.location ? `LOCATION:${event.location}` : '',
+        event.notes ? `DESCRIPTION:${event.notes}\\n\\nOrganized via Friendle` : 'DESCRIPTION:Organized via Friendle',
+        'STATUS:CONFIRMED',
+        'END:VEVENT',
+        'END:VCALENDAR'
+    ].filter(line => line).join('\r\n');
+    
+    // Create blob and download
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `friendle-${activity.name.replace(/\s+/g, '-')}-${event.id}.ics`;
+    link.click();
+    
+    // Close modal
+    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    
+    showNotification('Calendar event downloaded!');
+}
+
+// Open in Google Calendar
+window.openGoogleCalendar = async function(eventId) {
+    // Find event (same logic as addToCalendar)
+    let event = null;
+    if (matches && matches.length > 0) {
+        for (const match of matches) {
+            if (match.events) {
+                event = match.events.find(e => e && e.id === eventId);
+                if (event) break;
+            }
+        }
+    }
+    
+    if (!event) {
+        const { data } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+        event = data;
+    }
+    
+    if (!event) return;
+    
+    // Find activity
+    const match = matches.find(m => m.events?.some(e => e.id === eventId));
+    let activity = match?.activity || activities.find(a => a.id === (match?.activity_id || event.activity_id));
+    
+    if (!activity) {
+        const { data: activityData } = await supabase
+            .from('activities')
+            .select('*')
+            .eq('id', event.activity_id)
+            .single();
+        activity = activityData;
+    }
+    
+    if (!activity) return;
+    
+    const startDate = new Date(event.scheduled_date);
+    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+    
+    const formatGoogleDate = (date) => {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+    };
+    
+    // Build Google Calendar URL
+    const googleUrl = new URL('https://calendar.google.com/calendar/render');
+    googleUrl.searchParams.set('action', 'TEMPLATE');
+    googleUrl.searchParams.set('text', `${activity.emoji} ${activity.name}`);
+    googleUrl.searchParams.set('dates', `${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}`);
+    if (event.location) googleUrl.searchParams.set('location', event.location);
+    if (event.notes) googleUrl.searchParams.set('details', event.notes + '\n\nOrganized via Friendle');
+    
+    // Close modal
+    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    
+    // Open in new tab
+    window.open(googleUrl.toString(), '_blank');
+    
+    showNotification('Opening Google Calendar...');
+}
+
+// Add to calendar from event chat header
+window.addToCalendarFromHeader = function() {
+    if (currentEvent && currentEvent.id) {
+        addToCalendar(currentEvent.id);
+    } else {
+        showNotification('No event selected', 'error');
+    }
+}
+
+// Helper function to check if user is first in match
+async function isFirstInMatch(matchId) {
+    try {
+        const { data: participants, error } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId);
+        
+        if (error) throw error;
+        
+        return !participants || participants.length === 0;
+        
+    } catch (error) {
+        console.error('Error checking first in match:', error);
+        return false;
     }
 }
 
@@ -3071,52 +3872,43 @@ async function loadMatches() {
             prefSet.has(`${match.circle_id}|${match.activity_id}`)
         );
         
-        // Get participant names for each match
+        // Get data for each match
         for (let match of matches) {
-            // Get ALL participants for this match
-            const { data: allParticipants, error: participantError } = await supabase
-                .from('match_participants')
-                .select(`
-                    profile_id,
-                    profiles(name, avatar)
-                `)
-                .eq('match_id', match.id);
-
-            if (!participantError && allParticipants) {
-                // Check if current user is a participant
-                match.isUserJoined = allParticipants.some(p => p.profile_id === currentUser.id);
+            // Load activity details if not already in activities array
+            let activity = activities.find(a => a.id === match.activity_id);
+            if (!activity) {
+                const { data: activityData } = await supabase
+                    .from('activities')
+                    .select('*')
+                    .eq('id', match.activity_id)
+                    .single();
                 
-                // Get names of OTHER participants (for display)
-                const otherParticipants = allParticipants.filter(p => p.profile_id !== currentUser.id);
-                match.participant_names = otherParticipants.map(p => p.profiles.name);
-                
-                // Check availability logic
-                const { data: todayCheck } = await supabase
-                    .from('activity_availability')
-                    .select('profile_id')
-                    .eq('circle_id', match.circle_id)
-                    .eq('activity_id', match.activity_id)
-                    .eq('profile_id', currentUser.id)
-                    .gte('available_until', new Date().toISOString())
-                    .maybeSingle();
-                
-                const isCurrentUserAvailableToday = !!todayCheck;
-                const otherParticipantIds = otherParticipants.map(p => p.profile_id);
-                
-                const { data: othersToday } = await supabase
-                    .from('activity_availability')
-                    .select('profile_id')
-                    .eq('circle_id', match.circle_id)
-                    .eq('activity_id', match.activity_id)
-                    .in('profile_id', otherParticipantIds)
-                    .gte('available_until', new Date().toISOString());
-                
-                match.isWaiting = isCurrentUserAvailableToday && (!othersToday || othersToday.length === 0);
-            } else {
-                match.isUserJoined = false;
-                match.participant_names = [];
-                match.isWaiting = false;
+                if (activityData) {
+                    activities.push(activityData);
+                    activity = activityData;
+                }
             }
+            match.activity = activity; // Store activity on match object
+            
+            // Get all users interested (have activity in preferences)
+            const { data: interested } = await supabase
+                .from('preferences')
+                .select('profile_id, profiles(id, name, avatar)')
+                .eq('circle_id', match.circle_id)
+                .eq('activity_id', match.activity_id);
+            
+            match.interestedUsers = interested?.map(i => i.profiles) || [];
+            match.interestedCount = match.interestedUsers.length;
+            
+            // Get who's in the chat
+            const { data: chatParticipants } = await supabase
+                .from('match_participants')
+                .select('profile_id, profiles(id, name, avatar)')
+                .eq('match_id', match.id);
+            
+            match.chatParticipants = chatParticipants?.map(p => p.profiles) || [];
+            match.inChatCount = match.chatParticipants.length;
+            match.userInChat = chatParticipants?.some(p => p.profile_id === currentUser.id) || false;
         }
         
         await displayMatches();
@@ -3192,24 +3984,16 @@ let matchesToShow = filteredMatches;
         return;
     }
 
-    if (activities.length === 0 && matches.length > 0) {
-        const firstMatch = matches[0];
-        const allActivities = await loadActivities(firstMatch.circle_id);
-        activities = allActivities;
-    }
-
-    const todayActivityIds = new Set();
-    if (currentUser && matches.length > 0) {
-        const circleId = matches[0].circle_id;
-        const { data: todayActivities } = await supabase
-            .from('activity_availability')
-            .select('activity_id')
-            .eq('profile_id', currentUser.id)
-            .eq('circle_id', circleId)
-            .gte('available_until', new Date().toISOString());
-        
-        todayActivities?.forEach(a => todayActivityIds.add(a.activity_id.toString()));
-}
+    // Get activities marked as available today
+    const { data: todayActivities } = await supabase
+        .from('activity_availability')
+        .select('activity_id')
+        .eq('profile_id', currentUser.id)
+        .gte('available_until', new Date().toISOString());
+    
+    const todayActivityIds = new Set(
+        (todayActivities || []).map(a => a.activity_id.toString())
+    );
 
     let matchesWithEvents = await Promise.all(
     matches.map(async (match) => {
@@ -3277,13 +4061,26 @@ if (!showPastEvents) {
     matchesList.innerHTML = matchesWithEvents.map(({ match, events }) => {
         let activity = activities.find(a => a.id === match.activity_id);
         
-        // If not in activities array, check pre-loaded missing activities
-        if (!activity) {
-            activity = missingActivities.find(a => a.id === match.activity_id);
-        }
-        
         const activityName = activity ? activity.name : 'Unknown Activity';
         const activityEmoji = activity ? activity.emoji : '🎯';
+        
+        // Check if user is first
+        const isFirst = match.inChatCount === 0;
+        
+        // Get interested users display
+        const interestedCount = match.interestedCount || 0;
+        const interestedNames = match.interestedUsers?.slice(0, 2).map(u => u.name).join(', ') || '';
+        const moreCount = interestedCount > 2 ? interestedCount - 2 : 0;
+        
+        let interestedDisplay = '';
+        if (interestedCount === 1) {
+            interestedDisplay = 'Just you interested';
+        } else if (interestedCount === 2) {
+            interestedDisplay = interestedNames;
+        } else if (interestedCount > 2) {
+            const allNames = match.interestedUsers.map(u => u.name).join('\\n');
+            interestedDisplay = `${interestedNames}, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('People interested:\\n\\n${allNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${moreCount} other${moreCount > 1 ? 's' : ''}</a>`;
+        }
         
         // Compare dates at midnight to include events happening today
 const now = new Date();
@@ -3302,42 +4099,41 @@ const upcomingEvents = events.filter(e =>
         <div style="flex: 1; padding-right: 15px;">
     <h3 style="margin: 0 0 4px 0; font-size: 20px;">${activityEmoji} ${activityName}</h3>
             <p style="margin: 8px 0 0 0; color: #666; font-size: 14px; line-height: 1.4;">
-    ${match.isWaiting ? 
-        '<span style="color: #ff9800;">You\'re available today! Waiting for others to join...</span>' : 
-        (match.participant_names ? 
-            (match.participant_names.length <= 3 ? 
-                match.participant_names.join(', ') : 
-                (() => {
-                    const hiddenNames = match.participant_names.slice(3).join('\\n');
-                    return match.participant_names.slice(0, 3).join(', ') + 
-                        `, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('Also interested:\\n\\n${hiddenNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${match.participant_names.length - 3} other${match.participant_names.length - 3 > 1 ? 's' : ''}</a>`;
-                })()
-            ) : 
-            'Loading participants...')
-    }
-</p>
+                ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested${interestedDisplay ? ': ' + interestedDisplay : ''}
+            </p>
+            ${match.inChatCount > 0 ? `
+                <p style="margin: 4px 0 0 0; color: #667eea; font-size: 13px;">
+                    💬 ${match.inChatCount} in chat${match.userInChat ? ' (including you)' : ''}
+                </p>
+            ` : ''}
         </div>
         <div style="display: flex; flex-direction: column; gap: 10px; min-width: 140px; align-items: flex-end;">
     <span style="padding: 4px 10px; background: #e8e8e8; border-radius: 12px; font-size: 12px; font-weight: 500; color: #666;">
         ${circles.find(c => c.id === match.circle_id)?.name || 'Circle'}
     </span>
-    ${match.isUserJoined ? `
-        <div style="display: flex; gap: 8px; width: 100%;">
-            <button id="today-btn-${match.id}" onclick="markActivityAsToday('${match.activity_id}', '${match.id}')" class="btn" style="font-size: 14px; padding: 8px 16px; margin: 0; background: #4CAF50; display: none; flex: 1;">
-                ✓ Available Today
+    ${isFirst ? `
+        <div style="background: #f0f7ff; border: 2px solid #667eea; border-radius: 10px; padding: 12px; text-align: center;">
+            <p style="margin: 0 0 10px 0; font-size: 13px; color: #333; font-weight: 500;">🎉 You're first!</p>
+            <p style="margin: 0 0 12px 0; font-size: 12px; color: #666; line-height: 1.4;">Want to put it out there? Others will see and can join.</p>
+            <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0 0 6px 0; width: 100%;">
+                Join Chat & Coordinate
             </button>
-            <button onclick="openCreateEventModal('${match.id}')" class="btn" style="font-size: 14px; padding: 8px 16px; margin: 0; flex: 1;">
-                + Schedule
+            <button onclick="skipJoinChat('${match.id}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; margin: 0; width: 100%;">
+                Not Yet
             </button>
         </div>
-        <button onclick="openMatchChat('${match.id}')" class="btn btn-secondary" style="font-size: 14px; padding: 8px 16px; width: 100%; margin: 0;">
-    💬 Chat
-</button>
-    ` : `
-        <button onclick="joinMatch('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0; background: #4CAF50;">
-            ✓ Join Match
+    ` : match.userInChat ? `
+        <button onclick="openMatchChatThreaded('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0;">
+            💬 Open Chat
         </button>
-        <p style="font-size: 12px; color: #666; margin: 0; text-align: center;">Join to chat and schedule events</p>
+        <button onclick="openCreateEventModal('${match.id}')" class="btn btn-secondary" style="font-size: 13px; padding: 8px 16px; width: 100%; margin: 0;">
+            + Create Event
+        </button>
+    ` : `
+        <button onclick="joinMatchChatNormal('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0; background: #4CAF50;">
+            Join Chat
+        </button>
+        <p style="font-size: 11px; color: #666; margin: 0; text-align: center; line-height: 1.3;">${match.inChatCount} ${match.inChatCount === 1 ? 'person' : 'people'} already chatting</p>
     `}
 </div>
     </div>
@@ -3413,15 +4209,15 @@ const upcomingEvents = events.filter(e =>
         `;
     }).join('');
 
-    // Around line 2016-2024, replace the button visibility logic:
-matches.forEach(match => {
-    const isToday = todayActivityIds.has(match.activity_id.toString());
-    const button = document.getElementById(`today-btn-${match.id}`);
-    if (button) {
-        button.style.display = isToday ? 'none' : 'inline-block';
-    }
-});
-
+    // Update button visibility based on today activities
+    matches.forEach(match => {
+        const isToday = todayActivityIds.has(match.activity_id.toString());
+        const button = document.getElementById(`today-btn-${match.id}`);
+        if (button) {
+            button.style.display = isToday ? 'none' : 'inline-block';
+        }
+    });
+    
     document.querySelectorAll('.event-item').forEach(item => {
         item.addEventListener('mouseenter', function() {
             this.style.background = '#e8e8e8';
@@ -3530,11 +4326,55 @@ window.markActivityAsToday = async function(activityId, matchId) {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
-    // Check if we're in match chat or event chat
-    if (currentMatchChat || currentEvent) {
-        // Use unified message function for both match chat and event chat
-        const fakeEvent = { preventDefault: () => {} };
-        await sendEventMessage(fakeEvent);
+    try {
+        // Check what context we're in
+        if (currentMatchId) {
+            // In threaded match chat (general)
+            const { data, error } = await supabase
+                .from('match_messages')
+                .insert({
+                    match_id: currentMatchId,
+                    sender_id: currentUser.id,
+                    content: input.value.trim()
+                })
+                .select(`
+                    *,
+                    sender:profiles(id, name, avatar)
+                `)
+                .single();
+            
+            if (error) throw error;
+            
+            // Append to UI
+            appendGeneralMessage(data);
+            
+            // Broadcast to other users
+            const channel = supabase.channel(`match_general_${currentMatchId}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'new_general_message',
+                payload: {
+                    id: data.id,
+                    sender_id: currentUser.id,
+                    sender_name: currentUser.name,
+                    sender_avatar: currentUser.avatar,
+                    content: data.content,
+                    created_at: data.created_at
+                }
+            });
+            
+            input.value = '';
+            
+        } else if (currentEvent) {
+            // In event chat
+            const fakeEvent = { preventDefault: () => {} };
+            await sendEventMessage(fakeEvent);
+        } else {
+            console.warn('No active chat context');
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showNotification('Failed to send message', 'error');
     }
 }
         
@@ -3678,7 +4518,7 @@ window.deleteEventMessage = async function(msgId) {
                 }
             });
             
-            await loadMatchMessages(currentMatchChat.id);
+            // Don't reload - message will disappear on next chat load
         } else if (currentEvent) {
             const { error } = await supabase
                 .from('event_messages')
@@ -3906,6 +4746,11 @@ async function openEventChat(eventId) {
         }
 
         currentEvent = event;
+// Show add to calendar button
+        const calendarBtn = document.getElementById('add-to-calendar-btn');
+        if (calendarBtn) {
+            calendarBtn.style.display = 'inline-block';
+        }
 
 // Get activity details - load from database if not in current activities array
 let activity = activities.find(a => a.id === event.activity_id);
@@ -4172,7 +5017,9 @@ function appendMessageToContainer(message, container) {
 function appendMessage(message) {
     const messagesContainer = document.getElementById('chat-messages');
     
-    if (messagesContainer.querySelector('p')) {
+    // Remove placeholder text if it exists
+    const placeholder = messagesContainer.querySelector('p');
+    if (placeholder && placeholder.textContent.includes('No messages yet')) {
         messagesContainer.innerHTML = '';
     }
     
@@ -4573,6 +5420,16 @@ window.openMatchChat = async function(matchId) {
 
 async function loadMatchMessages(matchId) {
     try {
+        // Make sure currentMatchId is set
+        if (!currentMatchId) {
+            currentMatchId = matchId;
+        }
+        
+        // Make sure currentMatchChat is set
+        if (!currentMatchChat) {
+            currentMatchChat = matches.find(m => m.id === matchId);
+        }
+        
         const { data: messages, error } = await supabase
     .from('match_messages')
     .select(`
@@ -5141,9 +5998,11 @@ window.findNearbyPlaces = async function() {
             );
         }
         function updateNotificationBadge() {
-            const hasUnread = matches.some(m => !m.isRead) || Object.values(messages).flat().some(msg => !msg.isRead && msg.sender !== currentUser.name);
-            document.querySelector('#matches-nav-item .notification-badge').style.display = hasUnread ? 'block' : 'none';
-        }
+    // For now, just check if there are any matches
+    // We can enhance this later to track actual unread messages
+    const hasMatches = matches.length > 0;
+    document.querySelector('#matches-nav-item .notification-badge').style.display = hasMatches ? 'block' : 'none';
+}
         window.showPage = async function(pageId) {
     // Clean up subscriptions when leaving chat
 if (pageId !== 'chat') {
@@ -5161,6 +6020,7 @@ if (pageId !== 'chat') {
         matchMessageSubscription = null;
         currentMatchChat = null;
     }
+    currentMatchId = null; // Clear match ID when leaving chat
     document.getElementById('event-details').style.display = 'block';
 }
     
@@ -5173,6 +6033,10 @@ if (pageId !== 'chat') {
     if (pageId === 'circles') renderCircles();
 if (pageId === 'activities') {
     await populateCircleSelector();
+    // If in swipe mode and circle is selected, initialize swipe view
+    if (viewMode === 'swipe' && selectedCircle) {
+        await initializeSwipeView();
+    }
 }
 if (pageId === 'matches') {
     await loadMatches();
@@ -5254,7 +6118,10 @@ if (pageId === 'matches') {
             
             const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
 
-            if (lastPage === 'activities' && !selectedCircle) {
+            // Don't restore chat page on full refresh - go to matches instead
+            if (lastPage === 'chat') {
+                showPage('matches');
+            } else if (lastPage === 'activities' && !selectedCircle) {
                 showPage('circles');
             } else {
                 showPage(lastPage);
@@ -5620,15 +6487,15 @@ extendedActivitiesArray.forEach(activity => {
                     border: 2px solid #e1e5e9;
                 `;
                item.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <span style="font-size: 1.5em;">${activity.emoji}</span>
-                        <span style="flex: 1; font-weight: 500;">${activity.name}</span>
-                    </div>
-                    <div style="display: flex; gap: 6px;">
-                        <button onclick="event.stopPropagation(); editCustomActivity('${activity.id}', '${activity.name.replace(/'/g, "\\'")}', '${activity.emoji}')" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; flex: 1;">✏️ Edit</button>
-                        <button onclick="event.stopPropagation(); deleteCustomActivity('${activity.id}', '${activity.name.replace(/'/g, "\\'")}');" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; background: #dc3545; color: white; flex: 1;">🗑️ Delete</button>
-                    </div>
-                `;
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <span style="font-size: 1.5em;">${activity.emoji}</span>
+        <span style="flex: 1; font-weight: 500;">${activity.name}</span>
+    </div>
+    <div style="display: flex; gap: 6px;">
+        <button onclick="event.stopPropagation(); editCustomActivity('${activity.id}', \`${activity.name.replace(/`/g, '\\`')}\`, '${activity.emoji}')" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; flex: 1;">✏️ Edit</button>
+        <button onclick="event.stopPropagation(); deleteCustomActivity('${activity.id}', \`${activity.name.replace(/`/g, '\\`')}\`);" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; background: #dc3545; color: white; flex: 1;">🗑️ Delete</button>
+    </div>
+`;
                 customList.appendChild(item);
             });
         }
@@ -5768,12 +6635,11 @@ window.saveActivityVisibility = async function() {
     }
 }
   initApp(); // start the app
-});   // ✅ only one of these, closes document.addEventListener
+});   // ✅ closes document.addEventListener("DOMContentLoaded", ...)
 
 function showNotificationAlert(title, body) {
         
     if (!('Notification' in window)) {
-
         return;
     }
     
@@ -5813,6 +6679,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-</script>
+    </script>
 </body>
 </html>
