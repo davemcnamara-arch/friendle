@@ -3091,6 +3091,15 @@ window.openMatchChatThreaded = async function(matchId) {
         document.getElementById('event-participants').textContent = 
             `${participants?.length || 1} in chat: ${participantNames}`;
         
+        // Hide event-specific buttons in general chat
+        const addToCalendarBtn = document.getElementById('add-to-calendar-btn');
+        const eventOptionsBtn = document.getElementById('event-options-btn');
+        const leaveEventBtn = document.querySelector('button[onclick="leaveEvent()"]');
+        
+        if (addToCalendarBtn) addToCalendarBtn.style.display = 'none';
+        if (eventOptionsBtn) eventOptionsBtn.style.display = 'none';
+        if (leaveEventBtn) leaveEventBtn.style.display = 'none';
+        
         // Hide event details banner in general chat (redundant with event cards)
         document.getElementById('event-details').style.display = 'none';
         
@@ -3676,8 +3685,13 @@ window.downloadICSFile = async function(eventId) {
     link.download = `friendle-${activity.name.replace(/\s+/g, '-')}-${event.id}.ics`;
     link.click();
     
-    // Close modal
-    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    // Close only the calendar modal
+    const calendarModals = document.querySelectorAll('.modal-overlay');
+    calendarModals.forEach(m => {
+        if (m.querySelector('.modal-header')?.textContent === 'Add to Calendar') {
+            m.remove();
+        }
+    });
     
     showNotification('Calendar event downloaded!');
 }
@@ -3742,8 +3756,13 @@ window.openGoogleCalendar = async function(eventId) {
     if (event.location) googleUrl.searchParams.set('location', event.location);
     if (event.notes) googleUrl.searchParams.set('details', event.notes + '\n\nOrganized via Friendle');
     
-    // Close modal
-    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    // Close only the calendar modal
+    const calendarModals = document.querySelectorAll('.modal-overlay');
+    calendarModals.forEach(m => {
+        if (m.querySelector('.modal-header')?.textContent === 'Add to Calendar') {
+            m.remove();
+        }
+    });
     
     // Open in new tab
     window.open(googleUrl.toString(), '_blank');
@@ -4796,11 +4815,14 @@ async function openEventChat(eventId) {
         }
 
         currentEvent = event;
-// Show add to calendar button
+// Show event-specific buttons in event chat
         const calendarBtn = document.getElementById('add-to-calendar-btn');
-        if (calendarBtn) {
-            calendarBtn.style.display = 'inline-block';
-        }
+        const eventOptionsBtn = document.getElementById('event-options-btn');
+        const leaveEventBtn = document.querySelector('button[onclick="leaveEvent()"]');
+        
+        if (calendarBtn) calendarBtn.style.display = 'inline-block';
+        if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
+        if (leaveEventBtn) leaveEventBtn.style.display = 'inline-block';
 
 // Get activity details - load from database if not in current activities array
 let activity = activities.find(a => a.id === event.activity_id);
@@ -5216,7 +5238,12 @@ async function sendEventMessage(e) {
 
 // Event options functions
 function openEventOptionsModal() {
-    document.getElementById('event-options-modal').style.display = 'flex';
+    const modal = document.getElementById('event-options-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    } else {
+        console.error('Event options modal not found');
+    }
 }
 
 function closeEventOptionsModal() {
