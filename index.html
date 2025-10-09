@@ -3931,14 +3931,16 @@ let matchesToShow = filteredMatches;
     let matchesWithEvents = await Promise.all(
     matches.map(async (match) => {
         // Get all events for this match
-        const { data: allEvents, error } = await supabase
+        const query = supabase
             .from('events')
             .select(`
                 *,
-                event_participants(profile_id, status)
+                event_participants(profile_id, profiles(id, name, avatar))
             `)
             .eq('match_id', match.id)
             .order('scheduled_date', { ascending: true });
+        
+        const { data: allEvents, error } = await query;
         
         if (error) {
             console.error('Error loading events:', error);
@@ -4104,6 +4106,15 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                             <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                                 💬 Event Chat
                             </button>
+                        ` : participantCount === 0 ? `
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                                    ✓ Join Event
+                                </button>
+                                <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                                    🗑️ Delete
+                                </button>
+                            </div>
                         ` : `
                             <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                                 ✓ Join Event
@@ -5184,7 +5195,6 @@ async function leaveEvent() {
     if (!confirm('Leave this event? You won\'t receive any more messages.')) return;
     
     try {
-        // Remove user from event
         const { error } = await supabase
             .from('event_participants')
             .delete()
@@ -5192,28 +5202,6 @@ async function leaveEvent() {
             .eq('profile_id', currentUser.id);
         
         if (error) throw error;
-        
-        // Check if any participants remain
-        const { data: remainingParticipants, error: checkError } = await supabase
-            .from('event_participants')
-            .select('profile_id')
-            .eq('event_id', currentEvent.id);
-        
-        if (checkError) throw checkError;
-        
-        // If no one left, mark event as cancelled
-        if (!remainingParticipants || remainingParticipants.length === 0) {
-            const { error: cancelError } = await supabase
-                .from('events')
-                .update({ status: 'cancelled' })
-                .eq('id', currentEvent.id);
-            
-            if (cancelError) throw cancelError;
-            
-            showNotification('Event cancelled (no participants remaining)');
-        } else {
-            showNotification('Left event');
-        }
         
         closeEventOptionsModal();
         showPage('matches');
@@ -5244,11 +5232,39 @@ async function deleteEvent() {
         
         closeEventOptionsModal();
         showPage('matches');
+        
+        // Small delay to ensure database update propagates
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         await loadMatches();
         
     } catch (error) {
         console.error('Error deleting event:', error);
         alert('Failed to delete event');
+    }
+}
+
+async function deleteEmptyEvent(eventId) {
+    if (!confirm('Delete this empty event?')) return;
+    
+    try {
+        showLoader('Deleting event...');
+        
+        const { error } = await supabase
+            .from('events')
+            .delete()
+            .eq('id', eventId);
+        
+        if (error) throw error;
+        
+        hideLoader();
+        showNotification('Event deleted');
+        await loadMatches();
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error deleting empty event:', error);
+        showNotification('Failed to delete event', 'error');
     }
 }
 
