@@ -4768,14 +4768,22 @@ if (!activity) {
     }
 }
 
-// Update header
+// Format event date for header
+const headerEventDate = new Date(event.scheduled_date);
+const headerDateStr = headerEventDate.toLocaleDateString('en-US', { 
+    weekday: 'short',
+    month: 'short', 
+    day: 'numeric'
+});
+
+// Update header with activity name and date
 document.getElementById('event-activity-name').textContent = 
-    `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'}`;
-        
-        const participantNames = event.event_participants
-            .map(p => p.profiles.name)
-            .join(', ');
-        document.getElementById('event-participants').textContent = participantNames;
+    `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'} - ${headerDateStr}`;
+
+const participantNames = event.event_participants
+    .map(p => p.profiles.name)
+    .join(', ');
+document.getElementById('event-participants').textContent = participantNames;
         
         // Format and display event details
 const eventDate = new Date(event.scheduled_date);
