@@ -1074,9 +1074,6 @@
         <button onclick="editCurrentEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
             ✏️ Edit Event Details
         </button>
-        <button onclick="markEventCompleted()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
-            ✅ Mark as Completed
-        </button>
         <button onclick="cancelEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
             ❌ Cancel Event
         </button>
@@ -4023,10 +4020,10 @@ const now = new Date();
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
 const upcomingEvents = events.filter(e => 
-    new Date(e.scheduled_date) >= today && e.status === 'scheduled'
+    e.status === 'scheduled' && new Date(e.scheduled_date) >= today
 );
         const pastEvents = events.filter(e => 
-            new Date(e.scheduled_date) < today || e.status !== 'scheduled'
+            e.status !== 'scheduled' || new Date(e.scheduled_date) < today
         );
 
         return `
@@ -5145,27 +5142,6 @@ async function saveEventEdits(e) {
     }
 }
 
-async function markEventCompleted() {
-    if (!confirm('Mark this event as completed?')) return;
-    
-    try {
-        const { error } = await supabase
-            .from('events')
-            .update({ status: 'completed' })
-            .eq('id', currentEvent.id);
-        
-        if (error) throw error;
-        
-        closeEventOptionsModal();
-        showPage('matches');
-        await loadMatches();
-        
-    } catch (error) {
-        console.error('Error marking event as completed:', error);
-        alert('Failed to mark event as completed');
-    }
-}
-
 async function cancelEvent() {
     if (!confirm('Cancel this event? This will notify all participants.')) return;
     
@@ -5200,6 +5176,7 @@ async function leaveEvent() {
     if (!confirm('Leave this event? You won\'t receive any more messages.')) return;
     
     try {
+        // Remove user from event
         const { error } = await supabase
             .from('event_participants')
             .delete()
@@ -5207,6 +5184,28 @@ async function leaveEvent() {
             .eq('profile_id', currentUser.id);
         
         if (error) throw error;
+        
+        // Check if any participants remain
+        const { data: remainingParticipants, error: checkError } = await supabase
+            .from('event_participants')
+            .select('profile_id')
+            .eq('event_id', currentEvent.id);
+        
+        if (checkError) throw checkError;
+        
+        // If no one left, mark event as cancelled
+        if (!remainingParticipants || remainingParticipants.length === 0) {
+            const { error: cancelError } = await supabase
+                .from('events')
+                .update({ status: 'cancelled' })
+                .eq('id', currentEvent.id);
+            
+            if (cancelError) throw cancelError;
+            
+            showNotification('Event cancelled (no participants remaining)');
+        } else {
+            showNotification('Left event');
+        }
         
         closeEventOptionsModal();
         showPage('matches');
