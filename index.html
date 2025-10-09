@@ -4019,12 +4019,20 @@ if (!showPastEvents) {
 const now = new Date();
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-const upcomingEvents = events.filter(e => 
-    e.status === 'scheduled' && new Date(e.scheduled_date) >= today
+console.log('Filtering events:', events.map(e => ({id: e.id, status: e.status, date: e.scheduled_date})));
+
+const upcomingEvents = events.filter(e => {
+    const isScheduled = e.status === 'scheduled';
+    const isFuture = new Date(e.scheduled_date) >= today;
+    console.log(`Event ${e.id}: status=${e.status}, isScheduled=${isScheduled}, isFuture=${isFuture}`);
+    return isScheduled && isFuture;
+});
+
+const pastEvents = events.filter(e => 
+    e.status !== 'scheduled' || new Date(e.scheduled_date) < today
 );
-        const pastEvents = events.filter(e => 
-            e.status !== 'scheduled' || new Date(e.scheduled_date) < today
-        );
+
+console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
         return `
     <div class="match-card" style="margin-bottom: 25px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
