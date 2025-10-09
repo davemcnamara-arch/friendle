@@ -1017,7 +1017,6 @@
         <div class="modal-overlay" id="image-modal-overlay"><div class="close-modal" onclick="closeImageModal()">×</div><div class="modal-content modal-image-content"><img class="modal-image" id="modal-image" src="" alt=""></div></div>
         <div class="modal-overlay" id="circle-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeCircleModal()">×</span><div id="create-circle" style="display: none;"><div class="modal-header">Create New Circle</div><div class="form-group"><label for="circle-name">Circle Name</label><input type="text" id="circle-name" placeholder="e.g., College Friends"></div><button class="btn" onclick="createCircle()">Create</button></div><div id="join-circle" style="display: none;"><div class="modal-header">Join Circle</div><div class="form-group"><label for="circle-code">Circle Code</label><input type="text" id="circle-code" placeholder="Enter 6-digit code"></div><button class="btn" onclick="joinCircle()">Join</button></div></div></div>
         <div class="modal-overlay" id="suggest-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeSuggestModal()">×</span><div class="modal-header">Suggest an Activity</div><div class="form-group"><label for="suggest-name">Activity Name</label><input type="text" id="suggest-name" placeholder="e.g., Go Karting"></div><button class="btn" onclick="suggestActivity()">Suggest</button></div></div>
-        <div class="modal-overlay" id="date-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeDateModal()">×</span><div class="modal-header">Schedule Activity</div><div class="form-group"><label for="event-date">Date</label><input type="date" id="event-date"></div><button class="btn" onclick="saveEvent()">Save Event</button></div></div>
         <div class="modal-overlay" id="invite-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeInviteModal()">×</span><div class="modal-header">Share Invite Link</div><div class="form-group"><label for="invite-link">Copy this link and send it to a friend:</label><input type="text" id="invite-link" readonly></div><button class="btn" onclick="copyInviteLink()">Copy Link</button></div></div>
     
 <div class="undo-container" id="undo-container">
@@ -2826,14 +2825,7 @@ window.setActivityMode = async function(activityId, isToday) {
         showNotification('Error adding activity', 'error');
     }
 }
-        function showUndo() {
-            const undoContainer = document.getElementById('undo-container');
-            undoContainer.style.display = 'flex';
-            clearTimeout(undoTimeout);
-            undoTimeout = setTimeout(() => {
-                undoContainer.style.display = 'none';
-            }, 8000);
-        }
+        
         window.undoLastActivityChange = function() {
             activities = [...lastActivitiesState];
             renderActivities();
@@ -3306,71 +3298,7 @@ async function loadAndDisplayGeneralMessages(matchId) {
     }
 }
 
-function appendGeneralMessage(message) {
-    const messagesContainer = document.getElementById('chat-messages');
-    
-    // Remove placeholder text if it exists
-    const placeholder = messagesContainer.querySelector('p');
-    if (placeholder && placeholder.textContent.includes('No messages yet')) {
-        placeholder.remove();
-    }
-    
-    const isOwnMessage = message.sender_id === currentUser.id;
-    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit' 
-    });
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        align-items: ${isOwnMessage ? 'flex-end' : 'flex-start'};
-        margin-bottom: 15px;
-    `;
-    
-    messageDiv.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                ${message.sender.avatar || '👤'}
-            </div>
-            <span style="font-size: 13px; color: #666; font-weight: 500;">
-                ${isOwnMessage ? 'You' : message.sender.name}
-            </span>
-            <span style="font-size: 11px; color: #999;">
-                ${messageTime}
-            </span>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
-            <div style="
-                background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
-                color: ${isOwnMessage ? 'white' : 'black'};
-                padding: 10px 14px;
-                border-radius: 12px;
-                max-width: 70%;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                word-break: break-word;
-            ">
-                ${message.content}
-            </div>
-            ${isOwnMessage ? `
-                <div class="message-actions" style="position: relative;">
-                    <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
-                    <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
-                        ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
-                        <button onclick="deleteEventMessage('${message.id}')" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Delete</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>
-    `;
-    
-    messagesContainer.appendChild(messageDiv);
-}
-
 async function setupMatchChatSubscription(matchId) {
-    console.log('Setting up subscription for match:', matchId);
     
     // Clean up existing subscription
     if (matchMessageSubscription) {
@@ -3404,7 +3332,6 @@ async function setupMatchChatSubscription(matchId) {
             }
         )
         .on('broadcast', { event: 'new_general_message' }, (payload) => {
-            console.log('📩 New general message received:', payload);
             
             // Don't duplicate messages we sent ourselves
             if (payload.payload.sender_id === currentUser.id) {
@@ -3514,7 +3441,6 @@ window.joinEventFromChat = async function(eventId, matchId) {
 
 // Add to Calendar function
 window.addToCalendar = async function(eventId) {
-    console.log('addToCalendar called with eventId:', eventId);
     
     // Find the event - try from current context first, then query database
     let event = null;
@@ -3529,18 +3455,13 @@ window.addToCalendar = async function(eventId) {
         }
     }
     
-    console.log('Event found in matches:', event);
-    
     // If not found, query from database
     if (!event) {
-        console.log('Querying database for event...');
         const { data, error } = await supabase
             .from('events')
             .select('*')
             .eq('id', eventId)
             .single();
-        
-        console.log('Database query result:', data, error);
         
         if (error || !data) {
             showNotification('Event not found', 'error');
@@ -3554,17 +3475,13 @@ window.addToCalendar = async function(eventId) {
         return;
     }
     
-    console.log('Found event:', event);
-    
     // Get activity details
     const match = matches.find(m => m.events?.some(e => e.id === eventId));
-    console.log('Found match:', match);
     
     let activity = match?.activity || activities.find(a => a.id === (match?.activity_id || event.activity_id));
     
     // If still not found, query database
     if (!activity) {
-        console.log('Activity not in array, querying database for activity_id:', event.activity_id);
         const { data: activityData } = await supabase
             .from('activities')
             .select('*')
@@ -3574,14 +3491,10 @@ window.addToCalendar = async function(eventId) {
         activity = activityData;
     }
     
-    console.log('Found activity:', activity);
-    
     if (!activity) {
         showNotification('Activity details not found', 'error');
         return;
     }
-    
-    console.log('About to show modal');
     
     // Show modal with calendar options
     const modal = document.createElement('div');
@@ -4346,19 +4259,13 @@ window.markActivityAsToday = async function(activityId, matchId) {
 }
 
         window.sendMessage = async function() {
-    console.log('sendMessage called');
     
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
-    console.log('Message has content, proceeding...');
-    console.log('currentMatchId:', currentMatchId);
-    console.log('currentEvent:', currentEvent);
-    
     try {
         // Check what context we're in
         if (currentMatchId) {
-            console.log('In match chat context');
             // In threaded match chat (general)
             const { data, error } = await supabase
                 .from('match_messages')
@@ -4379,7 +4286,6 @@ window.markActivityAsToday = async function(activityId, matchId) {
             appendMessage(data);
             
             // Broadcast to other users
-            console.log('Broadcasting message to channel:', `match_chat_${currentMatchId}`);
             const channel = supabase.channel(`match_chat_${currentMatchId}`);
             await channel.send({
                 type: 'broadcast',
@@ -4393,7 +4299,6 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     created_at: data.created_at
                 }
             });
-            console.log('Broadcast sent');
             
             input.value = '';
             
@@ -4411,40 +4316,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
 }
         
         window.handleMessageKeyPress = e => { if (e.key === 'Enter') sendMessage(); };
-        window.openDateModal = () => document.getElementById('date-modal-overlay').style.display = 'flex';
-        window.closeDateModal = () => document.getElementById('date-modal-overlay').style.display = 'none';
-        window.saveEvent = async function() {
-    const date = document.getElementById('event-date').value;
-    if (!date) return;
-    const eventDate = new Date(date.replace(/-/g, '/'));
-    
-    try {
-        // Save to Supabase
-        const { error } = await supabase
-            .from('matches')
-            .update({ scheduled_date: eventDate.toISOString() })
-            .eq('id', currentChatMatch.id);
-
-        if (error) throw error;
-
-        // Update local data
-        currentChatMatch.scheduledDate = eventDate;
-        const matchIndex = matches.findIndex(m => m.id === currentChatMatch.id);
-        if (matchIndex > -1) {
-            matches[matchIndex].scheduledDate = eventDate;
-        }
         
-        addMessage(`📅 ${currentUser.name} scheduled this for ${eventDate.toLocaleDateString()}`, 'system');
-        closeDateModal();
-    } catch (error) {
-        console.error('Error saving event:', error);
-        showNotification('Error saving event', 'error');
-    }
-}
-        window.toggleMessageActions = function(msgId) {
-            const menu = document.getElementById(`menu-${msgId}`);
-            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        }
 window.toggleEventMessageActions = function(msgId) {
     const menu = document.getElementById(`event-menu-${msgId}`);
     if (menu) {
@@ -4526,26 +4398,15 @@ window.editEventMessage = async function(msgId, currentContent) {
 }
 
 window.deleteEventMessage = async function(msgId) {
-    console.log('deleteEventMessage called with:', msgId);
-    console.log('currentMatchChat:', currentMatchChat);
-    console.log('currentEvent:', currentEvent);
-    console.log('currentMatchId:', currentMatchId);
     
     const menu = document.getElementById(`event-menu-${msgId}`);
     if (menu) menu.style.display = 'none';
     
     if (!confirm('Delete this message?')) return;
     
-    console.log('Confirmation accepted, entering try block');
-    
     try {
-        console.log('Inside try block');
         
         if (currentMatchChat) {
-            console.log('currentMatchChat is truthy, proceeding with delete');
-            console.log('Attempting to delete from match_messages');
-            console.log('Message ID:', msgId);
-            console.log('Sender ID:', currentUser.id);
             
             const { error } = await supabase
                 .from('match_messages')
@@ -4553,11 +4414,7 @@ window.deleteEventMessage = async function(msgId) {
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
             
-            console.log('Delete result - error:', error);
-            
             if (error) throw error;
-            
-            console.log('Delete successful, broadcasting...');
             
             const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
             await channel.send({
@@ -4567,8 +4424,6 @@ window.deleteEventMessage = async function(msgId) {
                     id: msgId
                 }
             });
-            
-            console.log('Broadcast sent');
             
             // Reload entire chat view to show deletion and keep event cards
             const { data: allEvents } = await supabase
@@ -4583,7 +4438,6 @@ window.deleteEventMessage = async function(msgId) {
             await renderThreadedChat(currentMatchChat.id, allEvents || []);
             
         } else if (currentEvent) {
-            console.log('In event chat, deleting from event_messages');
             
             const { error } = await supabase
                 .from('event_messages')
@@ -4606,8 +4460,7 @@ window.deleteEventMessage = async function(msgId) {
             
             await loadEventMessages(currentEvent.id, currentEvent.created_at);
         }
-        
-        console.log('About to show success notification');
+
         showNotification('Message deleted');
         
     } catch (error) {
@@ -5392,108 +5245,6 @@ async function deleteEvent() {
     }
 }
 
-// Match Chat Functions
-window.openMatchChat = async function(matchId) {
-    try {
-        // Cleanup previous subscription
-        if (matchMessageSubscription) {
-            await supabase.removeChannel(matchMessageSubscription);
-            matchMessageSubscription = null;
-        }
-        
-        // Find the match
-        const match = matches.find(m => m.id === matchId);
-        if (!match) {
-            showNotification('Match not found', 'error');
-            return;
-        }
-        
-// Check if user has joined this match
-        if (!match.isUserJoined) {
-            showNotification('Please join the match first', 'error');
-            return;
-        }
-        
-        currentMatchChat = match;
-        
-        // Get activity details from database (handles custom activities)
-        let activity = activities.find(a => a.id === match.activity_id);
-        
-        // If not in current activities array, load from database
-        if (!activity) {
-            const { data: activityData, error: activityError } = await supabase
-                .from('activities')
-                .select('*')
-                .eq('id', match.activity_id)
-                .single();
-            
-            activity = activityData;
-        }
-        
-        // Get all participants
-        const { data: participants, error: participantsError } = await supabase
-            .from('match_participants')
-            .select('profile_id, profiles(id, name, avatar)')
-            .eq('match_id', matchId);
-        
-        if (participantsError) throw participantsError;
-        
-        // Update header
-        const headerText = `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'}`;
-        document.getElementById('event-activity-name').textContent = headerText;
-        
-        const participantNames = participants
-            .map(p => p.profiles.name)
-            .join(', ');
-        document.getElementById('event-participants').textContent = participantNames;
-        
-        // Hide event details section for match chat
-        document.getElementById('event-details').style.display = 'none';
-        
-        // Hide event details section for match chat
-        document.getElementById('event-details').style.display = 'none';
-        
-        // Load messages
-        await loadMatchMessages(matchId);
-        
-        // Set up broadcast subscription
-        matchMessageSubscription = supabase
-            .channel(`match_chat_${matchId}`)
-            .on('broadcast', { event: 'new_message' }, (payload) => {
-                if (payload.payload.sender_id === currentUser.id) return;
-                
-                const message = {
-                    id: payload.payload.id,
-                    sender_id: payload.payload.sender_id,
-                    content: payload.payload.content,
-                    created_at: payload.payload.created_at,
-                    sender: {
-                        id: payload.payload.sender_id,
-                        name: payload.payload.sender_name,
-                        avatar: payload.payload.sender_avatar
-                    }
-                };
-                
-                appendMessage(message);
-            })
-            .on('broadcast', { event: 'message_edited' }, (payload) => {
-                loadMatchMessages(currentMatchChat.id);
-            })
-            .on('broadcast', { event: 'message_deleted' }, (payload) => {
-                loadMatchMessages(currentMatchChat.id);
-            })
-            .subscribe();
-    
-    allActiveSubscriptions.push(matchMessageSubscription);
-
-    showPage('chat');
-        
-    } catch (error) {
-        console.error('Error loading match chat:', error);
-        showNotification('Failed to load chat', 'error');
-    }
-}
-
 async function loadMatchMessages(matchId) {
     try {
         // Make sure currentMatchId is set
@@ -5704,9 +5455,6 @@ window.sharePhoto = function() {
                     }
                 });
                 
-            } else if (currentChatMatch) {
-                // Old match chat system
-                addMessage(photoUrl, 'photo');
             }
             
             hideLoader();
@@ -5939,10 +5687,6 @@ async function checkLocationPermission() {
                     
                     showNotification('Location shared!');
                     
-                } else if (currentChatMatch) {
-                    // Old match chat system
-                    addMessage('Location Shared', 'location', { lat, lng });
-                    showNotification('Location shared!');
                 }
                 
             } catch (error) {
