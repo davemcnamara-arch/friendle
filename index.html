@@ -5093,6 +5093,7 @@ function appendMessage(message) {
         flex-direction: column;
         align-items: ${isOwnMessage ? 'flex-end' : 'flex-start'};
         margin-bottom: 15px;
+        width: 100%;
     `;
     
     messageDiv.innerHTML = `
@@ -5107,16 +5108,8 @@ function appendMessage(message) {
                 ${messageTime}
             </span>
         </div>
-        <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
-            <div style="
-    background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'};
-    color: ${isOwnMessage ? 'white' : 'black'};
-    padding: 10px 14px;
-    border-radius: 12px;
-    max-width: 70%;
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
-">
+        <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}; max-width: 100%;">
+            <div style="background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'}; color: ${isOwnMessage ? 'white' : 'black'}; padding: 10px 14px; border-radius: 12px; max-width: 280px; word-wrap: break-word; overflow-wrap: break-word;">
     ${message.content}
 </div>
             ${isOwnMessage ? `
