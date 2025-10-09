@@ -3091,7 +3091,7 @@ window.openMatchChatThreaded = async function(matchId) {
         document.getElementById('event-participants').textContent = 
             `${participants?.length || 1} in chat: ${participantNames}`;
         
-        // Hide event details section (not needed for general chat view)
+        // Hide event details banner in general chat (redundant with event cards)
         document.getElementById('event-details').style.display = 'none';
         
 	// Hide add to calendar button (only for event chats)
@@ -3289,7 +3289,7 @@ async function loadAndDisplayGeneralMessages(matchId) {
         
         // Display each message
         messages.forEach(message => {
-            appendGeneralMessage(message);
+            appendMessage(message);
         });
         
     } catch (error) {
@@ -3340,6 +3340,8 @@ function appendGeneralMessage(message) {
                 border-radius: 12px;
                 max-width: 70%;
                 word-wrap: break-word;
+                overflow-wrap: break-word;
+                word-break: break-word;
             ">
                 ${message.content}
             </div>
@@ -3359,6 +3361,8 @@ function appendGeneralMessage(message) {
 }
 
 async function setupMatchChatSubscription(matchId) {
+    console.log('Setting up subscription for match:', matchId);
+    
     // Clean up existing subscription
     if (matchMessageSubscription) {
         await supabase.removeChannel(matchMessageSubscription);
@@ -3411,7 +3415,7 @@ async function setupMatchChatSubscription(matchId) {
                 }
             };
             
-            appendGeneralMessage(message);
+            appendMessage(message);
         })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
@@ -4323,12 +4327,19 @@ window.markActivityAsToday = async function(activityId, matchId) {
 }
 
         window.sendMessage = async function() {
+    console.log('sendMessage called');
+    
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
+    
+    console.log('Message has content, proceeding...');
+    console.log('currentMatchId:', currentMatchId);
+    console.log('currentEvent:', currentEvent);
     
     try {
         // Check what context we're in
         if (currentMatchId) {
+            console.log('In match chat context');
             // In threaded match chat (general)
             const { data, error } = await supabase
                 .from('match_messages')
@@ -4346,10 +4357,11 @@ window.markActivityAsToday = async function(activityId, matchId) {
             if (error) throw error;
             
             // Append to UI
-            appendGeneralMessage(data);
+            appendMessage(data);
             
             // Broadcast to other users
-            const channel = supabase.channel(`match_general_${currentMatchId}`);
+            console.log('Broadcasting message to channel:', `match_chat_${currentMatchId}`);
+            const channel = supabase.channel(`match_chat_${currentMatchId}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'new_general_message',
@@ -4362,6 +4374,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     created_at: data.created_at
                 }
             });
+            console.log('Broadcast sent');
             
             input.value = '';
             
@@ -4494,20 +4507,38 @@ window.editEventMessage = async function(msgId, currentContent) {
 }
 
 window.deleteEventMessage = async function(msgId) {
+    console.log('deleteEventMessage called with:', msgId);
+    console.log('currentMatchChat:', currentMatchChat);
+    console.log('currentEvent:', currentEvent);
+    console.log('currentMatchId:', currentMatchId);
+    
     const menu = document.getElementById(`event-menu-${msgId}`);
     if (menu) menu.style.display = 'none';
     
     if (!confirm('Delete this message?')) return;
     
+    console.log('Confirmation accepted, entering try block');
+    
     try {
+        console.log('Inside try block');
+        
         if (currentMatchChat) {
+            console.log('currentMatchChat is truthy, proceeding with delete');
+            console.log('Attempting to delete from match_messages');
+            console.log('Message ID:', msgId);
+            console.log('Sender ID:', currentUser.id);
+            
             const { error } = await supabase
                 .from('match_messages')
                 .delete()
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
             
+            console.log('Delete result - error:', error);
+            
             if (error) throw error;
+            
+            console.log('Delete successful, broadcasting...');
             
             const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
             await channel.send({
@@ -4518,13 +4549,30 @@ window.deleteEventMessage = async function(msgId) {
                 }
             });
             
-            // Don't reload - message will disappear on next chat load
+            console.log('Broadcast sent');
+            
+            // Reload entire chat view to show deletion and keep event cards
+            const { data: allEvents } = await supabase
+                .from('events')
+                .select(`
+                    *,
+                    event_participants(profile_id, profiles(id, name, avatar))
+                `)
+                .eq('match_id', currentMatchChat.id)
+                .order('scheduled_date', { ascending: true });
+            
+            await renderThreadedChat(currentMatchChat.id, allEvents || []);
+            
         } else if (currentEvent) {
+            console.log('In event chat, deleting from event_messages');
+            
             const { error } = await supabase
                 .from('event_messages')
                 .delete()
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
+            
+            console.log('Delete result - error:', error);
             
             if (error) throw error;
             
@@ -4540,10 +4588,12 @@ window.deleteEventMessage = async function(msgId) {
             await loadEventMessages(currentEvent.id, currentEvent.created_at);
         }
         
+        console.log('About to show success notification');
         showNotification('Message deleted');
         
     } catch (error) {
-        console.error('Error deleting message:', error);
+        console.error('CAUGHT ERROR in deleteEventMessage:', error);
+        console.error('Error details:', error.message, error.code);
         showNotification('Failed to delete message', 'error');
     }
 }
@@ -5065,9 +5115,7 @@ function appendMessage(message) {
     border-radius: 12px;
     max-width: 70%;
     word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: normal;
-    min-width: fit-content;
+    overflow-wrap: anywhere;
 ">
     ${message.content}
 </div>
@@ -5099,21 +5147,21 @@ async function sendEventMessage(e) {
     try {
         // Check if we're in match chat or event chat
         if (currentMatchChat) {
-            // Match chat
-            const { data, error } = await supabase
+            console.log('Attempting to delete from match_messages');
+            console.log('Message ID:', msgId);
+            console.log('Sender ID:', currentUser.id);
+            
+            const { error } = await supabase
                 .from('match_messages')
-                .insert({
-                    match_id: currentMatchChat.id,
-                    sender_id: currentUser.id,
-                    content: content
-                })
-                .select(`
-                    *,
-                    sender:profiles(id, name, avatar)
-                `)
-                .single();
+                .delete()
+                .eq('id', msgId)
+                .eq('sender_id', currentUser.id);
+            
+            console.log('Delete result - error:', error);
             
             if (error) throw error;
+            
+            console.log('Delete successful, broadcasting...');
             
             appendMessage(data);
             
@@ -5575,7 +5623,7 @@ window.sharePhoto = function() {
                     .insert({
                         match_id: currentMatchChat.id,
                         sender_id: currentUser.id,
-                        content: `<img src="${photoUrl}" style="max-width: 200px; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
+                        content: `<img src="${photoUrl}" style="max-width: 100%; max-height: 300px; width: auto; height: auto; display: block; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
                     })
                     .select(`
                         *,
