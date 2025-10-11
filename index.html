@@ -4862,14 +4862,15 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 });
                 
                 await supabase.functions.invoke('send-notification', {
-                    body: {
-                        senderId: currentUser.id,
-                        recipientIds: recipientIds,
-                        message: messageContent,
-                        activityName: activityName,
-                        chatType: context.type
-                    }
-                });
+    body: {
+        senderId: currentUser.id,
+        recipientIds: recipientIds,
+        message: messageContent,
+        activityName: activityName,
+        chatType: context.type,
+        chatId: context.id  // Add the match or event ID
+    }
+});
                 
                 console.log('✅ Push notification sent');
             }
@@ -6554,6 +6555,7 @@ if (pageId === 'matches') {
         hideLoader();
         showOnboarding();
     }
+
 }
 
 async function showOnboarding() {
