@@ -3650,6 +3650,14 @@ document.getElementById('event-participants').innerHTML =
         hideLoader();
         showPage('chat');
         
+        // Scroll to bottom after a brief delay to ensure messages are rendered
+        setTimeout(() => {
+            const messagesContainer = document.getElementById('chat-messages');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }, 100);
+        
     } catch (error) {
         hideLoader();
         console.error('Error opening threaded chat:', error);
@@ -3672,7 +3680,29 @@ async function renderThreadedChat(matchId, events) {
         e.scheduled_date && new Date(e.scheduled_date) < today || e.status !== 'scheduled'
     );
     
-    // Create upcoming events section
+    // PAST EVENTS FIRST (at top, collapsed)
+    if (pastEvents.length > 0) {
+        const pastSection = document.createElement('details');
+        pastSection.style.cssText = 'margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 10px;';
+        pastSection.innerHTML = `
+            <summary style="cursor: pointer; font-size: 14px; color: #666; font-weight: 600; padding: 5px;">
+                📂 Past Events (${pastEvents.length})
+            </summary>
+        `;
+        
+        const pastContainer = document.createElement('div');
+        pastContainer.style.marginTop = '10px';
+        
+        pastEvents.forEach(event => {
+            const eventCard = createEventCard(event, matchId, true);
+            pastContainer.appendChild(eventCard);
+        });
+        
+        pastSection.appendChild(pastContainer);
+        messagesContainer.appendChild(pastSection);
+    }
+    
+    // UPCOMING EVENTS SECOND
     if (upcomingEvents.length > 0) {
         const upcomingSection = document.createElement('div');
         upcomingSection.style.cssText = 'margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px;';
@@ -3702,28 +3732,6 @@ async function renderThreadedChat(matchId, events) {
     
     // Load and display general messages (event_id = null)
     await loadAndDisplayGeneralMessages(matchId);
-    
-    // Past events section (collapsed)
-    if (pastEvents.length > 0) {
-        const pastSection = document.createElement('details');
-        pastSection.style.cssText = 'margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 10px;';
-        pastSection.innerHTML = `
-            <summary style="cursor: pointer; font-size: 14px; color: #666; font-weight: 600; padding: 5px;">
-                📂 Past Events (${pastEvents.length})
-            </summary>
-        `;
-        
-        const pastContainer = document.createElement('div');
-        pastContainer.style.marginTop = '10px';
-        
-        pastEvents.forEach(event => {
-            const eventCard = createEventCard(event, matchId, true);
-            pastContainer.appendChild(eventCard);
-        });
-        
-        pastSection.appendChild(pastContainer);
-        messagesContainer.appendChild(pastSection);
-    }
     
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
@@ -5346,6 +5354,14 @@ eventMessageSubscription = supabase
 allActiveSubscriptions.push(eventMessageSubscription);
         
         showPage('chat');
+        
+        // Scroll to bottom after a brief delay to ensure messages are rendered
+        setTimeout(() => {
+            const messagesContainer = document.getElementById('chat-messages');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }, 100);
         
     } catch (error) {
         console.error('Error loading event chat:', error);
