@@ -4803,6 +4803,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
         
         // Send push notification via Supabase Edge Function
         try {
+            console.log('🔔 Starting notification send process...');
             const context = getCurrentChatContext();
             let recipientIds = [];
             let activityName = 'Chat';
@@ -4837,8 +4838,18 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 activityName = activity ? `${activity.emoji} ${activity.name}` : 'Chat';
             }
             
+            console.log('📬 Recipient IDs:', recipientIds);
+            
             if (recipientIds.length > 0) {
                 const messageContent = input.value.trim();
+                
+            console.log('🚀 Calling Edge Function with:', {
+                    senderId: currentUser.id,
+                    recipientIds: recipientIds,
+                    message: messageContent,
+                    activityName: activityName,
+                    chatType: context.type
+                });
                 
                 await supabase.functions.invoke('send-notification', {
                     body: {
