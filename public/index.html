@@ -747,8 +747,6 @@
 
     </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.1/firebase-messaging.js"></script>
 <script>
   const SUPABASE_URL = "https://kxsewkjbhxtfqbytftbu.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2V3a2piaHh0ZnFieXRmdGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NTE4ODQsImV4cCI6MjA3NDQyNzg4NH0.-A-7VOQWOaQqYOO6NxiKxGywddfS-pmwvzHISJqz2AQ";
@@ -767,6 +765,15 @@
   });
 </script>
 
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(function(OneSignal) {
+    OneSignal.init({
+      appId: "YOUR_APP_ID",
+    });
+  });
+</script>
 </head>
 <body>
     <div class="app-container">
