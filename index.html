@@ -3791,7 +3791,10 @@ async function setupMatchChatSubscription(matchId) {
             appendMessage(message);
             
             // Show browser notification if not muted
-            await showMessageNotification(message, 'match', matchId);
+            const currentMatchId = currentMatchChat?.id;
+            if (currentMatchId) {
+                await showMessageNotification(message, 'match', currentMatchId);
+            }
         })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
@@ -7080,8 +7083,6 @@ async function showMessageNotification(message, chatType, chatId) {
     // Show notification
     const notification = new Notification(`${message.sender.name} - ${activityName}`, {
         body: notificationBody,
-        // Don't use emoji as icon - browsers expect a URL
-        tag: `chat-${chatType}-${chatId}`, // Replace previous notification from same chat
         requireInteraction: false,
         data: {
             chatType: chatType,
