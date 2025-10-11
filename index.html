@@ -777,8 +777,7 @@
     // Handle notification clicks
 OneSignal.Notifications.addEventListener('click', (event) => {
   console.log('🔔 Notification clicked:', event);
-  event.preventDefault(); // Prevent default notification behavior
-  
+    
   const data = event.notification.additionalData;
   console.log('📦 Notification data:', data);
   
