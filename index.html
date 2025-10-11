@@ -925,6 +925,7 @@
         </div>
     </div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">🔔</button>
         <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
         <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
         <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
@@ -3455,6 +3456,9 @@ window.openMatchChatThreaded = async function(matchId) {
         
         // Set context using helper
         setMatchContext(match);
+
+	// Load mute status
+        await loadMuteStatus();
         
         if (!match) {
             hideLoader();
@@ -3764,7 +3768,7 @@ async function setupMatchChatSubscription(matchId) {
                 loadSingleMessage(payload.new.id);
             }
         )
-        .on('broadcast', { event: 'new_general_message' }, (payload) => {
+        .on('broadcast', { event: 'new_general_message' }, async (payload) => {
             
             // Don't duplicate messages we sent ourselves
             if (payload.payload.sender_id === currentUser.id) {
@@ -3785,6 +3789,9 @@ async function setupMatchChatSubscription(matchId) {
             };
             
             appendMessage(message);
+            
+            // Show browser notification if not muted
+            await showMessageNotification(message, 'match', matchId);
         })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
@@ -4659,6 +4666,11 @@ window.markActivityAsToday = async function(activityId, matchId) {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
+    // Request notification permission if not yet granted
+    if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+    }
+    
     const context = getCurrentChatContext();
     console.log('💬 Sending message in context:', context.type);
     
@@ -5084,6 +5096,9 @@ async function openEventChat(eventId) {
         // Set context using helper
         setEventContext(event);
         
+	// Load mute status
+        await loadMuteStatus();
+
         // Show event-specific buttons in event chat
         const generalChatBtn = document.getElementById('open-general-chat-btn');
         const calendarBtn = document.getElementById('add-to-calendar-btn');
@@ -5160,33 +5175,36 @@ await loadEventMessages(eventId, event.created_at);
         // Set up broadcast subscription for new messages
 eventMessageSubscription = supabase
     .channel(`event_${eventId}`)
-    .on('broadcast', { event: 'new_message' }, (payload) => {
-        console.log('📩 Broadcast message received:', payload);
-        
-        // Don't duplicate messages we sent ourselves
-        if (payload.payload.sender_id === currentUser.id) {
-            console.log('⏭️ Skipping own message');
-            return;
-        }
-        
-        console.log('🔥 Processing message from another user');
-        
-        // Create message object with sender info from broadcast
-        const message = {
-            id: payload.payload.id,
-            sender_id: payload.payload.sender_id,
-            content: payload.payload.content,
-            created_at: payload.payload.created_at,
-            sender: {
-                id: payload.payload.sender_id,
-                name: payload.payload.sender_name,
-                avatar: payload.payload.sender_avatar
+    .on('broadcast', { event: 'new_message' }, async (payload) => {
+            console.log('📩 Broadcast message received:', payload);
+            
+            // Don't duplicate messages we sent ourselves
+            if (payload.payload.sender_id === currentUser.id) {
+                console.log('⏭️ Skipping own message');
+                return;
             }
-        };
-        
-        console.log('Appending message to chat:', message);
-        appendMessage(message);
-    })
+            
+            console.log('🔥 Processing message from another user');
+            
+            // Create message object with sender info from broadcast
+            const message = {
+                id: payload.payload.id,
+                sender_id: payload.payload.sender_id,
+                content: payload.payload.content,
+                created_at: payload.payload.created_at,
+                sender: {
+                    id: payload.payload.sender_id,
+                    name: payload.payload.sender_name,
+                    avatar: payload.payload.sender_avatar
+                }
+            };
+            
+            console.log('Appending message to chat:', message);
+            appendMessage(message);
+            
+            // Show browser notification if not muted
+            await showMessageNotification(message, 'event', currentEvent.id);
+        })
     .on('broadcast', { event: 'message_edited' }, (payload) => {
         console.log('✏️ Message edited:', payload);
         loadEventMessages(currentEvent.id, currentEvent.created_at);
@@ -5226,6 +5244,87 @@ window.openGeneralChatFromEvent = function() {
     
     // Open the general match chat
     openMatchChatThreaded(matchId);
+}
+
+// Toggle mute for current chat
+window.toggleMuteChat = async function() {
+    const context = getCurrentChatContext();
+    
+    if (context.type === 'none') {
+        return showNotification('No active chat', 'error');
+    }
+    
+    try {
+        const tableName = context.type === 'event' ? 'event_participants' : 'match_participants';
+        const idField = context.type === 'event' ? 'event_id' : 'match_id';
+        
+        // Get current mute status
+        const { data: current, error: fetchError } = await supabase
+            .from(tableName)
+            .select('notifications_muted')
+            .eq(idField, context.id)
+            .eq('profile_id', currentUser.id)
+            .single();
+        
+        if (fetchError) throw fetchError;
+        
+        const currentlyMuted = current?.notifications_muted || false;
+        const newMutedState = !currentlyMuted;
+        
+        // Update mute status
+        const { error: updateError } = await supabase
+            .from(tableName)
+            .update({ notifications_muted: newMutedState })
+            .eq(idField, context.id)
+            .eq('profile_id', currentUser.id);
+        
+        if (updateError) throw updateError;
+        
+        // Update button display
+        updateMuteButton(newMutedState);
+        
+        showNotification(newMutedState ? 'Chat muted 🔇' : 'Chat unmuted 🔔');
+        
+    } catch (error) {
+        console.error('Error toggling mute:', error);
+        showNotification('Error updating notification settings', 'error');
+    }
+}
+
+function updateMuteButton(isMuted) {
+    const muteBtn = document.getElementById('mute-chat-btn');
+    if (muteBtn) {
+        muteBtn.textContent = isMuted ? '🔇' : '🔔';
+        muteBtn.title = isMuted ? 'Unmute notifications' : 'Mute notifications';
+    }
+}
+
+async function loadMuteStatus() {
+    const context = getCurrentChatContext();
+    
+    if (context.type === 'none') return;
+    
+    try {
+        const tableName = context.type === 'event' ? 'event_participants' : 'match_participants';
+        const idField = context.type === 'event' ? 'event_id' : 'match_id';
+        
+        const { data, error } = await supabase
+            .from(tableName)
+            .select('notifications_muted')
+            .eq(idField, context.id)
+            .eq('profile_id', currentUser.id)
+            .single();
+        
+        if (error) {
+            console.error('Error loading mute status:', error);
+            return;
+        }
+        
+        updateMuteButton(data?.notifications_muted || false);
+        
+    } catch (error) {
+        console.error('Error in loadMuteStatus:', error);
+    }
 }
 
 // Load messages for current event
@@ -6922,6 +7021,84 @@ function showNotificationAlert(title, body) {
     } catch (error) {
         console.error('Error creating notification:', error);
     }
+}
+
+async function showMessageNotification(message, chatType, chatId) {
+    // Check if notifications are supported and permitted
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+    }
+    
+    // Check if this chat is muted
+    try {
+        const tableName = chatType === 'event' ? 'event_participants' : 'match_participants';
+        const idField = chatType === 'event' ? 'event_id' : 'match_id';
+        
+        const { data, error } = await supabase
+            .from(tableName)
+            .select('notifications_muted')
+            .eq(idField, chatId)
+            .eq('profile_id', currentUser.id)
+            .single();
+        
+        if (error) {
+            console.error('Error checking mute status:', error);
+            // Continue anyway - don't block notifications on error
+        }
+        
+        if (data && data.notifications_muted) {
+            console.log('🔇 Chat is muted, skipping notification');
+            return;
+        }
+    } catch (error) {
+        console.error('Error in mute check:', error);
+    }
+    
+    // Get activity name for context
+    let activityName = 'Chat';
+    if (chatType === 'event' && currentEvent) {
+        const activity = activities.find(a => a.id === currentEvent.activity_id);
+        activityName = activity ? `${activity.emoji} ${activity.name}` : 'Event';
+    } else if (chatType === 'match' && currentMatchChat) {
+        const activity = currentMatchChat.activity;
+        activityName = activity ? `${activity.emoji} ${activity.name}` : 'Match';
+    }
+    
+    // Create notification text (strip HTML if it's a photo/link)
+    let notificationBody = message.content;
+    if (message.content.includes('<img')) {
+        notificationBody = '📷 Photo';
+    } else if (message.content.includes('<a')) {
+        notificationBody = message.content.includes('📍') ? '📍 Location' : '🔍 Shared a link';
+    }
+    
+    // Truncate long messages
+    if (notificationBody.length > 100) {
+        notificationBody = notificationBody.substring(0, 100) + '...';
+    }
+    
+    // Show notification
+    const notification = new Notification(`${message.sender.name} - ${activityName}`, {
+        body: notificationBody,
+        icon: message.sender.avatar || '💬',
+        tag: `chat-${chatType}-${chatId}`, // Replace previous notification from same chat
+        requireInteraction: false,
+        data: {
+            chatType: chatType,
+            chatId: chatId
+        }
+    });
+    
+    // Handle click - open the chat
+    notification.onclick = function() {
+        window.focus();
+        if (chatType === 'event') {
+            openEventChat(chatId);
+        } else {
+            openMatchChatThreaded(chatId);
+        }
+        notification.close();
+    };
 }
 
 // Register service worker for PWA
