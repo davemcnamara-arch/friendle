@@ -3827,7 +3827,15 @@ async function subscribeToAllChats() {
                     
                     // Only show notification if NOT currently viewing this chat
                     const context = getCurrentChatContext();
+                    console.log('🔔 Background match notification check:', {
+                        matchId: match_id,
+                        currentContext: context.type,
+                        currentId: context.id,
+                        shouldShow: !(context.type === 'match' && context.id === match_id)
+                    });
+                    
                     if (context.type === 'match' && context.id === match_id) {
+                        console.log('⏭️ Skipping notification - already in chat');
                         return; // Already in this chat, message will appear
                     }
                     
@@ -3867,7 +3875,15 @@ async function subscribeToAllChats() {
                     
                     // Only show notification if NOT currently viewing this chat
                     const context = getCurrentChatContext();
+                    console.log('🔔 Background event notification check:', {
+                        eventId: event_id,
+                        currentContext: context.type,
+                        currentId: context.id,
+                        shouldShow: !(context.type === 'event' && context.id === event_id)
+                    });
+                    
                     if (context.type === 'event' && context.id === event_id) {
+                        console.log('⏭️ Skipping notification - already in chat');
                         return; // Already in this chat, message will appear
                     }
                     
@@ -6472,16 +6488,17 @@ if (pageId !== 'chat') {
         const index1 = allActiveSubscriptions.indexOf(eventMessageSubscription);
         if (index1 > -1) allActiveSubscriptions.splice(index1, 1);
         eventMessageSubscription = null;
-        currentEvent = null;
     }
     if (matchMessageSubscription) {
         supabase.removeChannel(matchMessageSubscription);
         const index2 = allActiveSubscriptions.indexOf(matchMessageSubscription);
         if (index2 > -1) allActiveSubscriptions.splice(index2, 1);
         matchMessageSubscription = null;
-        currentMatchChat = null;
     }
-    currentMatchId = null; // Clear match ID when leaving chat
+    
+    // ⭐ Clear all chat contexts
+    clearAllChatContexts();
+    
     document.getElementById('event-details').style.display = 'block';
 }
     
@@ -6501,6 +6518,9 @@ if (pageId === 'activities') {
 }
 if (pageId === 'matches') {
     await loadMatches();
+    // ⭐ Re-subscribe to ensure clean state after leaving chat
+    console.log('🔄 Refreshing background subscriptions');
+    await subscribeToAllChats();
 }
 }
         window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
@@ -7156,12 +7176,45 @@ async function showMessageNotification(message, chatType, chatId) {
     
     // Get activity name for context
     let activityName = 'Chat';
-    if (chatType === 'event' && currentEvent) {
-        const activity = activities.find(a => a.id === currentEvent.activity_id);
-        activityName = activity ? `${activity.emoji} ${activity.name}` : 'Event';
-    } else if (chatType === 'match' && currentMatchChat) {
-        const activity = currentMatchChat.activity;
-        activityName = activity ? `${activity.emoji} ${activity.name}` : 'Match';
+    
+    try {
+        if (chatType === 'event') {
+            // Try to get from currentEvent first, then query database
+            if (currentEvent && currentEvent.activity_id) {
+                const activity = activities.find(a => a.id === currentEvent.activity_id);
+                activityName = activity ? `${activity.emoji} ${activity.name}` : 'Event';
+            } else {
+                // Query event from database
+                const { data: eventData } = await supabase
+                    .from('events')
+                    .select('activity_id, activities(name, emoji)')
+                    .eq('id', chatId)
+                    .single();
+                
+                if (eventData?.activities) {
+                    activityName = `${eventData.activities.emoji} ${eventData.activities.name}`;
+                }
+            }
+        } else if (chatType === 'match') {
+            // Try to get from currentMatchChat first, then query database
+            if (currentMatchChat && currentMatchChat.activity) {
+                activityName = `${currentMatchChat.activity.emoji} ${currentMatchChat.activity.name}`;
+            } else {
+                // Query match from database
+                const { data: matchData } = await supabase
+                    .from('matches')
+                    .select('activity_id, activities(name, emoji)')
+                    .eq('id', chatId)
+                    .single();
+                
+                if (matchData?.activities) {
+                    activityName = `${matchData.activities.emoji} ${matchData.activities.name}`;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading activity name for notification:', error);
+        // Fall back to generic name
     }
     
     // Create notification text (strip HTML if it's a photo/link)
