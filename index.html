@@ -775,19 +775,21 @@
     });
     
     // Handle notification clicks
-    OneSignal.Notifications.addEventListener('click', (event) => {
-      console.log('🔔 Notification clicked:', event);
-      
-      const data = event.notification.data;
-      if (data && data.chatType && data.matchId) {
-        // Store the match ID to open when app loads
-        sessionStorage.setItem('open_chat_match_id', data.matchId);
-        sessionStorage.setItem('open_chat_type', data.chatType);
-        
-        // Open the app (it will handle opening the chat)
-        window.focus();
-      }
-    });
+OneSignal.Notifications.addEventListener('click', (event) => {
+  console.log('🔔 Notification clicked:', event);
+  
+  const data = event.notification.additionalData;
+  console.log('📦 Notification data:', data);
+  
+  if (data && data.chatType && data.chatId) {
+    sessionStorage.setItem('open_chat_id', data.chatId);
+    sessionStorage.setItem('open_chat_type', data.chatType);
+    console.log('💾 Saved to session storage');
+    
+    // Reload the page to trigger initApp
+    window.location.href = 'https://friendle-circles.vercel.app/';
+  }
+});
     
     // Save Player ID to database when user is logged in
     OneSignal.User.PushSubscription.addEventListener('change', async function(event) {
