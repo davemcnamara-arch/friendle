@@ -917,14 +917,19 @@
             <div id="chat" class="page">
     <div class="chat-container">
         <div class="chat-header">
-    <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 10px;">← Back</button>
-    <div style="flex: 1;">
-        <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
-        <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
+    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+        <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 10px;">← Back</button>
+        <div style="flex: 1;">
+            <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
+            <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
+        </div>
     </div>
-    <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 8px; display: none;">📅 Add to Calendar</button>
-    <button onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 8px;">Leave event</button>
-    <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">⚙️</button>
+    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
+        <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
+        <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
+        <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️</button>
+    </div>
 </div>
         
         <div id="event-details" style="background: #e6f7ff; padding: 12px 15px; border-bottom: 1px solid #91d5ff; flex-shrink: 0;">
@@ -3122,10 +3127,12 @@ window.openMatchChatThreaded = async function(matchId) {
             `${participants?.length || 1} in chat: ${participantNames}`;
         
         // Hide event-specific buttons in general chat
+        const generalChatBtn = document.getElementById('open-general-chat-btn');
         const addToCalendarBtn = document.getElementById('add-to-calendar-btn');
         const eventOptionsBtn = document.getElementById('event-options-btn');
-        const leaveEventBtn = document.querySelector('button[onclick="leaveEvent()"]');
+        const leaveEventBtn = document.getElementById('leave-event-btn');
         
+        if (generalChatBtn) generalChatBtn.style.display = 'none';
         if (addToCalendarBtn) addToCalendarBtn.style.display = 'none';
         if (eventOptionsBtn) eventOptionsBtn.style.display = 'none';
         if (leaveEventBtn) leaveEventBtn.style.display = 'none';
@@ -4690,10 +4697,12 @@ async function openEventChat(eventId) {
         setEventContext(event);
         
         // Show event-specific buttons in event chat
+        const generalChatBtn = document.getElementById('open-general-chat-btn');
         const calendarBtn = document.getElementById('add-to-calendar-btn');
         const eventOptionsBtn = document.getElementById('event-options-btn');
-        const leaveEventBtn = document.querySelector('button[onclick="leaveEvent()"]');
+        const leaveEventBtn = document.getElementById('leave-event-btn');
         
+        if (generalChatBtn) generalChatBtn.style.display = 'inline-block';
         if (calendarBtn) calendarBtn.style.display = 'inline-block';
         if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
         if (leaveEventBtn) leaveEventBtn.style.display = 'inline-block';
@@ -4799,6 +4808,25 @@ allActiveSubscriptions.push(eventMessageSubscription);
         console.error('Error loading event chat:', error);
         alert('Failed to load event chat');
     }
+}
+
+// Open general match chat from event chat
+window.openGeneralChatFromEvent = function() {
+    if (!currentEvent) {
+        showNotification('No event context', 'error');
+        return;
+    }
+    
+    // Find the match ID from current event
+    const matchId = currentEvent.match_id;
+    
+    if (!matchId) {
+        showNotification('Cannot find match for this event', 'error');
+        return;
+    }
+    
+    // Open the general match chat
+    openMatchChatThreaded(matchId);
 }
 
 // Load messages for current event
