@@ -6534,23 +6534,17 @@ if (pageId === 'matches') {
             console.log('🔍 Checking for chat to open:', { openChatId, openChatType });
             
             if (openChatId && openChatType) {
-                console.log('✅ Found chat to open, will open in 1 second...');
+                console.log('✅ Found chat to open, opening immediately...');
                 
                 // Clean up URL (remove all query parameters)
                 window.history.replaceState({}, document.title, window.location.pathname);
                 
-                // Show matches page first
-                showPage('matches');
-                
-                // Wait for everything to load, then open chat
-                setTimeout(async () => {
-                    console.log('🚀 Opening chat now...');
-                    if (openChatType === 'match') {
-                        await openMatchChatThreaded(openChatId);
-                    } else if (openChatType === 'event') {
-                        await openEventChat(openChatId);
-                    }
-                }, 1500);
+                // Open chat immediately
+                if (openChatType === 'match') {
+                    await openMatchChatThreaded(openChatId);
+                } else if (openChatType === 'event') {
+                    await openEventChat(openChatId);
+                }
             } else {
                 // Don't restore chat page on full refresh - go to matches instead
                 if (lastPage === 'chat') {
