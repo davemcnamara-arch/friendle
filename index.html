@@ -4785,25 +4785,45 @@ window.markActivityAsToday = async function(activityId, matchId) {
     }
     
     const context = getCurrentChatContext();
-    console.log('💬 Sending message in context:', context.type);
+    console.log('💬 Sending message in context:', context.type, 'ID:', context.id);
+    
+    // ⭐ Check if we have a valid context
+    if (context.type === 'none' || !context.id) {
+        console.error('❌ No active chat context');
+        showNotification('No active chat', 'error');
+        return;
+    }
+    
+    const messageContent = input.value.trim();
+    console.log('📤 Attempting to send message:', messageContent.substring(0, 50));
     
     try {
         if (context.type === 'event') {
             // EVENT CHAT
+            console.log('📤 Inserting into event_messages table, event_id:', context.id);
+            
             const { data, error } = await supabase
                 .from('event_messages')
                 .insert({
                     event_id: context.id,
                     sender_id: currentUser.id,
-                    content: input.value.trim()
+                    content: messageContent
                 })
                 .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
             
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Database insert error:', error);
+                throw error;
+            }
+            
+            console.log('✅ Message saved to database:', data.id);
             
             appendMessage(data);
+            input.value = '';
             
+            // Broadcast to other users
+            console.log('📡 Broadcasting message to channel event_' + context.id);
             const channel = supabase.channel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
@@ -4818,24 +4838,34 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 }
             });
             
-            input.value = '';
+            console.log('✅ Message broadcast complete');
             
         } else if (context.type === 'match') {
             // MATCH CHAT
+            console.log('📤 Inserting into match_messages table, match_id:', context.id);
+            
             const { data, error } = await supabase
                 .from('match_messages')
                 .insert({
                     match_id: context.id,
                     sender_id: currentUser.id,
-                    content: input.value.trim()
+                    content: messageContent
                 })
                 .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
             
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Database insert error:', error);
+                throw error;
+            }
+            
+            console.log('✅ Message saved to database:', data.id);
             
             appendMessage(data);
+            input.value = '';
             
+            // Broadcast to other users
+            console.log('📡 Broadcasting message to channel match_chat_' + context.id);
             const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
@@ -4850,15 +4880,12 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 }
             });
             
-            input.value = '';
-            
-        } else {
-            console.error('❌ No active chat context');
-            showNotification('No active chat', 'error');
+            console.log('✅ Message broadcast complete');
         }
     } catch (error) {
-        console.error('Error sending message:', error);
-        showNotification('Failed to send message', 'error');
+        console.error('❌ Error sending message:', error);
+        console.error('Error details:', error.message, error.details, error.hint);
+        showNotification('Failed to send message: ' + error.message, 'error');
     }
 }
         
