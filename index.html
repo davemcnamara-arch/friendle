@@ -6497,9 +6497,8 @@ if (pageId === 'matches') {
     // Store invite code for after authentication
     if (inviteCode) {
         sessionStorage.setItem('pending_invite_code', inviteCode);
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
     }
+    // Note: We'll clean up URL later, after checking for chat parameters
     
     // Check for existing Supabase auth session
     const { data: { session } } = await supabase.auth.getSession();
@@ -6537,7 +6536,7 @@ if (pageId === 'matches') {
             if (openChatId && openChatType) {
                 console.log('✅ Found chat to open, will open in 1 second...');
                 
-                // Clean up URL
+                // Clean up URL (remove all query parameters)
                 window.history.replaceState({}, document.title, window.location.pathname);
                 
                 // Show matches page first
