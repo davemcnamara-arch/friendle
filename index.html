@@ -4726,6 +4726,8 @@ window.markActivityAsToday = async function(activityId, matchId) {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
+    const messageContent = input.value.trim(); // Capture message FIRST
+    
     const context = getCurrentChatContext();
     console.log('💬 Sending message in context:', context.type);
     
@@ -4737,7 +4739,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 .insert({
                     event_id: context.id,
                     sender_id: currentUser.id,
-                    content: input.value.trim()
+                    content: messageContent
                 })
                 .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
@@ -4760,8 +4762,6 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 }
             });
             
-            input.value = '';
-            
         } else if (context.type === 'match') {
             // MATCH CHAT
             const { data, error } = await supabase
@@ -4769,7 +4769,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 .insert({
                     match_id: context.id,
                     sender_id: currentUser.id,
-                    content: input.value.trim()
+                    content: messageContent
                 })
                 .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
@@ -4791,8 +4791,6 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     created_at: data.created_at
                 }
             });
-            
-            input.value = '';
             
         } else {
             console.error('❌ No active chat context');
@@ -4840,9 +4838,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
             console.log('📬 Recipient IDs:', recipientIds);
             
             if (recipientIds.length > 0) {
-                const messageContent = document.getElementById('message-input').value.trim();
-                
-            console.log('🚀 Calling Edge Function with:', {
+                console.log('🚀 Calling Edge Function with:', {
                     senderId: currentUser.id,
                     recipientIds: recipientIds,
                     message: messageContent,
@@ -4866,6 +4862,9 @@ window.markActivityAsToday = async function(activityId, matchId) {
             console.error('Error sending notification:', notifError);
             // Don't block message send if notification fails
         }
+        
+        // Clear input LAST
+        input.value = '';
         
     } catch (error) {
         console.error('Error sending message:', error);
