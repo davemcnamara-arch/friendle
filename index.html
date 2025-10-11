@@ -774,6 +774,21 @@
       allowLocalhostAsSecureOrigin: true
     });
     
+    // Handle notification clicks
+    OneSignal.Notifications.addEventListener('click', (event) => {
+      console.log('🔔 Notification clicked:', event);
+      
+      const data = event.notification.data;
+      if (data && data.chatType && data.matchId) {
+        // Store the match ID to open when app loads
+        sessionStorage.setItem('open_chat_match_id', data.matchId);
+        sessionStorage.setItem('open_chat_type', data.chatType);
+        
+        // Open the app (it will handle opening the chat)
+        window.focus();
+      }
+    });
+    
     // Save Player ID to database when user is logged in
     OneSignal.User.PushSubscription.addEventListener('change', async function(event) {
       const playerId = event.current.id;
@@ -5373,11 +5388,8 @@ async function loadEventMessages(eventId, eventCreatedAt) {
         sender:profiles(id, name, avatar)
     `)
     .eq('event_id', eventId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-// Reverse to show oldest first
-if (messages) messages.reverse();
+    .order('created_at', { ascending: true })
+.limit(50);
         
         if (error) throw error;
         
@@ -5854,11 +5866,8 @@ async function loadMatchMessages(matchId) {
         sender:profiles(id, name, avatar)
     `)
     .eq('match_id', matchId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-// Reverse to show oldest first
-if (messages) messages.reverse();
+    .order('created_at', { ascending: true })
+.limit(50);
         
         if (error) throw error;
         
