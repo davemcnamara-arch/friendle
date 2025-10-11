@@ -3803,6 +3803,100 @@ async function setupMatchChatSubscription(matchId) {
     allActiveSubscriptions.push(matchMessageSubscription);
 }
 
+// Subscribe to all active chats for background notifications
+async function subscribeToAllChats() {
+    if (!currentUser) return;
+    
+    console.log('📡 Subscribing to all active chats for notifications...');
+    
+    try {
+        // Get all matches user is in
+        const { data: userMatches, error: matchError } = await supabase
+            .from('match_participants')
+            .select('match_id, matches!inner(circle_id, activity_id)')
+            .eq('profile_id', currentUser.id);
+        
+        if (matchError) throw matchError;
+        
+        // Subscribe to each match
+        userMatches?.forEach(({ match_id }) => {
+            const channel = supabase.channel(`bg_match_${match_id}`)
+                .on('broadcast', { event: 'new_general_message' }, async (payload) => {
+                    // Skip own messages
+                    if (payload.payload.sender_id === currentUser.id) return;
+                    
+                    // Only show notification if NOT currently viewing this chat
+                    const context = getCurrentChatContext();
+                    if (context.type === 'match' && context.id === match_id) {
+                        return; // Already in this chat, message will appear
+                    }
+                    
+                    const message = {
+                        id: payload.payload.id,
+                        sender_id: payload.payload.sender_id,
+                        content: payload.payload.content,
+                        created_at: payload.payload.created_at,
+                        sender: {
+                            id: payload.payload.sender_id,
+                            name: payload.payload.sender_name,
+                            avatar: payload.payload.sender_avatar
+                        }
+                    };
+                    
+                    await showMessageNotification(message, 'match', match_id);
+                })
+                .subscribe();
+            
+            allActiveSubscriptions.push(channel);
+        });
+        
+        // Get all events user is in
+        const { data: userEvents, error: eventError } = await supabase
+            .from('event_participants')
+            .select('event_id, events!inner(match_id, activity_id, circle_id)')
+            .eq('profile_id', currentUser.id);
+        
+        if (eventError) throw eventError;
+        
+        // Subscribe to each event
+        userEvents?.forEach(({ event_id }) => {
+            const channel = supabase.channel(`bg_event_${event_id}`)
+                .on('broadcast', { event: 'new_message' }, async (payload) => {
+                    // Skip own messages
+                    if (payload.payload.sender_id === currentUser.id) return;
+                    
+                    // Only show notification if NOT currently viewing this chat
+                    const context = getCurrentChatContext();
+                    if (context.type === 'event' && context.id === event_id) {
+                        return; // Already in this chat, message will appear
+                    }
+                    
+                    const message = {
+                        id: payload.payload.id,
+                        sender_id: payload.payload.sender_id,
+                        content: payload.payload.content,
+                        created_at: payload.payload.created_at,
+                        sender: {
+                            id: payload.payload.sender_id,
+                            name: payload.payload.sender_name,
+                            avatar: payload.payload.sender_avatar
+                        }
+                    };
+                    
+                    await showMessageNotification(message, 'event', event_id);
+                })
+                .subscribe();
+            
+            allActiveSubscriptions.push(channel);
+        });
+        
+        console.log(`✅ Subscribed to ${userMatches?.length || 0} matches and ${userEvents?.length || 0} events`);
+        
+    } catch (error) {
+        console.error('Error subscribing to all chats:', error);
+    }
+}
+
 // Load a single message with sender info
 async function loadSingleMessage(messageId) {
     try {
@@ -6483,6 +6577,9 @@ if (pageId === 'matches') {
             await renderCircles();
             await loadMatches();
             
+	    // Subscribe to all chats for background notifications
+            await subscribeToAllChats();
+
             const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
 
             // Don't restore chat page on full refresh - go to matches instead
