@@ -1014,7 +1014,52 @@
         </div>
         
         <div class="modal-overlay" id="image-modal-overlay"><div class="close-modal" onclick="closeImageModal()">×</div><div class="modal-content modal-image-content"><img class="modal-image" id="modal-image" src="" alt=""></div></div>
-        <div class="modal-overlay" id="circle-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeCircleModal()">×</span><div id="create-circle" style="display: none;"><div class="modal-header">Create New Circle</div><div class="form-group"><label for="circle-name">Circle Name</label><input type="text" id="circle-name" placeholder="e.g., College Friends"></div><button class="btn" onclick="createCircle()">Create</button></div><div id="join-circle" style="display: none;"><div class="modal-header">Join Circle</div><div class="form-group"><label for="circle-code">Circle Code</label><input type="text" id="circle-code" placeholder="Enter 6-digit code"></div><button class="btn" onclick="joinCircle()">Join</button></div></div></div>
+        <div class="modal-overlay" id="circle-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeCircleModal()">×</span><div id="create-circle" style="display: none;">
+    <!-- Step 1: Name -->
+    <div id="circle-step-1">
+        <div class="modal-header">Create New Circle</div>
+        <div class="form-group">
+            <label for="circle-name">Circle Name</label>
+            <input type="text" id="circle-name" placeholder="e.g., College Friends">
+        </div>
+        <button class="btn" onclick="goToCircleStep2()">Next</button>
+        <button class="btn btn-secondary" onclick="closeCircleModal()">Cancel</button>
+    </div>
+    
+    <!-- Step 2: Activities -->
+    <div id="circle-step-2" style="display: none;">
+        <div class="modal-header">What activities interest this group?</div>
+        
+        <!-- Quick select buttons -->
+        <div class="bulk-controls">
+            <h4>Quick Select</h4>
+            <div class="bulk-btn" onclick="selectCircleActivityCategory('food')">☕ Food & Drinks</div>
+            <div class="bulk-btn" onclick="selectCircleActivityCategory('active')">🏃 Active</div>
+            <div class="bulk-btn" onclick="selectCircleActivityCategory('entertainment')">🎬 Entertainment</div>
+            <div class="bulk-btn" onclick="selectCircleActivityCategory('relax')">🧘 Relax & Creative</div>
+            <div class="bulk-btn" onclick="selectCircleActivityCategory('all')">✨ Select All</div>
+        </div>
+        
+        <!-- Activity grid -->
+        <div class="activities-grid" id="circle-creation-activities-grid" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+        
+        <div style="text-align: center; margin: 15px 0;">
+            <button class="btn btn-secondary btn-small" onclick="openSuggestModal()">
+                💡 Suggest a different activity
+            </button>
+        </div>
+        
+        <div style="text-align: center; color: #666; font-size: 0.9em; margin-bottom: 15px;">
+            <span id="circle-selected-count">0</span> activities selected
+            <div id="circle-min-warning" style="color: #dc3545; font-size: 0.85em; margin-top: 5px; display: none;">
+                Select at least 4 activities to continue
+            </div>
+        </div>
+        
+        <button class="btn" id="circle-create-btn" onclick="finalizeCircleCreation()" disabled style="opacity: 0.5; cursor: not-allowed;">Create Circle</button>
+        <button class="btn btn-secondary" onclick="goBackToCircleStep1()">← Back</button>
+    </div>
+</div><div id="join-circle" style="display: none;"><div class="modal-header">Join Circle</div><div class="form-group"><label for="circle-code">Circle Code</label><input type="text" id="circle-code" placeholder="Enter 6-digit code"></div><button class="btn" onclick="joinCircle()">Join</button></div></div></div>
         <div class="modal-overlay" id="suggest-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeSuggestModal()">×</span><div class="modal-header">Suggest an Activity</div><div class="form-group"><label for="suggest-name">Activity Name</label><input type="text" id="suggest-name" placeholder="e.g., Go Karting"></div><button class="btn" onclick="suggestActivity()">Suggest</button></div></div>
         <div class="modal-overlay" id="invite-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeInviteModal()">×</span><div class="modal-header">Share Invite Link</div><div class="form-group"><label for="invite-link">Copy this link and send it to a friend:</label><input type="text" id="invite-link" readonly></div><button class="btn" onclick="copyInviteLink()">Copy Link</button></div></div>
     
@@ -1625,31 +1670,207 @@ window.changePassword = async function() {
         window.showCreateCircle = () => { document.getElementById('create-circle').style.display = 'block'; document.getElementById('circle-modal-overlay').style.display = 'flex'; };
         window.showJoinCircle = () => { document.getElementById('join-circle').style.display = 'block'; document.getElementById('circle-modal-overlay').style.display = 'flex'; };
         window.closeCircleModal = () => { document.getElementById('circle-modal-overlay').style.display = 'none'; document.getElementById('create-circle').style.display = 'none'; document.getElementById('join-circle').style.display = 'none'; };
-        window.createCircle = async function() {
-  const name = document.getElementById('circle-name').value.trim();
-  if (!name) return;
+	window.goToCircleStep2 = async function() {
+    const name = document.getElementById('circle-name').value.trim();
+    
+    if (!name) {
+        return showNotification('Please enter a circle name', 'error');
+    }
+    
+    // Hide step 1, show step 2
+    document.getElementById('circle-step-1').style.display = 'none';
+    document.getElementById('circle-step-2').style.display = 'block';
+    
+    // Load and render activities (no previous selections on first load)
+    await renderCircleCreationActivities();
+}
 
-  const code = generateCode();
+window.goBackToCircleStep1 = function() {
+    document.getElementById('circle-step-2').style.display = 'none';
+    document.getElementById('circle-step-1').style.display = 'block';
+}
 
-  // Insert into circles
-  const { data: circle, error } = await supabase
-    .from('circles')
-    .insert([{ name, code, created_by: currentUser.id }])
-    .select()
-    .single();
+async function renderCircleCreationActivities(previousSelections = new Set(), autoSelectId = null) {
+    const grid = document.getElementById('circle-creation-activities-grid');
+    grid.innerHTML = '';
+    
+    // Render all default activities
+    defaultActivities.forEach(activity => {
+        const card = document.createElement('div');
+        card.className = 'activity-card';
+        card.dataset.activityId = activity.id;
+        
+        // Restore previous selections or auto-select new activity
+        if (previousSelections.has(activity.id) || activity.id === autoSelectId) {
+            card.classList.add('selected');
+        }
+        
+        card.innerHTML = `
+            <div class="activity-emoji">${activity.emoji}</div>
+            <div class="activity-name">${activity.name}</div>
+        `;
+        
+        card.onclick = () => {
+            card.classList.toggle('selected');
+            updateCircleSelectedCount();
+        };
+        
+        grid.appendChild(card);
+    });
+    
+    updateCircleSelectedCount();
+}
 
-  if (error) {
-    console.error(error);
-    return showNotification('Could not create circle', 'error');
-  }
+function updateCircleSelectedCount() {
+    const selectedCards = document.querySelectorAll('#circle-creation-activities-grid .activity-card.selected');
+    const count = selectedCards.length;
+    
+    document.getElementById('circle-selected-count').textContent = count;
+    
+    const createBtn = document.getElementById('circle-create-btn');
+    const warning = document.getElementById('circle-min-warning');
+    
+    if (count >= 4) {
+        createBtn.disabled = false;
+        createBtn.style.opacity = '1';
+        createBtn.style.cursor = 'pointer';
+        warning.style.display = 'none';
+    } else {
+        createBtn.disabled = true;
+        createBtn.style.opacity = '0.5';
+        createBtn.style.cursor = 'not-allowed';
+        warning.style.display = 'block';
+    }
+}
 
-  // Add creator as a member
-  await supabase.from('circle_members').insert([{ circle_id: circle.id, profile_id: currentUser.id }]);
-
-  circles.push(circle);
-  closeCircleModal();
-  renderCircles();
-  showNotification(`Circle created! Share code: ${circle.code}`);
+window.selectCircleActivityCategory = function(category) {
+    const grid = document.getElementById('circle-creation-activities-grid');
+    const allCards = grid.querySelectorAll('.activity-card');
+    
+    // Clear all first
+    allCards.forEach(card => card.classList.remove('selected'));
+    
+    if (category === 'all') {
+        // Select all
+        allCards.forEach(card => card.classList.add('selected'));
+    } else {
+        // Select by category
+        defaultActivities.forEach(activity => {
+            if (activity.category === category) {
+                const card = grid.querySelector(`[data-activity-id="${activity.id}"]`);
+                if (card) card.classList.add('selected');
+            }
+        });
+    }
+    
+    updateCircleSelectedCount();
+}
+        window.finalizeCircleCreation = async function() {
+    const name = document.getElementById('circle-name').value.trim();
+    
+    if (!name) {
+        return showNotification('Please enter a circle name', 'error');
+    }
+    
+    // Get selected activities
+    const selectedCards = document.querySelectorAll('#circle-creation-activities-grid .activity-card.selected');
+    const selectedActivityIds = Array.from(selectedCards).map(card => card.dataset.activityId);
+    
+    if (selectedActivityIds.length < 4) {
+        return showNotification('Please select at least 4 activities', 'error');
+    }
+    
+    showLoader('Creating circle...');
+    
+    try {
+        const code = generateCode();
+        
+        // Insert into circles
+        const { data: circle, error } = await supabase
+            .from('circles')
+            .insert([{ name, code, created_by: currentUser.id }])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // Add creator as a member
+        await supabase.from('circle_members').insert([{ 
+            circle_id: circle.id, 
+            profile_id: currentUser.id 
+        }]);
+        
+        // Save any custom activities that were suggested during creation
+        const customActivities = defaultActivities.filter(a => 
+            typeof a.id === 'string' && a.id.startsWith('temp_')
+        );
+        
+        const activityIdMapping = {}; // Maps temp IDs to real IDs
+        
+        for (const customActivity of customActivities) {
+            const { data: newActivity, error: actError } = await supabase
+                .from('activities')
+                .insert([{
+                    name: customActivity.name,
+                    emoji: customActivity.emoji,
+                    category: 'custom',
+                    circle_id: circle.id
+                }])
+                .select()
+                .single();
+            
+            if (!actError && newActivity) {
+                activityIdMapping[customActivity.id] = newActivity.id;
+            }
+        }
+        
+        // Update selected IDs to use real IDs instead of temp IDs
+        const finalSelectedIds = selectedActivityIds.map(id => 
+            activityIdMapping[id] || id
+        );
+        
+        // Set activity visibility for this circle
+        if (finalSelectedIds.length > 0) {
+            // Get all default activity IDs (excluding temp ones)
+            const allDefaultIds = defaultActivities
+                .filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp_')))
+                .map(a => a.id);
+            
+            // Create visibility records for default activities
+            const visibilityRecords = allDefaultIds.map(activityId => ({
+                circle_id: circle.id,
+                activity_id: activityId,
+                is_visible: finalSelectedIds.includes(activityId)
+            }));
+            
+            await supabase
+                .from('circle_activities')
+                .insert(visibilityRecords);
+        }
+        
+        // Clean up temp activities from defaultActivities
+        defaultActivities = defaultActivities.filter(a => 
+            !(typeof a.id === 'string' && a.id.startsWith('temp_'))
+        );
+        
+        circles.push(circle);
+        
+        // Reset modal
+        document.getElementById('circle-name').value = '';
+        document.getElementById('circle-step-2').style.display = 'none';
+        document.getElementById('circle-step-1').style.display = 'block';
+        
+        closeCircleModal();
+        hideLoader();
+        renderCircles();
+        
+        showNotification(`Circle created! Share code: ${circle.code}`);
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error creating circle:', error);
+        showNotification('Could not create circle', 'error');
+    }
 }
 
         
@@ -1742,26 +1963,145 @@ window.changePassword = async function() {
   }
 }
 
-
 window.leaveCircle = async function(circleId) {
   if (!confirm("Are you sure you want to leave this circle?")) return;
-
-  // Delete your membership row from circle_members
-  const { error } = await supabase
-    .from('circle_members')
-    .delete()
-    .eq('circle_id', circleId)
-    .eq('profile_id', currentUser.id);
-
-  if (error) {
-    console.error(error);
-    return showNotification("Error leaving circle", "error");
+  
+  showLoader('Leaving circle...');
+  
+  try {
+    // Check if user is the last member
+    const { data: members, error: membersError } = await supabase
+      .from('circle_members')
+      .select('profile_id')
+      .eq('circle_id', circleId);
+    
+    if (membersError) throw membersError;
+    
+    const isLastMember = members && members.length === 1;
+    
+    // Delete your membership
+    const { error: deleteError } = await supabase
+      .from('circle_members')
+      .delete()
+      .eq('circle_id', circleId)
+      .eq('profile_id', currentUser.id);
+    
+    if (deleteError) throw deleteError;
+    
+    // If last member, delete the entire circle
+    if (isLastMember) {
+      await deleteCircle(circleId);
+      hideLoader();
+      showNotification("Circle deleted (you were the last member)");
+    } else {
+      hideLoader();
+      showNotification("You left the circle.");
+    }
+    
+    // Refresh circles list
+    await renderCircles();
+    
+  } catch (error) {
+    hideLoader();
+    console.error('Error leaving circle:', error);
+    showNotification("Error leaving circle", "error");
   }
-
-  // Refresh circles list
-  await renderCircles();
-  showNotification("You left the circle.");
 };
+
+async function deleteCircle(circleId) {
+  try {
+    console.log('🗑️ Deleting empty circle:', circleId);
+    
+    // Delete all related data (Supabase should handle cascades, but let's be explicit)
+    
+    // 1. Delete circle_activities
+    await supabase
+      .from('circle_activities')
+      .delete()
+      .eq('circle_id', circleId);
+    
+    // 2. Delete preferences
+    await supabase
+      .from('preferences')
+      .delete()
+      .eq('circle_id', circleId);
+    
+    // 3. Delete match_participants (for matches in this circle)
+    const { data: circleMatches } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('circle_id', circleId);
+    
+    if (circleMatches && circleMatches.length > 0) {
+      const matchIds = circleMatches.map(m => m.id);
+      
+      await supabase
+        .from('match_participants')
+        .delete()
+        .in('match_id', matchIds);
+      
+      // 4. Delete match_messages
+      await supabase
+        .from('match_messages')
+        .delete()
+        .in('match_id', matchIds);
+    }
+    
+    // 5. Delete events and related data
+    const { data: circleEvents } = await supabase
+      .from('events')
+      .select('id')
+      .eq('circle_id', circleId);
+    
+    if (circleEvents && circleEvents.length > 0) {
+      const eventIds = circleEvents.map(e => e.id);
+      
+      // Delete event_participants
+      await supabase
+        .from('event_participants')
+        .delete()
+        .in('event_id', eventIds);
+      
+      // Delete event_messages
+      await supabase
+        .from('event_messages')
+        .delete()
+        .in('event_id', eventIds);
+      
+      // Delete events
+      await supabase
+        .from('events')
+        .delete()
+        .in('id', eventIds);
+    }
+    
+    // 6. Delete matches
+    await supabase
+      .from('matches')
+      .delete()
+      .eq('circle_id', circleId);
+    
+    // 7. Delete custom activities for this circle
+    await supabase
+      .from('activities')
+      .delete()
+      .eq('circle_id', circleId);
+    
+    // 8. Finally, delete the circle itself
+    const { error: circleError } = await supabase
+      .from('circles')
+      .delete()
+      .eq('id', circleId);
+    
+    if (circleError) throw circleError;
+    
+    console.log('✅ Circle and all related data deleted');
+    
+  } catch (error) {
+    console.error('Error deleting circle:', error);
+    throw error;
+  }
+}
 
 window.copyCircleCode = function(code) {
     navigator.clipboard.writeText(code).then(() => {
@@ -2817,7 +3157,9 @@ window.setActivityMode = async function(activityId, isToday) {
         showNotification('Error saving preferences', 'error');
     }
 }
-        window.openSuggestModal = () => document.getElementById('suggest-modal-overlay').style.display = 'flex';
+        window.openSuggestModal = () => {
+    document.getElementById('suggest-modal-overlay').style.display = 'flex';
+}
         window.closeSuggestModal = () => document.getElementById('suggest-modal-overlay').style.display = 'none';
         window.suggestActivity = async function() {
     const name = document.getElementById('suggest-name').value.trim();
@@ -2826,28 +3168,57 @@ window.setActivityMode = async function(activityId, isToday) {
     }
 
     try {
-        const { data, error } = await supabase
-            .from('activities')
-            .insert([{
+        // Check if we're in circle creation mode (no selectedCircle yet)
+        const isCircleCreation = !selectedCircle;
+        
+        if (isCircleCreation) {
+            // Save current selections before re-rendering
+            const currentlySelected = new Set(
+                Array.from(document.querySelectorAll('#circle-creation-activities-grid .activity-card.selected'))
+                    .map(card => card.dataset.activityId)
+            );
+            
+            // Add to default activities temporarily (for this session only)
+            const newActivity = {
+                id: 'temp_' + Date.now(), // Temporary ID
                 name: name,
-                emoji: '💡', // Always use lightbulb
+                emoji: '💡',
                 category: 'custom',
-                circle_id: selectedCircle.id
-            }])
-            .select()
-            .single();
+                circle_id: null // Will be set when circle is created
+            };
+            
+            defaultActivities.push(newActivity);
+            
+            showNotification(`Activity "${name}" added and selected!`);
+            closeSuggestModal();
+            
+            // Re-render circle creation activities with previous selections + new one
+            await renderCircleCreationActivities(currentlySelected, newActivity.id);
+            
+        } else {
+            // Normal flow - circle already exists
+            const { data, error } = await supabase
+                .from('activities')
+                .insert([{
+                    name: name,
+                    emoji: '💡',
+                    category: 'custom',
+                    circle_id: selectedCircle.id
+                }])
+                .select()
+                .single();
 
-        if (error) throw error;
-        
-        showNotification(`Activity "${name}" added!`);
-        closeSuggestModal();
-        
-        // Reload user's actual preferences before re-rendering
-        const savedActivityIds = await loadUserPreferences(selectedCircle.id);
-        const allActivities = await loadActivities(selectedCircle.id);
-        activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
-        
-        renderActivities();
+            if (error) throw error;
+            
+            showNotification(`Activity "${name}" added!`);
+            closeSuggestModal();
+            
+            const savedActivityIds = await loadUserPreferences(selectedCircle.id);
+            const allActivities = await loadActivities(selectedCircle.id);
+            activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
+            
+            renderActivities();
+        }
     } catch (error) {
         console.error('Error adding custom activity:', error);
         showNotification('Error adding activity', 'error');
@@ -3122,9 +3493,26 @@ window.openMatchChatThreaded = async function(matchId) {
         document.getElementById('event-activity-name').textContent = 
             `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Activity'} Chat`;
         
-        const participantNames = participants?.map(p => p.profiles.name).join(', ') || 'Just you';
-        document.getElementById('event-participants').textContent = 
-            `${participants?.length || 1} in chat: ${participantNames}`;
+        const participantProfiles = participants?.map(p => p.profiles.name) || [];
+const participantCount = participants?.length || 1;
+
+let participantDisplay;
+if (participantCount === 1) {
+    participantDisplay = 'Just you';
+} else if (participantCount <= 3) {
+    // Show all names
+    participantDisplay = participantProfiles.join(', ');
+} else {
+    // Show first 2 and "X others" (clickable)
+    const shown = participantProfiles.slice(0, 2).join(', ');
+    const remaining = participantCount - 2;
+    const allNames = participantProfiles.join('\\n');
+    
+    participantDisplay = `${shown}, and <a href="#" onclick="event.preventDefault(); alert('In chat:\\n\\n${allNames}');" style="color: white; text-decoration: underline; cursor: pointer;">${remaining} other${remaining > 1 ? 's' : ''}</a>`;
+}
+
+document.getElementById('event-participants').innerHTML = 
+    `${participantCount} in chat: ${participantDisplay}`;
         
         // Hide event-specific buttons in general chat
         const generalChatBtn = document.getElementById('open-general-chat-btn');
@@ -4735,10 +5123,21 @@ const headerDateStr = headerEventDate.toLocaleDateString('en-US', {
 document.getElementById('event-activity-name').textContent = 
     `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'} - ${headerDateStr}`;
 
-const participantNames = event.event_participants
-    .map(p => p.profiles.name)
-    .join(', ');
-document.getElementById('event-participants').textContent = participantNames;
+const participants = event.event_participants.map(p => p.profiles.name);
+const participantCount = participants.length;
+
+if (participantCount <= 3) {
+    // Show all names
+    document.getElementById('event-participants').textContent = participants.join(', ');
+} else {
+    // Show first 2 and "X others" (clickable)
+    const shown = participants.slice(0, 2).join(', ');
+    const remaining = participantCount - 2;
+    const allNames = participants.join('\\n');
+    
+    document.getElementById('event-participants').innerHTML = 
+        `${shown}, and <a href="#" onclick="event.preventDefault(); alert('Participants:\\n\\n${allNames}');" style="color: white; text-decoration: underline; cursor: pointer;">${remaining} other${remaining > 1 ? 's' : ''}</a>`;
+}
         
         // Format and display event details
 const eventDate = new Date(event.scheduled_date);
