@@ -3802,8 +3802,7 @@ async function loadAndDisplayGeneralMessages(matchId) {
                 sender:profiles(id, name, avatar)
             `)
             .eq('match_id', matchId)
-            .order('created_at', { ascending: true })
-            .limit(50);
+            .order('created_at', { ascending: true });
         
         if (error) throw error;
         
@@ -3828,6 +3827,7 @@ async function loadAndDisplayGeneralMessages(matchId) {
 }
 
 async function setupMatchChatSubscription(matchId) {
+    console.log('🔔 Setting up match chat subscription for:', matchId);
     
     // Clean up existing subscription
     if (matchMessageSubscription) {
@@ -3837,33 +3837,15 @@ async function setupMatchChatSubscription(matchId) {
         matchMessageSubscription = null;
     }
     
-    // Subscribe to new messages for this match using postgres_changes
+    // Subscribe to broadcast messages only
     matchMessageSubscription = supabase
         .channel(`match_chat_${matchId}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'match_messages',
-                filter: `match_id=eq.${matchId}`
-            },
-            (payload) => {
-                console.log('📩 New match message received:', payload);
-                
-                // Don't duplicate messages we sent ourselves
-                if (payload.new.sender_id === currentUser.id) {
-                    return;
-                }
-                
-                // Load full message with sender info
-                loadSingleMessage(payload.new.id);
-            }
-        )
         .on('broadcast', { event: 'new_general_message' }, (payload) => {
+            console.log('📨 Broadcast message received:', payload.payload);
             
             // Don't duplicate messages we sent ourselves
             if (payload.payload.sender_id === currentUser.id) {
+                console.log('⏭️ Skipping own message');
                 return;
             }
             
@@ -5389,8 +5371,7 @@ async function loadEventMessages(eventId, eventCreatedAt) {
         sender:profiles(id, name, avatar)
     `)
     .eq('event_id', eventId)
-    .order('created_at', { ascending: true })
-.limit(50);
+    .order('created_at', { ascending: true });
         
         if (error) throw error;
         
