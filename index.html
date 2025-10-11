@@ -767,7 +767,6 @@
 
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
-  <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
@@ -4841,7 +4840,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
             console.log('📬 Recipient IDs:', recipientIds);
             
             if (recipientIds.length > 0) {
-                const messageContent = input.value.trim();
+                const messageContent = document.getElementById('message-input').value.trim();
                 
             console.log('🚀 Calling Edge Function with:', {
                     senderId: currentUser.id,
