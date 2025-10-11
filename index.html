@@ -4798,7 +4798,65 @@ window.markActivityAsToday = async function(activityId, matchId) {
         } else {
             console.error('❌ No active chat context');
             showNotification('No active chat', 'error');
+            return;
         }
+        
+        // Send push notification via Supabase Edge Function
+        try {
+            const context = getCurrentChatContext();
+            let recipientIds = [];
+            let activityName = 'Chat';
+            
+            if (context.type === 'event') {
+                // Get event participants (excluding sender)
+                const { data: participants } = await supabase
+                    .from('event_participants')
+                    .select('profile_id')
+                    .eq('event_id', context.id)
+                    .neq('profile_id', currentUser.id);
+                
+                recipientIds = participants?.map(p => p.profile_id) || [];
+                
+                // Get activity name
+                const activity = activities.find(a => a.id === currentEvent?.activity_id);
+                activityName = activity ? `${activity.emoji} ${activity.name}` : 'Event';
+                
+            } else if (context.type === 'match') {
+                // Get match participants (excluding sender)
+                const { data: participants } = await supabase
+                    .from('match_participants')
+                    .select('profile_id')
+                    .eq('match_id', context.id)
+                    .neq('profile_id', currentUser.id);
+                
+                recipientIds = participants?.map(p => p.profile_id) || [];
+                
+                // Get activity name
+                const match = matches.find(m => m.id === context.id);
+                const activity = match?.activity || activities.find(a => a.id === match?.activity_id);
+                activityName = activity ? `${activity.emoji} ${activity.name}` : 'Chat';
+            }
+            
+            if (recipientIds.length > 0) {
+                const messageContent = input.value.trim();
+                
+                await supabase.functions.invoke('send-notification', {
+                    body: {
+                        senderId: currentUser.id,
+                        recipientIds: recipientIds,
+                        message: messageContent,
+                        activityName: activityName,
+                        chatType: context.type
+                    }
+                });
+                
+                console.log('✅ Push notification sent');
+            }
+        } catch (notifError) {
+            console.error('Error sending notification:', notifError);
+            // Don't block message send if notification fails
+        }
+        
     } catch (error) {
         console.error('Error sending message:', error);
         showNotification('Failed to send message', 'error');
