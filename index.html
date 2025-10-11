@@ -4471,13 +4471,8 @@ window.deleteEventMessage = async function(msgId) {
                 payload: { id: msgId }
             });
             
-            const { data: allEvents } = await supabase
-                .from('events')
-                .select(`*, event_participants(profile_id, profiles(id, name, avatar))`)
-                .eq('match_id', context.id)
-                .order('scheduled_date', { ascending: true });
-            
-            await renderThreadedChat(context.id, allEvents || []);
+            // Reload the general chat messages (not the full threaded view)
+            await loadAndDisplayGeneralMessages(context.id);
         }
 
         showNotification('Message deleted');
