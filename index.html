@@ -1158,6 +1158,38 @@
         // App State
         let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null;
 
+// ========== CHAT CONTEXT MANAGEMENT ==========
+// These helpers ensure only ONE chat context is active at a time
+
+function clearAllChatContexts() {
+    console.log('🧹 Clearing all chat contexts');
+    currentEvent = null;
+    currentMatchChat = null;
+    currentMatchId = null;
+}
+
+function setEventContext(event) {
+    console.log('📍 Setting event context:', event.id);
+    clearAllChatContexts();
+    currentEvent = event;
+}
+
+function setMatchContext(match) {
+    console.log('📍 Setting match context:', match.id);
+    clearAllChatContexts();
+    currentMatchChat = match;
+    currentMatchId = match.id; // Keep for backwards compatibility during refactor
+}
+
+function getCurrentChatContext() {
+    if (currentEvent) {
+        return { type: 'event', id: currentEvent.id, data: currentEvent };
+    } else if (currentMatchChat) {
+        return { type: 'match', id: currentMatchChat.id, data: currentMatchChat };
+    }
+    return { type: 'none', id: null, data: null };
+}
+// ========== END CHAT CONTEXT MANAGEMENT ==========
 
 // UUID Generator
         function generateUUID() {
@@ -3024,14 +3056,29 @@ window.joinMatchChatNormal = async function(matchId) {
 // Open threaded chat view
 window.openMatchChatThreaded = async function(matchId) {
     try {
+        console.log('🔄 Opening match chat:', matchId);
         showLoader('Loading chat...');
         
-        // Store current match ID
-        currentMatchId = matchId;
+        // Clean up ALL previous subscriptions
+        if (matchMessageSubscription) {
+            await supabase.removeChannel(matchMessageSubscription);
+            const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
+            if (index > -1) allActiveSubscriptions.splice(index, 1);
+            matchMessageSubscription = null;
+        }
+        
+        if (eventMessageSubscription) {
+            await supabase.removeChannel(eventMessageSubscription);
+            const index = allActiveSubscriptions.indexOf(eventMessageSubscription);
+            if (index > -1) allActiveSubscriptions.splice(index, 1);
+            eventMessageSubscription = null;
+        }
         
         // Find the match
         const match = matches.find(m => m.id === matchId);
-        currentMatchChat = match; // Store the match object for delete/edit operations
+        
+        // Set context using helper
+        setMatchContext(match);
         
         if (!match) {
             hideLoader();
@@ -4214,34 +4261,62 @@ window.markActivityAsToday = async function(activityId, matchId) {
 }
 
         window.sendMessage = async function() {
-    
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
+    const context = getCurrentChatContext();
+    console.log('💬 Sending message in context:', context.type);
+    
     try {
-        // Check what context we're in
-        if (currentMatchId) {
-            // In threaded match chat (general)
+        if (context.type === 'event') {
+            // EVENT CHAT
             const { data, error } = await supabase
-                .from('match_messages')
+                .from('event_messages')
                 .insert({
-                    match_id: currentMatchId,
+                    event_id: context.id,
                     sender_id: currentUser.id,
                     content: input.value.trim()
                 })
-                .select(`
-                    *,
-                    sender:profiles(id, name, avatar)
-                `)
+                .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
             
             if (error) throw error;
             
-            // Append to UI
             appendMessage(data);
             
-            // Broadcast to other users
-            const channel = supabase.channel(`match_chat_${currentMatchId}`);
+            const channel = supabase.channel(`event_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'new_message',
+                payload: {
+                    id: data.id,
+                    sender_id: currentUser.id,
+                    sender_name: currentUser.name,
+                    sender_avatar: currentUser.avatar,
+                    content: data.content,
+                    created_at: data.created_at
+                }
+            });
+            
+            input.value = '';
+            
+        } else if (context.type === 'match') {
+            // MATCH CHAT
+            const { data, error } = await supabase
+                .from('match_messages')
+                .insert({
+                    match_id: context.id,
+                    sender_id: currentUser.id,
+                    content: input.value.trim()
+                })
+                .select(`*, sender:profiles(id, name, avatar)`)
+                .single();
+            
+            if (error) throw error;
+            
+            appendMessage(data);
+            
+            const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'new_general_message',
@@ -4257,12 +4332,9 @@ window.markActivityAsToday = async function(activityId, matchId) {
             
             input.value = '';
             
-        } else if (currentEvent) {
-            // In event chat
-            const fakeEvent = { preventDefault: () => {} };
-            await sendEventMessage(fakeEvent);
         } else {
-            console.warn('No active chat context');
+            console.error('❌ No active chat context');
+            showNotification('No active chat', 'error');
         }
     } catch (error) {
         console.error('Error sending message:', error);
@@ -4287,11 +4359,9 @@ window.toggleEventMessageActions = function(msgId) {
 }
 
 window.editEventMessage = async function(msgId, currentContent) {
-    // Close the menu
     const menu = document.getElementById(`event-menu-${msgId}`);
     if (menu) menu.style.display = 'none';
     
-    // Check if this is a special message type (photo, location, search link)
     if (currentContent.includes('<img') || currentContent.includes('<a')) {
         showNotification('Photos and links cannot be edited, only deleted', 'error');
         return;
@@ -4301,28 +4371,11 @@ window.editEventMessage = async function(msgId, currentContent) {
     
     if (!newContent || newContent.trim() === currentContent.trim()) return;
     
+    const context = getCurrentChatContext();
+    console.log('✏️ Editing message in context:', context.type);
+    
     try {
-        if (currentMatchChat) {
-            const { error } = await supabase
-                .from('match_messages')
-                .update({ content: newContent.trim() })
-                .eq('id', msgId)
-                .eq('sender_id', currentUser.id);
-            
-            if (error) throw error;
-            
-            const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'message_edited',
-                payload: {
-                    id: msgId,
-                    content: newContent.trim()
-                }
-            });
-            
-            await loadMatchMessages(currentMatchChat.id);
-        } else if (currentEvent) {
+        if (context.type === 'event') {
             const { error } = await supabase
                 .from('event_messages')
                 .update({ content: newContent.trim() })
@@ -4331,17 +4384,32 @@ window.editEventMessage = async function(msgId, currentContent) {
             
             if (error) throw error;
             
-            const channel = supabase.channel(`event_${currentEvent.id}`);
+            const channel = supabase.channel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_edited',
-                payload: {
-                    id: msgId,
-                    content: newContent.trim()
-                }
+                payload: { id: msgId, content: newContent.trim() }
             });
             
-            await loadEventMessages(currentEvent.id, currentEvent.created_at);
+            await loadEventMessages(context.id, context.data.created_at);
+            
+        } else if (context.type === 'match') {
+            const { error } = await supabase
+                .from('match_messages')
+                .update({ content: newContent.trim() })
+                .eq('id', msgId)
+                .eq('sender_id', currentUser.id);
+            
+            if (error) throw error;
+            
+            const channel = supabase.channel(`match_chat_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'message_edited',
+                payload: { id: msgId, content: newContent.trim() }
+            });
+            
+            await loadMatchMessages(context.id);
         }
         
         showNotification('Message updated');
@@ -4353,16 +4421,41 @@ window.editEventMessage = async function(msgId, currentContent) {
 }
 
 window.deleteEventMessage = async function(msgId) {
-    
     const menu = document.getElementById(`event-menu-${msgId}`);
     if (menu) menu.style.display = 'none';
     
     if (!confirm('Delete this message?')) return;
     
+    const context = getCurrentChatContext();
+    console.log('🗑️ Deleting message in context:', context.type);
+    
     try {
-        
-        if (currentMatchChat) {
+        if (context.type === 'event') {
             
+            const { error } = await supabase
+                .from('event_messages')
+                .delete()
+                .eq('id', msgId)
+                .eq('sender_id', currentUser.id);
+            
+            if (error) throw error;
+            
+            const channel = supabase.channel(`event_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'message_deleted',
+                payload: { id: msgId }
+            });
+            
+            const { data: allEvents } = await supabase
+                .from('events')
+                .select(`*, event_participants(profile_id, profiles(id, name, avatar))`)
+                .eq('match_id', context.data.match_id)
+                .order('scheduled_date', { ascending: true });
+            
+            await renderThreadedChat(context.data.match_id, allEvents || []);
+            
+        } else if (context.type === 'match') {
             const { error } = await supabase
                 .from('match_messages')
                 .delete()
@@ -4371,49 +4464,20 @@ window.deleteEventMessage = async function(msgId) {
             
             if (error) throw error;
             
-            const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
+            const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_deleted',
-                payload: {
-                    id: msgId
-                }
+                payload: { id: msgId }
             });
             
-            // Reload entire chat view to show deletion and keep event cards
             const { data: allEvents } = await supabase
                 .from('events')
-                .select(`
-                    *,
-                    event_participants(profile_id, profiles(id, name, avatar))
-                `)
-                .eq('match_id', currentMatchChat.id)
+                .select(`*, event_participants(profile_id, profiles(id, name, avatar))`)
+                .eq('match_id', context.id)
                 .order('scheduled_date', { ascending: true });
             
-            await renderThreadedChat(currentMatchChat.id, allEvents || []);
-            
-        } else if (currentEvent) {
-            
-            const { error } = await supabase
-                .from('event_messages')
-                .delete()
-                .eq('id', msgId)
-                .eq('sender_id', currentUser.id);
-            
-            console.log('Delete result - error:', error);
-            
-            if (error) throw error;
-            
-            const channel = supabase.channel(`event_${currentEvent.id}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'message_deleted',
-                payload: {
-                    id: msgId
-                }
-            });
-            
-            await loadEventMessages(currentEvent.id, currentEvent.created_at);
+            await renderThreadedChat(context.id, allEvents || []);
         }
 
         showNotification('Message deleted');
@@ -4593,10 +4657,21 @@ console.log('All events for this match:', allEvents);
 // Open event chat
 async function openEventChat(eventId) {
     try {
-        // Cleanup previous subscription
+        console.log('🔄 Opening event chat:', eventId);
+        
+        // Clean up ALL previous subscriptions
         if (eventMessageSubscription) {
             await supabase.removeChannel(eventMessageSubscription);
+            const index = allActiveSubscriptions.indexOf(eventMessageSubscription);
+            if (index > -1) allActiveSubscriptions.splice(index, 1);
             eventMessageSubscription = null;
+        }
+        
+        if (matchMessageSubscription) {
+            await supabase.removeChannel(matchMessageSubscription);
+            const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
+            if (index > -1) allActiveSubscriptions.splice(index, 1);
+            matchMessageSubscription = null;
         }
         
         // Load event details
@@ -4622,8 +4697,10 @@ async function openEventChat(eventId) {
             return;
         }
 
-        currentEvent = event;
-// Show event-specific buttons in event chat
+        // Set context using helper
+        setEventContext(event);
+        
+        // Show event-specific buttons in event chat
         const calendarBtn = document.getElementById('add-to-calendar-btn');
         const eventOptionsBtn = document.getElementById('event-options-btn');
         const leaveEventBtn = document.querySelector('button[onclick="leaveEvent()"]');
@@ -5308,30 +5385,34 @@ window.sharePhoto = function() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'environment'; // Rear camera
+    input.capture = 'environment';
     
     input.onchange = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
         
+        const context = getCurrentChatContext();
+        
+        if (context.type === 'none') {
+            return showNotification('No active chat to send photo to', 'error');
+        }
+        
+        console.log('📸 Sharing photo in context:', context.type);
+        
         showLoader('Compressing image...');
         
         try {
-            // Compress the image first
             const compressedFile = await compressImage(file);
             
-            // Check compressed size (should be much smaller, but double-check)
             if (compressedFile.size > 5 * 1024 * 1024) {
                 hideLoader();
                 return showNotification('Photo too large even after compression. Please try a smaller image.', 'error');
             }
             
             showLoader('Uploading photo...');
-            // Generate unique filename
             const fileExt = file.name.split('.').pop();
             const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
             
-            // Upload to Supabase Storage
             const { data, error } = await supabase.storage
                 .from('chat-photos')
                 .upload(fileName, compressedFile, {
@@ -5341,69 +5422,29 @@ window.sharePhoto = function() {
             
             if (error) throw error;
             
-            // Get public URL
             const { data: urlData } = supabase.storage
                 .from('chat-photos')
                 .getPublicUrl(fileName);
             
             const photoUrl = urlData.publicUrl;
             
-            // Send photo message based on chat type
-            if (currentMatchChat) {
-                // Match chat
-                const { data: messageData, error: messageError } = await supabase
-                    .from('match_messages')
-                    .insert({
-                        match_id: currentMatchChat.id,
-                        sender_id: currentUser.id,
-                        content: `<img src="${photoUrl}" style="max-width: 100%; max-height: 300px; width: auto; height: auto; display: block; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
-                    })
-                    .select(`
-                        *,
-                        sender:profiles(id, name, avatar)
-                    `)
-                    .single();
-                
-                if (messageError) throw messageError;
-                
-                appendMessage(messageData);
-                
-                const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
-                await channel.send({
-                    type: 'broadcast',
-                    event: 'new_message',
-                    payload: {
-                        id: messageData.id,
-                        sender_id: currentUser.id,
-                        sender_name: currentUser.name,
-                        sender_avatar: currentUser.avatar,
-                        content: messageData.content,
-                        created_at: messageData.created_at
-                    }
-                });
-                
-            } else if (currentEvent) {
-                // Event chat system
+            if (context.type === 'event') {
+                // EVENT CHAT (check this first!)
                 const { data: messageData, error: messageError } = await supabase
                     .from('event_messages')
                     .insert({
-                        event_id: currentEvent.id,
+                        event_id: context.id,
                         sender_id: currentUser.id,
                         content: `<img src="${photoUrl}" style="max-width: 200px; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
                     })
-                    .select(`
-                        *,
-                        sender:profiles(id, name, avatar)
-                    `)
+                    .select(`*, sender:profiles(id, name, avatar)`)
                     .single();
                 
                 if (messageError) throw messageError;
                 
-                // Append to UI
                 appendMessage(messageData);
                 
-                // Broadcast to other users
-                const channel = supabase.channel(`event_${currentEvent.id}`);
+                const channel = supabase.channel(`event_${context.id}`);
                 await channel.send({
                     type: 'broadcast',
                     event: 'new_message',
@@ -5417,6 +5458,35 @@ window.sharePhoto = function() {
                     }
                 });
                 
+            } else if (context.type === 'match') {
+                // MATCH CHAT
+                const { data: messageData, error: messageError } = await supabase
+                    .from('match_messages')
+                    .insert({
+                        match_id: context.id,
+                        sender_id: currentUser.id,
+                        content: `<img src="${photoUrl}" style="max-width: 100%; max-height: 300px; width: auto; height: auto; display: block; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
+                    })
+                    .select(`*, sender:profiles(id, name, avatar)`)
+                    .single();
+                
+                if (messageError) throw messageError;
+                
+                appendMessage(messageData);
+                
+                const channel = supabase.channel(`match_chat_${context.id}`);
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'new_message',
+                    payload: {
+                        id: messageData.id,
+                        sender_id: currentUser.id,
+                        sender_name: currentUser.name,
+                        sender_avatar: currentUser.avatar,
+                        content: messageData.content,
+                        created_at: messageData.created_at
+                    }
+                });
             }
             
             hideLoader();
@@ -5556,7 +5626,12 @@ async function checkLocationPermission() {
         return showNotification('Geolocation not supported on this device', 'error');
     }
     
-    // Check permission first
+    const context = getCurrentChatContext();
+    
+    if (context.type === 'none') {
+        return showNotification('No active chat to share location', 'error');
+    }
+    
     const permission = await checkLocationPermission();
     
     if (permission === 'denied') {
@@ -5569,71 +5644,32 @@ async function checkLocationPermission() {
         return;
     }
     
-    // Permission already granted, proceed
+    console.log('📍 Sharing location in context:', context.type);
+    
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            
             const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
             
             try {
-                // Check if we're in match chat, event chat, or old match chat
-                if (currentMatchChat) {
-                    // Match chat
-                    const { data, error } = await supabase
-                        .from('match_messages')
-                        .insert({
-                            match_id: currentMatchChat.id,
-                            sender_id: currentUser.id,
-                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e90ff; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
-                        })
-                        .select(`
-                            *,
-                            sender:profiles(id, name, avatar)
-                        `)
-                        .single();
-                    
-                    if (error) throw error;
-                    
-                    appendMessage(data);
-                    
-                    const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
-                    await channel.send({
-                        type: 'broadcast',
-                        event: 'new_message',
-                        payload: {
-                            id: data.id,
-                            sender_id: currentUser.id,
-                            sender_name: currentUser.name,
-                            sender_avatar: currentUser.avatar,
-                            content: data.content,
-                            created_at: data.created_at
-                        }
-                    });
-                    
-                    showNotification('Location shared!');
-                    
-                } else if (currentEvent) {
-                    // Event chat system
+                if (context.type === 'event') {
+                    // EVENT CHAT
                     const { data, error } = await supabase
                         .from('event_messages')
                         .insert({
-                            event_id: currentEvent.id,
+                            event_id: context.id,
                             sender_id: currentUser.id,
                             content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e90ff; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
                         })
-                        .select(`
-                            *,
-                            sender:profiles(id, name, avatar)
-                        `)
+                        .select(`*, sender:profiles(id, name, avatar)`)
                         .single();
                     
                     if (error) throw error;
                     
                     appendMessage(data);
                     
-                    const channel = supabase.channel(`event_${currentEvent.id}`);
+                    const channel = supabase.channel(`event_${context.id}`);
                     await channel.send({
                         type: 'broadcast',
                         event: 'new_message',
@@ -5647,9 +5683,38 @@ async function checkLocationPermission() {
                         }
                     });
                     
-                    showNotification('Location shared!');
+                } else if (context.type === 'match') {
+                    // MATCH CHAT
+                    const { data, error } = await supabase
+                        .from('match_messages')
+                        .insert({
+                            match_id: context.id,
+                            sender_id: currentUser.id,
+                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e90ff; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
+                        })
+                        .select(`*, sender:profiles(id, name, avatar)`)
+                        .single();
                     
+                    if (error) throw error;
+                    
+                    appendMessage(data);
+                    
+                    const channel = supabase.channel(`match_chat_${context.id}`);
+                    await channel.send({
+                        type: 'broadcast',
+                        event: 'new_general_message',
+                        payload: {
+                            id: data.id,
+                            sender_id: currentUser.id,
+                            sender_name: currentUser.name,
+                            sender_avatar: currentUser.avatar,
+                            content: data.content,
+                            created_at: data.created_at
+                        }
+                    });
                 }
+                
+                showNotification('Location shared!');
                 
             } catch (error) {
                 console.error('Error sharing location:', error);
@@ -5667,11 +5732,12 @@ window.findNearbyPlaces = async function() {
                 return showNotification('Geolocation not supported on this device', 'error');
             }
             
-            if (!currentEvent && !currentMatchChat) {
+            const context = getCurrentChatContext();
+            
+            if (context.type === 'none') {
                 return showNotification('This feature is only available in chats', 'error');
             }
             
-            // Check permission first
             const permission = await checkLocationPermission();
             
             if (permission === 'denied') {
@@ -5684,7 +5750,8 @@ window.findNearbyPlaces = async function() {
                 return;
             }
             
-            // Permission already granted, proceed
+            console.log('🔍 Finding nearby places in context:', context.type);
+            
             showNotification('Finding nearby places...');
             
             navigator.geolocation.getCurrentPosition(
@@ -5692,48 +5759,18 @@ window.findNearbyPlaces = async function() {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
                     
-                    const activity = activities.find(a => a.id === (currentEvent?.activity_id || currentMatchChat?.activity_id));
+                    const activity = activities.find(a => a.id === context.data.activity_id);
                     const activityName = activity ? activity.name : 'restaurants';
                     
                     const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(activityName)}/@${lat},${lng},15z`;
                     
                     try {
-    if (currentMatchChat) {
-        const { data, error } = await supabase
-            .from('match_messages')
-            .insert({
-                match_id: currentMatchChat.id,
-                sender_id: currentUser.id,
-                content: `🔍 <a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline; font-weight: 500;">Find nearby ${activityName} spots</a>`
-            })
-            .select(`*, sender:profiles(id, name, avatar)`)
-            .single();
-        
-        if (error) throw error;
-        
-        appendMessage(data);
-        
-        const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
-        await channel.send({
-            type: 'broadcast',
-            event: 'new_message',
-            payload: {
-                id: data.id,
-                sender_id: currentUser.id,
-                sender_name: currentUser.name,
-                sender_avatar: currentUser.avatar,
-                content: data.content,
-                created_at: data.created_at
-            }
-        });
-        
-        showNotification('Search link shared!');
-        
-    } else if (currentEvent) {
+    if (context.type === 'event') {
+        // EVENT CHAT
         const { data, error } = await supabase
             .from('event_messages')
             .insert({
-                event_id: currentEvent.id,
+                event_id: context.id,
                 sender_id: currentUser.id,
                 content: `🔍 <a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline; font-weight: 500;">Find nearby ${activityName} spots</a>`
             })
@@ -5744,7 +5781,7 @@ window.findNearbyPlaces = async function() {
         
         appendMessage(data);
         
-        const channel = supabase.channel(`event_${currentEvent.id}`);
+        const channel = supabase.channel(`event_${context.id}`);
         await channel.send({
             type: 'broadcast',
             event: 'new_message',
@@ -5758,8 +5795,38 @@ window.findNearbyPlaces = async function() {
             }
         });
         
-        showNotification('Search link shared!');
+    } else if (context.type === 'match') {
+        // MATCH CHAT
+        const { data, error } = await supabase
+            .from('match_messages')
+            .insert({
+                match_id: context.id,
+                sender_id: currentUser.id,
+                content: `🔍 <a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline; font-weight: 500;">Find nearby ${activityName} spots</a>`
+            })
+            .select(`*, sender:profiles(id, name, avatar)`)
+            .single();
+        
+        if (error) throw error;
+        
+        appendMessage(data);
+        
+        const channel = supabase.channel(`match_chat_${context.id}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'new_general_message',
+            payload: {
+                id: data.id,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                sender_avatar: currentUser.avatar,
+                content: data.content,
+                created_at: data.created_at
+            }
+        });
     }
+    
+    showNotification('Search link shared!');
 } catch (error) {
                         console.error('Error sharing nearby places:', error);
                         showNotification('Failed to share search. Please try again.', 'error');
