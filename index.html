@@ -4431,7 +4431,6 @@ window.deleteEventMessage = async function(msgId) {
     
     try {
         if (context.type === 'event') {
-            
             const { error } = await supabase
                 .from('event_messages')
                 .delete()
@@ -4447,13 +4446,8 @@ window.deleteEventMessage = async function(msgId) {
                 payload: { id: msgId }
             });
             
-            const { data: allEvents } = await supabase
-                .from('events')
-                .select(`*, event_participants(profile_id, profiles(id, name, avatar))`)
-                .eq('match_id', context.data.match_id)
-                .order('scheduled_date', { ascending: true });
-            
-            await renderThreadedChat(context.data.match_id, allEvents || []);
+            // Stay in event chat - just reload the event messages
+            await loadEventMessages(context.id, context.data.created_at);
             
         } else if (context.type === 'match') {
             const { error } = await supabase
