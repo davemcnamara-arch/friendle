@@ -777,13 +777,25 @@
     // Handle notification clicks
 OneSignal.Notifications.addEventListener('click', (event) => {
   console.log('🔔 Notification clicked:', event);
+  event.preventDefault(); // Prevent default notification behavior
   
   const data = event.notification.additionalData;
   console.log('📦 Notification data:', data);
   
   if (data && data.chatType && data.chatId) {
-    // Use URL parameters instead of session storage
-    window.location.href = `https://friendle-circles.vercel.app/?openChat=${data.chatId}&chatType=${data.chatType}`;
+    // Check if already on the app
+    if (window.location.hostname === 'friendle-circles.vercel.app') {
+      // Already on the app - just navigate
+      console.log('Already on app, navigating directly...');
+      if (data.chatType === 'match') {
+        openMatchChatThreaded(data.chatId);
+      } else if (data.chatType === 'event') {
+        openEventChat(data.chatId);
+      }
+    } else {
+      // Not on app - navigate with URL parameter
+      window.location.href = `https://friendle-circles.vercel.app/?openChat=${data.chatId}&chatType=${data.chatType}`;
+    }
   } else {
     window.location.href = 'https://friendle-circles.vercel.app/';
   }
@@ -6515,17 +6527,24 @@ if (pageId === 'matches') {
             console.log('🔍 Checking for chat to open:', { openChatId, openChatType });
             
             if (openChatId && openChatType) {
-                console.log('✅ Found chat to open, opening immediately...');
+                console.log('✅ Found chat to open, will open shortly...');
                 
                 // Clean up URL (remove all query parameters)
                 window.history.replaceState({}, document.title, window.location.pathname);
                 
-                // Open chat immediately
-                if (openChatType === 'match') {
-                    await openMatchChatThreaded(openChatId);
-                } else if (openChatType === 'event') {
-                    await openEventChat(openChatId);
-                }
+                // Show chat page immediately (before loading messages)
+                showPage('chat');
+                
+                // Wait a moment for everything to be ready, then open chat
+                setTimeout(async () => {
+                    console.log('🚀 Opening chat now...');
+                    if (openChatType === 'match') {
+                        await openMatchChatThreaded(openChatId);
+                    } else if (openChatType === 'event') {
+                        await openEventChat(openChatId);
+                    }
+                }, 800);
+            } else {
             } else {
                 // Don't restore chat page on full refresh - go to matches instead
                 if (lastPage === 'chat') {
