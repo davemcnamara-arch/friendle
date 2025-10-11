@@ -782,11 +782,9 @@ OneSignal.Notifications.addEventListener('click', (event) => {
   console.log('📦 Notification data:', data);
   
   if (data && data.chatType && data.chatId) {
-    sessionStorage.setItem('open_chat_id', data.chatId);
-    sessionStorage.setItem('open_chat_type', data.chatType);
-    console.log('💾 Saved to session storage');
-    
-    // Reload the page to trigger initApp
+    // Use URL parameters instead of session storage
+    window.location.href = `https://friendle-circles.vercel.app/?openChat=${data.chatId}&chatType=${data.chatType}`;
+  } else {
     window.location.href = 'https://friendle-circles.vercel.app/';
   }
 });
@@ -6488,7 +6486,7 @@ if (pageId === 'matches') {
             }
 }
 
-        async function initApp() {
+ async function initApp() {
     // Show loader immediately while checking auth
     showLoader('Loading...');
     
@@ -6502,7 +6500,7 @@ if (pageId === 'matches') {
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
-
+    
     // Check for existing Supabase auth session
     const { data: { session } } = await supabase.auth.getSession();
     
@@ -6529,14 +6527,40 @@ if (pageId === 'matches') {
             await loadMatches();
             
             const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
-
-            // Don't restore chat page on full refresh - go to matches instead
-            if (lastPage === 'chat') {
+            
+            // Check if we should open a chat from notification click
+            const openChatId = urlParams.get('openChat');
+            const openChatType = urlParams.get('chatType');
+            
+            console.log('🔍 Checking for chat to open:', { openChatId, openChatType });
+            
+            if (openChatId && openChatType) {
+                console.log('✅ Found chat to open, will open in 1 second...');
+                
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                // Show matches page first
                 showPage('matches');
-            } else if (lastPage === 'activities' && !selectedCircle) {
-                showPage('circles');
+                
+                // Wait for everything to load, then open chat
+                setTimeout(async () => {
+                    console.log('🚀 Opening chat now...');
+                    if (openChatType === 'match') {
+                        await openMatchChatThreaded(openChatId);
+                    } else if (openChatType === 'event') {
+                        await openEventChat(openChatId);
+                    }
+                }, 1500);
             } else {
-                showPage(lastPage);
+                // Don't restore chat page on full refresh - go to matches instead
+                if (lastPage === 'chat') {
+                    showPage('matches');
+                } else if (lastPage === 'activities' && !selectedCircle) {
+                    showPage('circles');
+                } else {
+                    showPage(lastPage);
+                }
             }
             
             updateProfile();
@@ -6557,7 +6581,6 @@ if (pageId === 'matches') {
         hideLoader();
         showOnboarding();
     }
-
 }
 
 async function showOnboarding() {
