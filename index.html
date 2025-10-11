@@ -7080,7 +7080,7 @@ async function showMessageNotification(message, chatType, chatId) {
     // Show notification
     const notification = new Notification(`${message.sender.name} - ${activityName}`, {
         body: notificationBody,
-        icon: message.sender.avatar || '💬',
+        // Don't use emoji as icon - browsers expect a URL
         tag: `chat-${chatType}-${chatId}`, // Replace previous notification from same chat
         requireInteraction: false,
         data: {
