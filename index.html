@@ -767,11 +767,41 @@
 
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
+  <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
       appId: "67c70940-dc92-4d95-9072-503b2f5d84c8",
-allowLocalhostAsSecureOrigin: true
+      allowLocalhostAsSecureOrigin: true
+    });
+    
+    // Save Player ID to database when user is logged in
+    OneSignal.User.PushSubscription.addEventListener('change', async function(event) {
+      const playerId = event.current.id;
+      
+      // Get current user from your app
+      const storedUser = localStorage.getItem('friendle_user');
+      if (storedUser && playerId) {
+        const user = JSON.parse(storedUser);
+        
+        // Update database
+        try {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ onesignal_player_id: playerId })
+            .eq('id', user.id);
+          
+          if (error) throw error;
+          
+          console.log('✅ OneSignal Player ID saved:', playerId);
+          
+          // Update local storage
+          user.onesignal_player_id = playerId;
+          localStorage.setItem('friendle_user', JSON.stringify(user));
+        } catch (error) {
+          console.error('Error saving Player ID:', error);
+        }
+      }
     });
   });
 </script>
