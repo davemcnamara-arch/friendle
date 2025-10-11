@@ -747,6 +747,8 @@
 
     </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.1/firebase-messaging.js"></script>
 <script>
   const SUPABASE_URL = "https://kxsewkjbhxtfqbytftbu.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2V3a2piaHh0ZnFieXRmdGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NTE4ODQsImV4cCI6MjA3NDQyNzg4NH0.-A-7VOQWOaQqYOO6NxiKxGywddfS-pmwvzHISJqz2AQ";
@@ -925,7 +927,6 @@
         </div>
     </div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
-        <button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">🔔</button>
         <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
         <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
         <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
@@ -3456,9 +3457,6 @@ window.openMatchChatThreaded = async function(matchId) {
         
         // Set context using helper
         setMatchContext(match);
-
-	// Load mute status
-        await loadMuteStatus();
         
         if (!match) {
             hideLoader();
@@ -3768,7 +3766,7 @@ async function setupMatchChatSubscription(matchId) {
                 loadSingleMessage(payload.new.id);
             }
         )
-        .on('broadcast', { event: 'new_general_message' }, async (payload) => {
+        .on('broadcast', { event: 'new_general_message' }, (payload) => {
             
             // Don't duplicate messages we sent ourselves
             if (payload.payload.sender_id === currentUser.id) {
@@ -3789,128 +3787,12 @@ async function setupMatchChatSubscription(matchId) {
             };
             
             appendMessage(message);
-            
-            // Show browser notification if not muted
-            const currentMatchId = currentMatchChat?.id;
-            if (currentMatchId) {
-                await showMessageNotification(message, 'match', currentMatchId);
-            }
         })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
         });
     
     allActiveSubscriptions.push(matchMessageSubscription);
-}
-
-// Subscribe to all active chats for background notifications
-async function subscribeToAllChats() {
-    if (!currentUser) return;
-    
-    console.log('📡 Subscribing to all active chats for notifications...');
-    
-    try {
-        // Get all matches user is in
-        const { data: userMatches, error: matchError } = await supabase
-            .from('match_participants')
-            .select('match_id, matches!inner(circle_id, activity_id)')
-            .eq('profile_id', currentUser.id);
-        
-        if (matchError) throw matchError;
-        
-        // Subscribe to each match
-        userMatches?.forEach(({ match_id }) => {
-            const channel = supabase.channel(`bg_match_${match_id}`)
-                .on('broadcast', { event: 'new_general_message' }, async (payload) => {
-                    // Skip own messages
-                    if (payload.payload.sender_id === currentUser.id) return;
-                    
-                    // Only show notification if NOT currently viewing this chat
-                    const context = getCurrentChatContext();
-                    console.log('🔔 Background match notification check:', {
-                        matchId: match_id,
-                        currentContext: context.type,
-                        currentId: context.id,
-                        shouldShow: !(context.type === 'match' && context.id === match_id)
-                    });
-                    
-                    if (context.type === 'match' && context.id === match_id) {
-                        console.log('⏭️ Skipping notification - already in chat');
-                        return; // Already in this chat, message will appear
-                    }
-                    
-                    const message = {
-                        id: payload.payload.id,
-                        sender_id: payload.payload.sender_id,
-                        content: payload.payload.content,
-                        created_at: payload.payload.created_at,
-                        sender: {
-                            id: payload.payload.sender_id,
-                            name: payload.payload.sender_name,
-                            avatar: payload.payload.sender_avatar
-                        }
-                    };
-                    
-                    await showMessageNotification(message, 'match', match_id);
-                })
-                .subscribe();
-            
-            allActiveSubscriptions.push(channel);
-        });
-        
-        // Get all events user is in
-        const { data: userEvents, error: eventError } = await supabase
-            .from('event_participants')
-            .select('event_id, events!inner(match_id, activity_id, circle_id)')
-            .eq('profile_id', currentUser.id);
-        
-        if (eventError) throw eventError;
-        
-        // Subscribe to each event
-        userEvents?.forEach(({ event_id }) => {
-            const channel = supabase.channel(`bg_event_${event_id}`)
-                .on('broadcast', { event: 'new_message' }, async (payload) => {
-                    // Skip own messages
-                    if (payload.payload.sender_id === currentUser.id) return;
-                    
-                    // Only show notification if NOT currently viewing this chat
-                    const context = getCurrentChatContext();
-                    console.log('🔔 Background event notification check:', {
-                        eventId: event_id,
-                        currentContext: context.type,
-                        currentId: context.id,
-                        shouldShow: !(context.type === 'event' && context.id === event_id)
-                    });
-                    
-                    if (context.type === 'event' && context.id === event_id) {
-                        console.log('⏭️ Skipping notification - already in chat');
-                        return; // Already in this chat, message will appear
-                    }
-                    
-                    const message = {
-                        id: payload.payload.id,
-                        sender_id: payload.payload.sender_id,
-                        content: payload.payload.content,
-                        created_at: payload.payload.created_at,
-                        sender: {
-                            id: payload.payload.sender_id,
-                            name: payload.payload.sender_name,
-                            avatar: payload.payload.sender_avatar
-                        }
-                    };
-                    
-                    await showMessageNotification(message, 'event', event_id);
-                })
-                .subscribe();
-            
-            allActiveSubscriptions.push(channel);
-        });
-        
-        console.log(`✅ Subscribed to ${userMatches?.length || 0} matches and ${userEvents?.length || 0} events`);
-        
-    } catch (error) {
-        console.error('Error subscribing to all chats:', error);
-    }
 }
 
 // Load a single message with sender info
@@ -4779,51 +4661,26 @@ window.markActivityAsToday = async function(activityId, matchId) {
     const input = document.getElementById('message-input');
     if (!input.value.trim()) return;
     
-    // Request notification permission if not yet granted
-    if ('Notification' in window && Notification.permission === 'default') {
-        await Notification.requestPermission();
-    }
-    
     const context = getCurrentChatContext();
-    console.log('💬 Sending message in context:', context.type, 'ID:', context.id);
-    
-    // ⭐ Check if we have a valid context
-    if (context.type === 'none' || !context.id) {
-        console.error('❌ No active chat context');
-        showNotification('No active chat', 'error');
-        return;
-    }
-    
-    const messageContent = input.value.trim();
-    console.log('📤 Attempting to send message:', messageContent.substring(0, 50));
+    console.log('💬 Sending message in context:', context.type);
     
     try {
         if (context.type === 'event') {
             // EVENT CHAT
-            console.log('📤 Inserting into event_messages table, event_id:', context.id);
-            
             const { data, error } = await supabase
                 .from('event_messages')
                 .insert({
                     event_id: context.id,
                     sender_id: currentUser.id,
-                    content: messageContent
+                    content: input.value.trim()
                 })
                 .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
             
-            if (error) {
-                console.error('❌ Database insert error:', error);
-                throw error;
-            }
-            
-            console.log('✅ Message saved to database:', data.id);
+            if (error) throw error;
             
             appendMessage(data);
-            input.value = '';
             
-            // Broadcast to other users
-            console.log('📡 Broadcasting message to channel event_' + context.id);
             const channel = supabase.channel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
@@ -4838,34 +4695,24 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 }
             });
             
-            console.log('✅ Message broadcast complete');
+            input.value = '';
             
         } else if (context.type === 'match') {
             // MATCH CHAT
-            console.log('📤 Inserting into match_messages table, match_id:', context.id);
-            
             const { data, error } = await supabase
                 .from('match_messages')
                 .insert({
                     match_id: context.id,
                     sender_id: currentUser.id,
-                    content: messageContent
+                    content: input.value.trim()
                 })
                 .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
             
-            if (error) {
-                console.error('❌ Database insert error:', error);
-                throw error;
-            }
-            
-            console.log('✅ Message saved to database:', data.id);
+            if (error) throw error;
             
             appendMessage(data);
-            input.value = '';
             
-            // Broadcast to other users
-            console.log('📡 Broadcasting message to channel match_chat_' + context.id);
             const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
@@ -4880,12 +4727,15 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 }
             });
             
-            console.log('✅ Message broadcast complete');
+            input.value = '';
+            
+        } else {
+            console.error('❌ No active chat context');
+            showNotification('No active chat', 'error');
         }
     } catch (error) {
-        console.error('❌ Error sending message:', error);
-        console.error('Error details:', error.message, error.details, error.hint);
-        showNotification('Failed to send message: ' + error.message, 'error');
+        console.error('Error sending message:', error);
+        showNotification('Failed to send message', 'error');
     }
 }
         
@@ -5236,9 +5086,6 @@ async function openEventChat(eventId) {
         // Set context using helper
         setEventContext(event);
         
-	// Load mute status
-        await loadMuteStatus();
-
         // Show event-specific buttons in event chat
         const generalChatBtn = document.getElementById('open-general-chat-btn');
         const calendarBtn = document.getElementById('add-to-calendar-btn');
@@ -5315,36 +5162,33 @@ await loadEventMessages(eventId, event.created_at);
         // Set up broadcast subscription for new messages
 eventMessageSubscription = supabase
     .channel(`event_${eventId}`)
-    .on('broadcast', { event: 'new_message' }, async (payload) => {
-            console.log('📩 Broadcast message received:', payload);
-            
-            // Don't duplicate messages we sent ourselves
-            if (payload.payload.sender_id === currentUser.id) {
-                console.log('⏭️ Skipping own message');
-                return;
+    .on('broadcast', { event: 'new_message' }, (payload) => {
+        console.log('📩 Broadcast message received:', payload);
+        
+        // Don't duplicate messages we sent ourselves
+        if (payload.payload.sender_id === currentUser.id) {
+            console.log('⏭️ Skipping own message');
+            return;
+        }
+        
+        console.log('🔥 Processing message from another user');
+        
+        // Create message object with sender info from broadcast
+        const message = {
+            id: payload.payload.id,
+            sender_id: payload.payload.sender_id,
+            content: payload.payload.content,
+            created_at: payload.payload.created_at,
+            sender: {
+                id: payload.payload.sender_id,
+                name: payload.payload.sender_name,
+                avatar: payload.payload.sender_avatar
             }
-            
-            console.log('🔥 Processing message from another user');
-            
-            // Create message object with sender info from broadcast
-            const message = {
-                id: payload.payload.id,
-                sender_id: payload.payload.sender_id,
-                content: payload.payload.content,
-                created_at: payload.payload.created_at,
-                sender: {
-                    id: payload.payload.sender_id,
-                    name: payload.payload.sender_name,
-                    avatar: payload.payload.sender_avatar
-                }
-            };
-            
-            console.log('Appending message to chat:', message);
-            appendMessage(message);
-            
-            // Show browser notification if not muted
-            await showMessageNotification(message, 'event', currentEvent.id);
-        })
+        };
+        
+        console.log('Appending message to chat:', message);
+        appendMessage(message);
+    })
     .on('broadcast', { event: 'message_edited' }, (payload) => {
         console.log('✏️ Message edited:', payload);
         loadEventMessages(currentEvent.id, currentEvent.created_at);
@@ -5384,87 +5228,6 @@ window.openGeneralChatFromEvent = function() {
     
     // Open the general match chat
     openMatchChatThreaded(matchId);
-}
-
-// Toggle mute for current chat
-window.toggleMuteChat = async function() {
-    const context = getCurrentChatContext();
-    
-    if (context.type === 'none') {
-        return showNotification('No active chat', 'error');
-    }
-    
-    try {
-        const tableName = context.type === 'event' ? 'event_participants' : 'match_participants';
-        const idField = context.type === 'event' ? 'event_id' : 'match_id';
-        
-        // Get current mute status
-        const { data: current, error: fetchError } = await supabase
-            .from(tableName)
-            .select('notifications_muted')
-            .eq(idField, context.id)
-            .eq('profile_id', currentUser.id)
-            .single();
-        
-        if (fetchError) throw fetchError;
-        
-        const currentlyMuted = current?.notifications_muted || false;
-        const newMutedState = !currentlyMuted;
-        
-        // Update mute status
-        const { error: updateError } = await supabase
-            .from(tableName)
-            .update({ notifications_muted: newMutedState })
-            .eq(idField, context.id)
-            .eq('profile_id', currentUser.id);
-        
-        if (updateError) throw updateError;
-        
-        // Update button display
-        updateMuteButton(newMutedState);
-        
-        showNotification(newMutedState ? 'Chat muted 🔇' : 'Chat unmuted 🔔');
-        
-    } catch (error) {
-        console.error('Error toggling mute:', error);
-        showNotification('Error updating notification settings', 'error');
-    }
-}
-
-function updateMuteButton(isMuted) {
-    const muteBtn = document.getElementById('mute-chat-btn');
-    if (muteBtn) {
-        muteBtn.textContent = isMuted ? '🔇' : '🔔';
-        muteBtn.title = isMuted ? 'Unmute notifications' : 'Mute notifications';
-    }
-}
-
-async function loadMuteStatus() {
-    const context = getCurrentChatContext();
-    
-    if (context.type === 'none') return;
-    
-    try {
-        const tableName = context.type === 'event' ? 'event_participants' : 'match_participants';
-        const idField = context.type === 'event' ? 'event_id' : 'match_id';
-        
-        const { data, error } = await supabase
-            .from(tableName)
-            .select('notifications_muted')
-            .eq(idField, context.id)
-            .eq('profile_id', currentUser.id)
-            .single();
-        
-        if (error) {
-            console.error('Error loading mute status:', error);
-            return;
-        }
-        
-        updateMuteButton(data?.notifications_muted || false);
-        
-    } catch (error) {
-        console.error('Error in loadMuteStatus:', error);
-    }
 }
 
 // Load messages for current event
@@ -6515,17 +6278,16 @@ if (pageId !== 'chat') {
         const index1 = allActiveSubscriptions.indexOf(eventMessageSubscription);
         if (index1 > -1) allActiveSubscriptions.splice(index1, 1);
         eventMessageSubscription = null;
+        currentEvent = null;
     }
     if (matchMessageSubscription) {
         supabase.removeChannel(matchMessageSubscription);
         const index2 = allActiveSubscriptions.indexOf(matchMessageSubscription);
         if (index2 > -1) allActiveSubscriptions.splice(index2, 1);
         matchMessageSubscription = null;
+        currentMatchChat = null;
     }
-    
-    // ⭐ Clear all chat contexts
-    clearAllChatContexts();
-    
+    currentMatchId = null; // Clear match ID when leaving chat
     document.getElementById('event-details').style.display = 'block';
 }
     
@@ -6545,9 +6307,6 @@ if (pageId === 'activities') {
 }
 if (pageId === 'matches') {
     await loadMatches();
-    // ⭐ Re-subscribe to ensure clean state after leaving chat
-    console.log('🔄 Refreshing background subscriptions');
-    await subscribeToAllChats();
 }
 }
         window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
@@ -6624,9 +6383,6 @@ if (pageId === 'matches') {
             await renderCircles();
             await loadMatches();
             
-	    // Subscribe to all chats for background notifications
-            await subscribeToAllChats();
-
             const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
 
             // Don't restore chat page on full refresh - go to matches instead
@@ -7168,115 +6924,6 @@ function showNotificationAlert(title, body) {
     } catch (error) {
         console.error('Error creating notification:', error);
     }
-}
-
-async function showMessageNotification(message, chatType, chatId) {
-    // Check if notifications are supported and permitted
-    if (!('Notification' in window) || Notification.permission !== 'granted') {
-        return;
-    }
-    
-    // Check if this chat is muted
-    try {
-        const tableName = chatType === 'event' ? 'event_participants' : 'match_participants';
-        const idField = chatType === 'event' ? 'event_id' : 'match_id';
-        
-        const { data, error } = await supabase
-            .from(tableName)
-            .select('notifications_muted')
-            .eq(idField, chatId)
-            .eq('profile_id', currentUser.id)
-            .single();
-        
-        if (error) {
-            console.error('Error checking mute status:', error);
-            // Continue anyway - don't block notifications on error
-        }
-        
-        if (data && data.notifications_muted) {
-            console.log('🔇 Chat is muted, skipping notification');
-            return;
-        }
-    } catch (error) {
-        console.error('Error in mute check:', error);
-    }
-    
-    // Get activity name for context
-    let activityName = 'Chat';
-    
-    try {
-        if (chatType === 'event') {
-            // Try to get from currentEvent first, then query database
-            if (currentEvent && currentEvent.activity_id) {
-                const activity = activities.find(a => a.id === currentEvent.activity_id);
-                activityName = activity ? `${activity.emoji} ${activity.name}` : 'Event';
-            } else {
-                // Query event from database
-                const { data: eventData } = await supabase
-                    .from('events')
-                    .select('activity_id, activities(name, emoji)')
-                    .eq('id', chatId)
-                    .single();
-                
-                if (eventData?.activities) {
-                    activityName = `${eventData.activities.emoji} ${eventData.activities.name}`;
-                }
-            }
-        } else if (chatType === 'match') {
-            // Try to get from currentMatchChat first, then query database
-            if (currentMatchChat && currentMatchChat.activity) {
-                activityName = `${currentMatchChat.activity.emoji} ${currentMatchChat.activity.name}`;
-            } else {
-                // Query match from database
-                const { data: matchData } = await supabase
-                    .from('matches')
-                    .select('activity_id, activities(name, emoji)')
-                    .eq('id', chatId)
-                    .single();
-                
-                if (matchData?.activities) {
-                    activityName = `${matchData.activities.emoji} ${matchData.activities.name}`;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error loading activity name for notification:', error);
-        // Fall back to generic name
-    }
-    
-    // Create notification text (strip HTML if it's a photo/link)
-    let notificationBody = message.content;
-    if (message.content.includes('<img')) {
-        notificationBody = '📷 Photo';
-    } else if (message.content.includes('<a')) {
-        notificationBody = message.content.includes('📍') ? '📍 Location' : '🔍 Shared a link';
-    }
-    
-    // Truncate long messages
-    if (notificationBody.length > 100) {
-        notificationBody = notificationBody.substring(0, 100) + '...';
-    }
-    
-    // Show notification
-    const notification = new Notification(`${message.sender.name} - ${activityName}`, {
-        body: notificationBody,
-        requireInteraction: false,
-        data: {
-            chatType: chatType,
-            chatId: chatId
-        }
-    });
-    
-    // Handle click - open the chat
-    notification.onclick = function() {
-        window.focus();
-        if (chatType === 'event') {
-            openEventChat(chatId);
-        } else {
-            openMatchChatThreaded(chatId);
-        }
-        notification.close();
-    };
 }
 
 // Register service worker for PWA
