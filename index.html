@@ -3650,14 +3650,6 @@ document.getElementById('event-participants').innerHTML =
         hideLoader();
         showPage('chat');
         
-        // Scroll to bottom after a brief delay to ensure messages are rendered
-        setTimeout(() => {
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }, 800);
-        
     } catch (error) {
         hideLoader();
         console.error('Error opening threaded chat:', error);
@@ -3733,7 +3725,13 @@ async function renderThreadedChat(matchId, events) {
     // Load and display general messages (event_id = null)
     await loadAndDisplayGeneralMessages(matchId);
     
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    // Scroll to bottom after everything is rendered
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            console.log('📜 Scrolled to bottom of match chat');
+        });
+    });
 }
 
 function createEventCard(event, matchId, isPast = false) {
@@ -5355,14 +5353,6 @@ allActiveSubscriptions.push(eventMessageSubscription);
         
         showPage('chat');
         
-        // Scroll to bottom after a brief delay to ensure messages are rendered
-        setTimeout(() => {
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }, 800);
-        
     } catch (error) {
         console.error('Error loading event chat:', error);
         alert('Failed to load event chat');
@@ -5473,8 +5463,13 @@ async function loadEventMessages(eventId, eventCreatedAt) {
             currentMessages.forEach(message => appendMessage(message));
         }
         
-        // Scroll to bottom
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        // Scroll to bottom after everything is rendered
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                console.log('📜 Scrolled to bottom of event chat');
+            });
+        });
         
     } catch (error) {
         console.error('Error loading messages:', error);
