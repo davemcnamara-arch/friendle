@@ -3751,6 +3751,7 @@ async function renderThreadedChat(matchId, events) {
             }
         });
     });
+}
 
 function createEventCard(event, matchId, isPast = false) {
     const eventCard = document.createElement('div');
@@ -5507,6 +5508,7 @@ async function loadEventMessages(eventId, eventCreatedAt) {
             }
         });
     });
+}
 
 function toggleArchivedMessages(eventId, eventCreatedAt) {
     const archivedContainer = document.getElementById('archived-messages');
