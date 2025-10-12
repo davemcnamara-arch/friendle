@@ -3725,17 +3725,32 @@ async function renderThreadedChat(matchId, events) {
     // Load and display general messages (event_id = null)
     await loadAndDisplayGeneralMessages(matchId);
     
-    // Scroll to bottom after everything is rendered
-    // Use both requestAnimationFrame AND setTimeout for images
+    // Scroll to bottom after everything is rendered, including images
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            setTimeout(() => {
+            const images = messagesContainer.querySelectorAll('img');
+            
+            if (images.length === 0) {
+                // No images, scroll immediately
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                console.log('📜 Scrolled to bottom of match chat');
-            }, 300);
+                console.log('📜 Scrolled to bottom (no images)');
+            } else {
+                // Wait for all images to load
+                Promise.all(
+                    Array.from(images).map(img => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(resolve => {
+                            img.onload = resolve;
+                            img.onerror = resolve; // Also resolve on error
+                        });
+                    })
+                ).then(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    console.log('📜 Scrolled to bottom (after images loaded)');
+                });
+            }
         });
     });
-}
 
 function createEventCard(event, matchId, isPast = false) {
     const eventCard = document.createElement('div');
@@ -5466,21 +5481,32 @@ async function loadEventMessages(eventId, eventCreatedAt) {
             currentMessages.forEach(message => appendMessage(message));
         }
         
-        // Scroll to bottom after everything is rendered
-        // Use both requestAnimationFrame AND setTimeout for images
+        // Scroll to bottom after everything is rendered, including images
+    requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                setTimeout(() => {
+            const images = messagesContainer.querySelectorAll('img');
+            
+            if (images.length === 0) {
+                // No images, scroll immediately
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                console.log('📜 Scrolled to bottom (no images)');
+            } else {
+                // Wait for all images to load
+                Promise.all(
+                    Array.from(images).map(img => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(resolve => {
+                            img.onload = resolve;
+                            img.onerror = resolve; // Also resolve on error
+                        });
+                    })
+                ).then(() => {
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    console.log('📜 Scrolled to bottom of event chat');
-                }, 300);
-            });
+                    console.log('📜 Scrolled to bottom (after images loaded)');
+                });
+            }
         });
-        
-    } catch (error) {
-        console.error('Error loading messages:', error);
-    }
-}
+    });
 
 function toggleArchivedMessages(eventId, eventCreatedAt) {
     const archivedContainer = document.getElementById('archived-messages');
