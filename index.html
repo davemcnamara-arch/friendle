@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Friendle - Match Activities with Friends</title>
     <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#667eea">
@@ -1350,7 +1350,7 @@ async function sendPasswordReset() {
         if (error) throw error;
         
         hideLoader();
-        showNotification('Password reset link sent! Check your email.');
+        showNotification('Password reset link sent! 📧 Please check your email (it may take a few minutes to arrive). Don\'t forget to check your spam folder!', 'success');
         showLogin();
         document.getElementById('reset-email').value = '';
         
@@ -1626,6 +1626,43 @@ function showLoader(message = 'Loading...') {
 function hideLoader() {
     const loader = document.getElementById('app-loader');
     if (loader) loader.remove();
+}
+
+function showNotificationPrompt() {
+    const promptHtml = `
+        <div class="modal-overlay" id="notification-prompt" style="display: flex;">
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <h3 style="margin-top: 0; color: #667eea;">🔔 Stay Connected!</h3>
+                <p style="line-height: 1.6; color: #666; margin: 20px 0;">
+                    Get notified when friends message you or join your activities. 
+                    You can turn this off anytime in settings.
+                </p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button class="btn btn-primary" onclick="enableNotifications()" style="flex: 1;">
+                        Enable Notifications
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeNotificationPrompt()" style="flex: 1;">
+                        Maybe Later
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', promptHtml);
+}
+
+window.enableNotifications = async function() {
+    closeNotificationPrompt();
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+        showNotification('Notifications enabled! 🎉');
+    }
+}
+
+function closeNotificationPrompt() {
+    const prompt = document.getElementById('notification-prompt');
+    if (prompt) prompt.remove();
 }
 
         // Profile Management & Avatar Selection
@@ -3725,32 +3762,11 @@ async function renderThreadedChat(matchId, events) {
     // Load and display general messages (event_id = null)
     await loadAndDisplayGeneralMessages(matchId);
     
-    // Scroll to bottom after everything is rendered, including images
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            const images = messagesContainer.querySelectorAll('img');
-            
-            if (images.length === 0) {
-                // No images, scroll immediately
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                console.log('📜 Scrolled to bottom (no images)');
-            } else {
-                // Wait for all images to load
-                Promise.all(
-                    Array.from(images).map(img => {
-                        if (img.complete) return Promise.resolve();
-                        return new Promise(resolve => {
-                            img.onload = resolve;
-                            img.onerror = resolve; // Also resolve on error
-                        });
-                    })
-                ).then(() => {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    console.log('📜 Scrolled to bottom (after images loaded)');
-                });
-            }
-        });
-    });
+    // Scroll to bottom after a delay to let images load
+    setTimeout(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        console.log('📜 Scrolled to bottom');
+    }, 500);
 }
 
 function createEventCard(event, matchId, isPast = false) {
@@ -5482,32 +5498,11 @@ async function loadEventMessages(eventId, eventCreatedAt) {
             currentMessages.forEach(message => appendMessage(message));
         }
         
-        // Scroll to bottom after everything is rendered, including images
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                const images = messagesContainer.querySelectorAll('img');
-                
-                if (images.length === 0) {
-                    // No images, scroll immediately
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    console.log('📜 Scrolled to bottom (no images)');
-                } else {
-                    // Wait for all images to load
-                    Promise.all(
-                        Array.from(images).map(img => {
-                            if (img.complete) return Promise.resolve();
-                            return new Promise(resolve => {
-                                img.onload = resolve;
-                                img.onerror = resolve; // Also resolve on error
-                            });
-                        })
-                    ).then(() => {
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                        console.log('📜 Scrolled to bottom (after images loaded)');
-                    });
-                }
-            });
-        });
+        // Scroll to bottom after a delay to let images load
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            console.log('📜 Scrolled to bottom');
+        }, 500);
         
     } catch (error) {
         console.error('Error loading messages:', error);
@@ -6558,8 +6553,9 @@ if (pageId === 'matches') {
             currentUser = profileData;
             
             if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
+    // Show friendly custom prompt before browser prompt
+    showNotificationPrompt();
+}
             
             localStorage.setItem('friendle_user', JSON.stringify(currentUser));
             
