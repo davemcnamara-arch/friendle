@@ -554,16 +554,26 @@
         }
         
         .notification-badge {
-            position: absolute;
-            top: -5px;
-            right: calc(50% - 20px);
-            width: 10px;
-            height: 10px;
-            background-color: #ff4d4f;
-            border-radius: 50%;
-            border: 2px solid white;
-            display: none;
-        }
+    position: absolute;
+    top: -5px;
+    right: calc(50% - 20px);
+    min-width: 18px;
+    height: 18px;
+    background-color: #ff4d4f;
+    border-radius: 10px;
+    border: 2px solid white;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
+    padding: 0 4px;
+}
+
+.notification-badge.has-count {
+    display: flex;
+}
 
         .nav-item.active {
             color: #667eea;
@@ -1023,6 +1033,16 @@ OneSignal.Notifications.addEventListener('click', (event) => {
             <div class="header"><div class="logo">⭕ Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name">Your Name</h2></div>
     
+<div class="form-group">
+    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+        <span>Event Reminders</span>
+        <input type="checkbox" id="event-reminders-toggle" onchange="toggleEventReminders()" style="width: auto; cursor: pointer;">
+    </label>
+    <div style="font-size: 0.85em; color: #666; margin-top: 5px;">
+        Get notified on the morning of events and 1 hour before they start
+    </div>
+</div>
+
     <div class="form-group">
         <label for="min-group-size">Minimum Group Size</label>
         <select id="min-group-size" onchange="saveMinimumGroupSize()">
@@ -1077,7 +1097,11 @@ OneSignal.Notifications.addEventListener('click', (event) => {
         <div class="bottom-nav">
             <div class="nav-item active" onclick="showPage('circles')"><div class="nav-icon">👥</div><div class="nav-label">Circles</div></div>
             <div class="nav-item" onclick="showPage('activities')"><div class="nav-icon">🎯</div><div class="nav-label">Activities</div></div>
-            <div class="nav-item" id="matches-nav-item" onclick="showPage('matches')"><div class="nav-icon">💫</div><div class="nav-label">Matches</div><span class="notification-badge"></span></div>
+            <div class="nav-item" id="matches-nav-item" onclick="showPage('matches')">
+    <div class="nav-icon">💫</div>
+    <div class="nav-label">Matches</div>
+    <span class="notification-badge"></span>
+</div>
             <div class="nav-item" onclick="showPage('settings')"><div class="nav-icon">⚙️</div><div class="nav-label">Settings</div></div>
         </div>
         
@@ -1790,6 +1814,12 @@ async function loadMinimumGroupSize() {
     if (select) {
         select.value = currentUser.minimum_group_size || 2;
     }
+    
+    // Load event reminders setting
+    const reminderToggle = document.getElementById('event-reminders-toggle');
+    if (reminderToggle) {
+        reminderToggle.checked = currentUser.event_reminders_enabled || false;
+    }
 }
 
 window.saveMinimumGroupSize = async function() {
@@ -1845,6 +1875,35 @@ window.changeUsername = async function() {
     } catch (error) {
         console.error('Error changing username:', error);
         showNotification('Error updating name', 'error');
+    }
+}
+
+window.toggleEventReminders = async function() {
+    const toggle = document.getElementById('event-reminders-toggle');
+    const isEnabled = toggle.checked;
+    
+    try {
+        showLoader('Updating settings...');
+        
+        const { error } = await supabase
+            .from('profiles')
+            .update({ event_reminders_enabled: isEnabled })
+            .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        currentUser.event_reminders_enabled = isEnabled;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        
+        hideLoader();
+        showNotification(isEnabled ? '🔔 Event reminders enabled!' : '🔕 Event reminders disabled');
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error toggling event reminders:', error);
+        showNotification('Error updating setting', 'error');
+        // Revert toggle on error
+        toggle.checked = !isEnabled;
     }
 }
 
@@ -3658,6 +3717,9 @@ window.openMatchChatThreaded = async function(matchId) {
         console.log('🔄 Opening match chat:', matchId);
         showLoader('Loading chat...');
         
+	// Mark match as read
+        await markMatchAsRead(matchId);
+
         // Clean up ALL previous subscriptions
         if (matchMessageSubscription) {
             await supabase.removeChannel(matchMessageSubscription);
@@ -4001,6 +4063,12 @@ async function setupMatchChatSubscription(matchId) {
             };
             
             appendMessage(message);
+            
+            // Update badge if we're not currently viewing this match
+            const currentContext = getCurrentChatContext();
+            if (!currentContext || currentContext.id !== payload.payload.match_id) {
+                updateNotificationBadge();
+            }
         })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
@@ -4056,6 +4124,28 @@ window.joinEventFromChat = async function(eventId, matchId) {
         
         // Auto-join general chat if not already in it
         await joinMatchChat(matchId);
+        
+        // Get event details for notification
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select(`
+                id,
+                scheduled_date,
+                activity_id,
+                activities(name, emoji),
+                event_participants(profile_id)
+            `)
+            .eq('id', eventId)
+            .single();
+        
+        if (eventError) {
+            console.error('Error loading event details:', eventError);
+        }
+        
+        // Send notification to existing participants
+        if (event) {
+            await sendEventJoinNotification(event);
+        }
         
         hideLoader();
         showNotification('Joined event! You can now access the event chat.');
@@ -4385,6 +4475,11 @@ async function saveMatchesToSupabase(matches, circleId) {
         async function checkForMatches() {
     if (!selectedCircle) return;
     
+    console.log('🔍 Checking for matches...');
+    
+    // Store old matches to detect NEW ones
+    const oldMatchIds = new Set(matches.map(m => m.id));
+    
     // Find real matches based on preferences
     const foundMatches = await findMatches(selectedCircle.id);
     
@@ -4396,11 +4491,172 @@ async function saveMatchesToSupabase(matches, circleId) {
     
     updateNotificationBadge();
 
-if (matches.length > 0) {
-    showNotification(`Found ${matches.length} new matches!`);
-} else {
-    showNotification('No matches found yet. Try selecting more activities or invite more friends!');
+    // Detect NEW matches (matches that didn't exist before)
+    const newMatches = foundMatches.filter(m => !oldMatchIds.has(m.id));
+    
+    console.log('📊 Match summary:', {
+        total: foundMatches.length,
+        new: newMatches.length,
+        existing: foundMatches.length - newMatches.length
+    });
+    
+    // Send notifications for NEW matches only
+    for (const match of newMatches) {
+        await sendNewMatchNotification(match);
+    }
+
+    if (matches.length > 0) {
+        if (newMatches.length > 0) {
+            showNotification(`Found ${newMatches.length} new match${newMatches.length > 1 ? 'es' : ''}!`);
+        }
+    } else {
+        showNotification('No matches found yet. Try selecting more activities or invite more friends!');
+    }
 }
+
+async function sendNewMatchNotification(match) {
+    try {
+        console.log('📢 Sending new match notification for:', match.activity?.name);
+        
+        // Get all users who are interested in this activity (have it in preferences)
+        const { data: interestedUsers, error } = await supabase
+            .from('preferences')
+            .select('profile_id, profiles(id, name, onesignal_player_id)')
+            .eq('circle_id', match.circleId)
+            .eq('activity_id', match.activity.id)
+            .neq('profile_id', currentUser.id); // Don't notify yourself
+        
+        if (error) throw error;
+        
+        if (!interestedUsers || interestedUsers.length === 0) {
+            console.log('ℹ️ No other interested users to notify');
+            return;
+        }
+        
+        console.log(`📬 Notifying ${interestedUsers.length} interested user(s)`);
+        
+        // Get names of all interested users (including current user)
+        const allInterestedNames = [currentUser.name, ...interestedUsers.map(u => u.profiles.name)];
+        
+        // Create notification message
+        let message = '';
+        if (allInterestedNames.length === 2) {
+            message = `You matched with ${allInterestedNames.find(n => n !== currentUser.name)} for ${match.activity.emoji} ${match.activity.name}!`;
+        } else {
+            const otherNames = allInterestedNames.filter(n => n !== currentUser.name).slice(0, 2).join(', ');
+            const remaining = allInterestedNames.length - 3; // -3 because we show 2 names + current user
+            if (remaining > 0) {
+                message = `You matched with ${otherNames}, and ${remaining} other${remaining > 1 ? 's' : ''} for ${match.activity.emoji} ${match.activity.name}!`;
+            } else {
+                message = `You matched with ${otherNames} for ${match.activity.emoji} ${match.activity.name}!`;
+            }
+        }
+        
+        // Send notifications via Edge Function
+        const recipientIds = interestedUsers
+            .filter(u => u.profiles.onesignal_player_id) // Only users with player IDs
+            .map(u => u.profile_id);
+        
+        if (recipientIds.length === 0) {
+            console.log('ℹ️ No users with notification IDs to notify');
+            return;
+        }
+        
+        console.log('🚀 Calling send-notification Edge Function');
+        
+        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                senderId: currentUser.id,
+                recipientIds: recipientIds,
+                message: message,
+                activityName: `${match.activity.emoji} ${match.activity.name}`,
+                chatType: 'match',
+                chatId: match.id,
+                notificationType: 'new_match'
+            }
+        });
+        
+        if (notifError) {
+            console.error('❌ Error sending match notification:', notifError);
+        } else {
+            console.log('✅ Match notifications sent successfully');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in sendNewMatchNotification:', error);
+        // Don't throw - we don't want to block the match creation if notifications fail
+    }
+}
+
+async function sendEventJoinNotification(event) {
+    try {
+        console.log('📢 Sending event join notification for:', event.id);
+        
+        const activity = event.activities;
+        
+        // Get existing participants (exclude current user who just joined)
+        const existingParticipantIds = event.event_participants
+            .map(p => p.profile_id)
+            .filter(id => id !== currentUser.id);
+        
+        if (existingParticipantIds.length === 0) {
+            console.log('ℹ️ No existing participants to notify (user is first)');
+            return;
+        }
+        
+        // Get profiles with OneSignal IDs
+        const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, name, onesignal_player_id')
+            .in('id', existingParticipantIds)
+            .not('onesignal_player_id', 'is', null);
+        
+        if (profileError) throw profileError;
+        
+        if (!profiles || profiles.length === 0) {
+            console.log('ℹ️ No participants with notification IDs');
+            return;
+        }
+        
+        // Format event date
+        const eventDate = new Date(event.scheduled_date);
+        const dateStr = eventDate.toLocaleDateString('en-US', { 
+            weekday: 'short',
+            month: 'short', 
+            day: 'numeric'
+        });
+        
+        // Create notification message
+        const message = `${currentUser.name} is coming to ${activity.emoji} ${activity.name} on ${dateStr}!`;
+        
+        console.log('📬 Notifying:', message);
+        
+        // Get recipient IDs for the Edge Function
+        const recipientIds = profiles.map(p => p.id);
+        
+        // Send notification via Edge Function
+        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                senderId: currentUser.id,
+                recipientIds: recipientIds,
+                message: message,
+                activityName: `${activity.emoji} ${activity.name}`,
+                chatType: 'event',
+                chatId: event.id,
+                notificationType: 'event_join'
+            }
+        });
+        
+        if (notifError) {
+            console.error('❌ Error sending event join notification:', notifError);
+        } else {
+            console.log('✅ Event join notifications sent successfully');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in sendEventJoinNotification:', error);
+        // Don't throw - we don't want to block event joining if notifications fail
+    }
 }
 
 async function loadMatches() {
@@ -4488,6 +4744,8 @@ async function loadMatches() {
         console.error('Error loading matches:', error);
     } finally {
         hideLoader();
+        // Update badge count after loading matches
+        await updateNotificationBadge();
     }
 }
 
@@ -4795,6 +5053,8 @@ window.joinMatch = async function(matchId) {
 
 window.joinEvent = async function(eventId) {
     try {
+        showLoader('Joining event...');
+        
         // Add user to event participants
         const { error } = await supabase
             .from('event_participants')
@@ -4806,12 +5066,36 @@ window.joinEvent = async function(eventId) {
         
         if (error) throw error;
         
+        // Get event details for notification
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select(`
+                id,
+                scheduled_date,
+                activity_id,
+                activities(name, emoji),
+                event_participants(profile_id)
+            `)
+            .eq('id', eventId)
+            .single();
+        
+        if (eventError) {
+            console.error('Error loading event details:', eventError);
+        }
+        
+        // Send notification to existing participants
+        if (event) {
+            await sendEventJoinNotification(event);
+        }
+        
+        hideLoader();
         showNotification('Joined event! You can now access the event chat.');
         
         // Refresh matches to update UI
         await loadMatches();
         
     } catch (error) {
+        hideLoader();
         console.error('Error joining event:', error);
         showNotification('Error joining event', 'error');
     }
@@ -6536,12 +6820,99 @@ window.findNearbyPlaces = async function() {
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
         }
-        function updateNotificationBadge() {
-    // For now, just check if there are any matches
-    // We can enhance this later to track actual unread messages
-    const hasMatches = matches.length > 0;
-    document.querySelector('#matches-nav-item .notification-badge').style.display = hasMatches ? 'block' : 'none';
+        
+async function updateNotificationBadge() {
+    try {
+        if (!currentUser) {
+            document.querySelector('#matches-nav-item .notification-badge').classList.remove('has-count');
+            return;
+        }
+        
+        // Get all matches where user is a participant
+        const { data: participations, error } = await supabase
+            .from('match_participants')
+            .select(`
+                match_id,
+                last_read_at,
+                matches!inner(
+                    id,
+                    circle_id,
+                    activity_id
+                )
+            `)
+            .eq('profile_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        if (!participations || participations.length === 0) {
+            document.querySelector('#matches-nav-item .notification-badge').classList.remove('has-count');
+            return;
+        }
+        
+        let unreadCount = 0;
+        
+        // Check each match for unread messages
+        for (const participation of participations) {
+            const matchId = participation.match_id;
+            const lastReadAt = participation.last_read_at;
+            
+            // Get latest message in this match
+            const { data: latestMessage, error: msgError } = await supabase
+                .from('match_messages')
+                .select('created_at, sender_id')
+                .eq('match_id', matchId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+            
+            if (msgError && msgError.code !== 'PGRST116') { // PGRST116 = no rows found
+                console.error('Error checking messages:', msgError);
+                continue;
+            }
+            
+            // If there's a message newer than last_read_at and it's not from current user
+            if (latestMessage && 
+                new Date(latestMessage.created_at) > new Date(lastReadAt) &&
+                latestMessage.sender_id !== currentUser.id) {
+                unreadCount++;
+            }
+        }
+        
+        const badge = document.querySelector('#matches-nav-item .notification-badge');
+        
+        if (unreadCount > 0) {
+            badge.textContent = unreadCount > 9 ? '9+' : unreadCount.toString();
+            badge.classList.add('has-count');
+        } else {
+            badge.classList.remove('has-count');
+        }
+        
+    } catch (error) {
+        console.error('Error updating notification badge:', error);
+    }
 }
+
+async function markMatchAsRead(matchId) {
+    try {
+        // Update last_read_at to now
+        const { error } = await supabase
+            .from('match_participants')
+            .update({ last_read_at: new Date().toISOString() })
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        console.log('✅ Marked match as read:', matchId);
+        
+        // Update badge count
+        await updateNotificationBadge();
+        
+    } catch (error) {
+        console.error('Error marking match as read:', error);
+    }
+}
+
         window.showPage = async function(pageId) {
     // Clean up subscriptions when leaving chat
 if (pageId !== 'chat') {
@@ -6654,6 +7025,7 @@ if (pageId === 'matches') {
             
             await renderCircles();
             await loadMatches();
+            await updateNotificationBadge();
             
             const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
             
