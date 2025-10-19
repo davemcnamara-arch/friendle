@@ -993,6 +993,9 @@ OneSignal.Notifications.addEventListener('click', (event) => {
         <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
         <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
         <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
+	<button id="mute-chat-btn" class="btn btn-secondary btn-small" onclick="toggleMuteChat()" style="display: none;">
+    <span id="mute-btn-text">🔔 Mute</span>
+</button>
         <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️</button>
     </div>
 </div>
@@ -1581,6 +1584,82 @@ async function processInviteCode() {
 
         // Utility Functions
         function generateCode() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+	// Check if chat is muted and update button
+async function updateMuteButton(matchId, eventId) {
+    try {
+        const { data: muted } = await supabase
+            .from('muted_chats')
+            .select('id')
+            .eq('profile_id', currentUser.id)
+            .eq('match_id', matchId || null)
+            .eq('event_id', eventId || null)
+            .maybeSingle();
+        
+        const btnText = document.getElementById('mute-btn-text');
+        if (muted) {
+            btnText.textContent = '🔕 Unmute';
+        } else {
+            btnText.textContent = '🔔 Mute';
+        }
+    } catch (error) {
+        console.error('Error checking mute status:', error);
+    }
+}
+
+// Toggle mute for current chat
+window.toggleMuteChat = async function() {
+    if (!currentChatContext) {
+        showNotification('No chat selected', 'error');
+        return;
+    }
+    
+    const matchId = currentChatContext.type === 'match' ? currentChatContext.id : null;
+    const eventId = currentChatContext.type === 'event' ? currentChatContext.id : null;
+    
+    try {
+        showLoader('Updating...');
+        
+        // Check if already muted
+        const { data: existing } = await supabase
+            .from('muted_chats')
+            .select('id')
+            .eq('profile_id', currentUser.id)
+            .eq('match_id', matchId)
+            .eq('event_id', eventId)
+            .maybeSingle();
+        
+        if (existing) {
+            // Unmute
+            await supabase
+                .from('muted_chats')
+                .delete()
+                .eq('id', existing.id);
+            
+            hideLoader();
+            showNotification('🔔 Chat unmuted - you\'ll receive notifications');
+        } else {
+            // Mute
+            await supabase
+                .from('muted_chats')
+                .insert({
+                    profile_id: currentUser.id,
+                    match_id: matchId,
+                    event_id: eventId
+                });
+            
+            hideLoader();
+            showNotification('🔕 Chat muted - you won\'t receive notifications');
+        }
+        
+        // Update button text
+        await updateMuteButton(matchId, eventId);
+        
+    } catch (error) {
+        hideLoader();
+        console.error('Error toggling mute:', error);
+        showNotification('Error updating mute setting', 'error');
+    }
+}
         function showNotification(message, type = 'success') { /* ... */ }
 
 function showLoader(message = 'Loading...') {
@@ -3669,6 +3748,13 @@ document.getElementById('event-participants').innerHTML =
         if (eventOptionsBtn) eventOptionsBtn.style.display = 'none';
         if (leaveEventBtn) leaveEventBtn.style.display = 'none';
         
+// Show mute button for match chats
+        const muteChatBtn = document.getElementById('mute-chat-btn');
+        if (muteChatBtn) {
+            muteChatBtn.style.display = 'inline-block';
+            updateMuteButton(matchId, null);
+        }
+
         // Hide event details banner in general chat (redundant with event cards)
         document.getElementById('event-details').style.display = 'none';
         
@@ -5279,6 +5365,13 @@ async function openEventChat(eventId) {
         if (calendarBtn) calendarBtn.style.display = 'inline-block';
         if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
         if (leaveEventBtn) leaveEventBtn.style.display = 'inline-block';
+
+// Show mute button for event chats
+        const muteChatBtn = document.getElementById('mute-chat-btn');
+        if (muteChatBtn) {
+            muteChatBtn.style.display = 'inline-block';
+            updateMuteButton(null, eventId);
+        }
 
 // Get activity details - load from database if not in current activities array
 let activity = activities.find(a => a.id === event.activity_id);
