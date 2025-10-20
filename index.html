@@ -2888,9 +2888,13 @@ async function animateSwipeRight(card, activity) {
         showMatchNotification(activity, existingMatch.id, otherUsers);
     }
     
+    console.log('Calling checkForMatches...');
+    // Check for new matches and send notifications
+    await checkForMatches();
+    
     console.log('Calling loadMatches...');
     // Reload matches to see any changes
-    loadMatches();
+    await loadMatches();
     
     setTimeout(() => {
         currentCardIndex++;
