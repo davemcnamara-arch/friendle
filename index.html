@@ -7569,6 +7569,8 @@ if (pageId === 'matches') {
                             await openMatchChatThreaded(openChatId);
                         } else if (openChatType === 'event') {
                             await openEventChat(openChatId);
+                        } else if (openChatType === 'circle') {
+                            await openCircleChat(openChatId);
                         }
 
                         console.log('✅ Chat opened successfully');
