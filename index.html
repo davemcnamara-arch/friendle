@@ -794,26 +794,40 @@
     // Handle notification clicks
 OneSignal.Notifications.addEventListener('click', (event) => {
   console.log('🔔 Notification clicked:', event);
-    
+
   const data = event.notification.additionalData;
   console.log('📦 Notification data:', data);
-  
+
   if (data && data.chatType && data.chatId) {
-    // Check if already on the app
-    if (window.location.hostname === 'friendle-circles.vercel.app') {
-      // Already on the app - just navigate
-      console.log('Already on app, navigating directly...');
-      if (data.chatType === 'match') {
-        openMatchChatThreaded(data.chatId);
-      } else if (data.chatType === 'event') {
-        openEventChat(data.chatId);
+    // Check if app functions are available (app is loaded)
+    if (typeof openMatchChatThreaded === 'function' && typeof openEventChat === 'function') {
+      // App is already loaded - navigate directly
+      console.log('App is loaded, navigating directly to chat...');
+
+      // First, show the chat page
+      if (typeof showPage === 'function') {
+        showPage('chat');
       }
+
+      // Then open the specific chat
+      setTimeout(() => {
+        if (data.chatType === 'match') {
+          openMatchChatThreaded(data.chatId);
+        } else if (data.chatType === 'event') {
+          openEventChat(data.chatId);
+        }
+      }, 100);
     } else {
-      // Not on app - navigate with URL parameter
-      window.location.href = `https://friendle-circles.vercel.app/?openChat=${data.chatId}&chatType=${data.chatType}`;
+      // App not loaded - redirect with URL parameters
+      console.log('App not loaded, redirecting with URL parameters...');
+      const baseUrl = window.location.origin + window.location.pathname;
+      window.location.href = `${baseUrl}?openChat=${data.chatId}&chatType=${data.chatType}`;
     }
   } else {
-    window.location.href = 'https://friendle-circles.vercel.app/';
+    // No chat data - just open the app
+    console.log('No chat data in notification, opening app home...');
+    const baseUrl = window.location.origin + window.location.pathname;
+    window.location.href = baseUrl;
   }
 });
     
