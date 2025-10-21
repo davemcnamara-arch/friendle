@@ -1611,13 +1611,26 @@ async function processInviteCode() {
 	// Check if chat is muted and update button
 async function updateMuteButton(matchId, eventId) {
     try {
-        const { data: muted } = await supabase
+        // Build query dynamically to handle nulls correctly
+        let query = supabase
             .from('muted_chats')
             .select('id')
-            .eq('profile_id', currentUser.id)
-            .eq('match_id', matchId || null)
-            .eq('event_id', eventId || null)
-            .maybeSingle();
+            .eq('profile_id', currentUser.id);
+
+        // Use .is() for null values, .eq() for non-null
+        if (matchId) {
+            query = query.eq('match_id', matchId);
+        } else {
+            query = query.is('match_id', null);
+        }
+
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        } else {
+            query = query.is('event_id', null);
+        }
+
+        const { data: muted } = await query.maybeSingle();
         
         const btnText = document.getElementById('mute-btn-text');
         if (muted) {
@@ -1644,13 +1657,25 @@ window.toggleMuteChat = async function() {
         showLoader('Updating...');
         
         // Check if already muted
-        const { data: existing } = await supabase
+        let query = supabase
             .from('muted_chats')
             .select('id')
-            .eq('profile_id', currentUser.id)
-            .eq('match_id', matchId)
-            .eq('event_id', eventId)
-            .maybeSingle();
+            .eq('profile_id', currentUser.id);
+
+        // Use .is() for null values, .eq() for non-null
+        if (matchId) {
+            query = query.eq('match_id', matchId);
+        } else {
+            query = query.is('match_id', null);
+        }
+
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        } else {
+            query = query.is('event_id', null);
+        }
+
+        const { data: existing } = await query.maybeSingle();
         
         if (existing) {
             // Unmute
@@ -3739,17 +3764,35 @@ window.openMatchChatThreaded = async function(matchId) {
             eventMessageSubscription = null;
         }
         
-        // Find the match
-        const match = matches.find(m => m.id === matchId);
-        
+        // Find the match in local array first
+        let match = matches.find(m => m.id === matchId);
+
+        // If not found locally, fetch from database (handles notification deep linking)
+        if (!match) {
+            console.log('Match not in local array, fetching from database...');
+            const { data: matchData, error: matchError } = await supabase
+                .from('matches')
+                .select(`
+                    id,
+                    circle_id,
+                    activity_id,
+                    created_at
+                `)
+                .eq('id', matchId)
+                .single();
+
+            if (matchError || !matchData) {
+                hideLoader();
+                console.error('Match not found in database:', matchError);
+                showNotification('Match not found', 'error');
+                return;
+            }
+
+            match = matchData;
+        }
+
         // Set context using helper
         setMatchContext(match);
-        
-        if (!match) {
-            hideLoader();
-            showNotification('Match not found', 'error');
-            return;
-        }
         
         // Get activity details
         let activity = activities.find(a => a.id === match.activity_id);
@@ -4773,6 +4816,35 @@ async function loadMatches() {
         (todayActivities || []).map(a => a.activity_id.toString())
     );
 
+    // PERFORMANCE OPTIMIZATION: Batch fetch all data at once instead of N+1 queries
+    const matchIds = matches.map(m => m.id);
+
+    // Fetch all match participations at once
+    const { data: allMatchParticipations } = await supabase
+        .from('match_participants')
+        .select('match_id, last_read_at')
+        .eq('profile_id', currentUser.id)
+        .in('match_id', matchIds);
+
+    const matchParticipationMap = new Map(
+        (allMatchParticipations || []).map(p => [p.match_id, p])
+    );
+
+    // Fetch all latest messages for matches at once
+    const { data: allLatestMatchMessages } = await supabase
+        .from('match_messages')
+        .select('match_id, created_at, sender_id')
+        .in('match_id', matchIds)
+        .order('created_at', { ascending: false });
+
+    // Group messages by match_id and keep only the latest
+    const latestMatchMessageMap = new Map();
+    (allLatestMatchMessages || []).forEach(msg => {
+        if (!latestMatchMessageMap.has(msg.match_id)) {
+            latestMatchMessageMap.set(msg.match_id, msg);
+        }
+    });
+
     let matchesWithEvents = await Promise.all(
     matches.map(async (match) => {
         // Get all events for this match
@@ -4792,41 +4864,72 @@ async function loadMatches() {
             return { match, events: [], matchUnreadCount: 0 };
         }
 
-        // Get user's last_read_at for this match
-        const { data: matchParticipation } = await supabase
-            .from('match_participants')
-            .select('last_read_at')
-            .eq('match_id', match.id)
-            .eq('profile_id', currentUser.id)
-            .single();
+        // Get match participation from map (already fetched)
+        const matchParticipation = matchParticipationMap.get(match.id);
 
-        // Calculate unread count for match chat
-        const matchUnreadCount = matchParticipation
-            ? await getMatchUnreadCount(match.id, matchParticipation.last_read_at)
-            : 0;
+        // Calculate unread count using cached data
+        let matchUnreadCount = 0;
+        if (matchParticipation?.last_read_at) {
+            const latestMessage = latestMatchMessageMap.get(match.id);
+            if (latestMessage &&
+                new Date(latestMessage.created_at) > new Date(matchParticipation.last_read_at) &&
+                latestMessage.sender_id !== currentUser.id) {
+                matchUnreadCount = 1;
+            }
+        }
+
+        // Get all event IDs for batch fetching
+        const eventIds = (allEvents || []).map(e => e.id);
+
+        // Fetch all event participations and messages for this match's events at once
+        let eventParticipationMap = new Map();
+        let latestEventMessageMap = new Map();
+
+        if (eventIds.length > 0) {
+            try {
+                const { data: eventParticipations } = await supabase
+                    .from('event_participants')
+                    .select('event_id, last_read_at')
+                    .eq('profile_id', currentUser.id)
+                    .in('event_id', eventIds);
+
+                eventParticipationMap = new Map(
+                    (eventParticipations || []).map(p => [p.event_id, p])
+                );
+
+                const { data: eventMessages } = await supabase
+                    .from('event_messages')
+                    .select('event_id, created_at, sender_id')
+                    .in('event_id', eventIds)
+                    .order('created_at', { ascending: false });
+
+                // Group by event_id and keep only latest
+                (eventMessages || []).forEach(msg => {
+                    if (!latestEventMessageMap.has(msg.event_id)) {
+                        latestEventMessageMap.set(msg.event_id, msg);
+                    }
+                });
+            } catch (err) {
+                console.log('Event read tracking not available yet - run migration to enable');
+            }
+        }
 
         // Mark which events user has joined and calculate unread counts
-        const eventsWithUnread = await Promise.all((allEvents || []).map(async event => {
+        const eventsWithUnread = (allEvents || []).map(event => {
             const userParticipation = event.event_participants?.find(p => p.profile_id === currentUser.id);
             const isUserJoined = !!userParticipation;
 
-            // Try to get last_read_at for event (backwards compatible if column doesn't exist)
+            // Calculate unread count using cached data
             let eventUnreadCount = 0;
             if (isUserJoined) {
-                try {
-                    const { data: eventParticipant } = await supabase
-                        .from('event_participants')
-                        .select('last_read_at')
-                        .eq('event_id', event.id)
-                        .eq('profile_id', currentUser.id)
-                        .single();
-
-                    if (eventParticipant?.last_read_at) {
-                        eventUnreadCount = await getEventUnreadCount(event.id, eventParticipant.last_read_at);
+                const eventParticipation = eventParticipationMap.get(event.id);
+                if (eventParticipation?.last_read_at) {
+                    const latestMessage = latestEventMessageMap.get(event.id);
+                    if (latestMessage &&
+                        new Date(latestMessage.created_at) > new Date(eventParticipation.last_read_at) &&
+                        latestMessage.sender_id !== currentUser.id) {
+                        eventUnreadCount = 1;
                     }
-                } catch (err) {
-                    // Column doesn't exist yet - badges won't show for events until migration is run
-                    console.log('Event badges not available yet - run migration to enable');
                 }
             }
 
@@ -4835,7 +4938,7 @@ async function loadMatches() {
                 isUserJoined,
                 unreadCount: eventUnreadCount
             };
-        }));
+        });
 
         return { match, events: eventsWithUnread, matchUnreadCount };
     })
@@ -6944,9 +7047,9 @@ async function getMatchUnreadCount(matchId, lastReadAt) {
             .eq('match_id', matchId)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
             console.error('Error checking match messages:', error);
             return 0;
         }
@@ -6977,9 +7080,9 @@ async function getEventUnreadCount(eventId, lastReadAt) {
             .eq('event_id', eventId)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
             console.error('Error checking event messages:', error);
             return 0;
         }
