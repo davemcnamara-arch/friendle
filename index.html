@@ -798,35 +798,15 @@ OneSignal.Notifications.addEventListener('click', (event) => {
   const data = event.notification.additionalData;
   console.log('📦 Notification data:', data);
 
+  // Always use URL parameters for reliable deep linking
+  // This ensures consistent behavior whether app is loaded or not
+  const baseUrl = window.location.origin + window.location.pathname;
+
   if (data && data.chatType && data.chatId) {
-    // Check if app functions are available (app is loaded)
-    if (typeof openMatchChatThreaded === 'function' && typeof openEventChat === 'function') {
-      // App is already loaded - navigate directly
-      console.log('App is loaded, navigating directly to chat...');
-
-      // First, show the chat page
-      if (typeof showPage === 'function') {
-        showPage('chat');
-      }
-
-      // Then open the specific chat
-      setTimeout(() => {
-        if (data.chatType === 'match') {
-          openMatchChatThreaded(data.chatId);
-        } else if (data.chatType === 'event') {
-          openEventChat(data.chatId);
-        }
-      }, 100);
-    } else {
-      // App not loaded - redirect with URL parameters
-      console.log('App not loaded, redirecting with URL parameters...');
-      const baseUrl = window.location.origin + window.location.pathname;
-      window.location.href = `${baseUrl}?openChat=${data.chatId}&chatType=${data.chatType}`;
-    }
+    console.log('🚀 Redirecting to chat:', data.chatType, data.chatId);
+    window.location.href = `${baseUrl}?openChat=${data.chatId}&chatType=${data.chatType}`;
   } else {
-    // No chat data - just open the app
     console.log('No chat data in notification, opening app home...');
-    const baseUrl = window.location.origin + window.location.pathname;
     window.location.href = baseUrl;
   }
 });
@@ -7137,27 +7117,40 @@ if (pageId === 'matches') {
             // Check if we should open a chat from notification click
             const openChatId = urlParams.get('openChat');
             const openChatType = urlParams.get('chatType');
-            
-            console.log('🔍 Checking for chat to open:', { openChatId, openChatType });
-            
+
+            console.log('🔍 Checking for chat to open:', { openChatId, openChatType, matches: matches?.length });
+
             if (openChatId && openChatType) {
-                console.log('✅ Found chat to open, will open shortly...');
-                
+                console.log('✅ Found chat to open from notification!');
+                console.log('   - Chat Type:', openChatType);
+                console.log('   - Chat ID:', openChatId);
+                console.log('   - Matches loaded:', matches?.length || 0);
+
                 // Clean up URL (remove all query parameters)
                 window.history.replaceState({}, document.title, window.location.pathname);
-                
-                // Show chat page immediately (before loading messages)
-                showPage('chat');
-                
-                // Wait a moment for everything to be ready, then open chat
+
+                // DON'T show any other page - let the chat function handle the page display
+                // This prevents race conditions where we might navigate away
+
+                // Wait for everything to be ready, then open chat
                 setTimeout(async () => {
-                    console.log('🚀 Opening chat now...');
-                    if (openChatType === 'match') {
-                        await openMatchChatThreaded(openChatId);
-                    } else if (openChatType === 'event') {
-                        await openEventChat(openChatId);
+                    try {
+                        console.log('🚀 Opening chat now...', openChatType, openChatId);
+
+                        if (openChatType === 'match') {
+                            await openMatchChatThreaded(openChatId);
+                        } else if (openChatType === 'event') {
+                            await openEventChat(openChatId);
+                        }
+
+                        console.log('✅ Chat opened successfully');
+                    } catch (error) {
+                        console.error('❌ Error opening chat from notification:', error);
+                        // On error, show matches page as fallback
+                        showPage('matches');
+                        showNotification('Could not open chat', 'error');
                     }
-                }, 800);
+                }, 1000); // Increased timeout to ensure everything is loaded
             } else {
                 // Don't restore chat page on full refresh - go to matches instead
                 if (lastPage === 'chat') {
