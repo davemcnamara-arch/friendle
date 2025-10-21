@@ -1107,7 +1107,6 @@ OneSignal.Notifications.addEventListener('click', (event) => {
             <div class="nav-item" id="matches-nav-item" onclick="showPage('matches')">
     <div class="nav-icon">💫</div>
     <div class="nav-label">Matches</div>
-    <span class="notification-badge"></span>
 </div>
             <div class="nav-item" onclick="showPage('settings')"><div class="nav-icon">⚙️</div><div class="nav-label">Settings</div></div>
         </div>
@@ -4125,10 +4124,11 @@ window.joinEventFromChat = async function(eventId, matchId) {
         // Add user to event participants
         const { error } = await supabase
             .from('event_participants')
-            .insert([{ 
-                event_id: eventId, 
+            .insert([{
+                event_id: eventId,
                 profile_id: currentUser.id,
-                status: 'accepted'
+                status: 'accepted',
+                last_read_at: new Date().toISOString()
             }]);
         
         if (error) throw error;
@@ -4782,30 +4782,52 @@ async function loadMatches() {
 
     let matchesWithEvents = await Promise.all(
     matches.map(async (match) => {
-        // Get all events for this match
+        // Get all events for this match with last_read_at for user
         const query = supabase
             .from('events')
             .select(`
                 *,
-                event_participants(profile_id, profiles(id, name, avatar))
+                event_participants(profile_id, status, last_read_at, profiles(id, name, avatar))
             `)
             .eq('match_id', match.id)
             .order('scheduled_date', { ascending: true });
-        
+
         const { data: allEvents, error } = await query;
-        
+
         if (error) {
             console.error('Error loading events:', error);
-            return { match, events: [] };
+            return { match, events: [], matchUnreadCount: 0 };
         }
-        
-        // Mark which events user has joined
-        const events = (allEvents || []).map(event => ({
-            ...event,
-            isUserJoined: event.event_participants?.some(p => p.profile_id === currentUser.id)
+
+        // Get user's last_read_at for this match
+        const { data: matchParticipation } = await supabase
+            .from('match_participants')
+            .select('last_read_at')
+            .eq('match_id', match.id)
+            .eq('profile_id', currentUser.id)
+            .single();
+
+        // Calculate unread count for match chat
+        const matchUnreadCount = matchParticipation
+            ? await getMatchUnreadCount(match.id, matchParticipation.last_read_at)
+            : 0;
+
+        // Mark which events user has joined and calculate unread counts
+        const eventsWithUnread = await Promise.all((allEvents || []).map(async event => {
+            const userParticipation = event.event_participants?.find(p => p.profile_id === currentUser.id);
+            const isUserJoined = !!userParticipation;
+            const eventUnreadCount = isUserJoined && userParticipation.last_read_at
+                ? await getEventUnreadCount(event.id, userParticipation.last_read_at)
+                : 0;
+
+            return {
+                ...event,
+                isUserJoined,
+                unreadCount: eventUnreadCount
+            };
         }));
-        
-        return { match, events };
+
+        return { match, events: eventsWithUnread, matchUnreadCount };
     })
 );
 
@@ -4845,12 +4867,12 @@ if (!showPastEvents) {
         if (data) missingActivities.push(...data);
     }
     
-    matchesList.innerHTML = matchesWithEvents.map(({ match, events }) => {
+    matchesList.innerHTML = matchesWithEvents.map(({ match, events, matchUnreadCount }) => {
         let activity = activities.find(a => a.id === match.activity_id);
-        
+
         const activityName = activity ? activity.name : 'Unknown Activity';
         const activityEmoji = activity ? activity.emoji : '🎯';
-        
+
         // Check if user is first
         const isFirst = match.inChatCount === 0;
         
@@ -4889,10 +4911,13 @@ const pastEvents = events.filter(e =>
 console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
         return `
-    <div class="match-card" style="margin-bottom: 25px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <div class="match-card" style="margin-bottom: 25px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
-    <h3 style="margin: 0 0 4px 0; font-size: 20px;">${activityEmoji} ${activityName}</h3>
+    <h3 style="margin: 0 0 4px 0; font-size: 20px; display: flex; align-items: center; gap: 8px;">
+        ${activityEmoji} ${activityName}
+        ${matchUnreadCount > 0 ? `<span style="background: #ff4d4f; color: white; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: bold;">💬 New</span>` : ''}
+    </h3>
             <p style="margin: 8px 0 0 0; color: #666; font-size: 14px; line-height: 1.4;">
                 ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested${interestedDisplay ? ': ' + interestedDisplay : ''}
             </p>
@@ -4947,10 +4972,13 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             const participantCount = event.event_participants?.length || 0;
             
             return `
-                <div class="event-item" style="padding: 15px; margin-bottom: 10px; background: ${event.isUserJoined ? '#f5f5f5' : '#fff8e1'}; border-radius: 8px; border-left: 4px solid ${event.isUserJoined ? '#4CAF50' : '#FFA726'};">
+                <div class="event-item" style="padding: 15px; margin-bottom: 10px; background: ${event.isUserJoined ? '#f5f5f5' : '#fff8e1'}; border-radius: 8px; border-left: 4px solid ${event.isUserJoined ? '#4CAF50' : '#FFA726'}; position: relative;">
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                         <div style="flex: 1;">
-    <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px;">📅 ${dateStr}</div>
+    <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+        📅 ${dateStr}
+        ${event.unreadCount > 0 ? `<span style="background: #ff4d4f; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: bold;">New</span>` : ''}
+    </div>
                             ${event.location ? `<div style="color: #666; font-size: 13px;">📍 ${event.location}</div>` : ''}
                             <div style="color: #666; font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${event.isUserJoined ? 'going' : 'interested'}</div>
                         </div>
@@ -5069,10 +5097,11 @@ window.joinEvent = async function(eventId) {
         // Add user to event participants
         const { error } = await supabase
             .from('event_participants')
-            .insert([{ 
-                event_id: eventId, 
+            .insert([{
+                event_id: eventId,
                 profile_id: currentUser.id,
-                status: 'accepted'
+                status: 'accepted',
+                last_read_at: new Date().toISOString()
             }]);
         
         if (error) throw error;
@@ -5729,7 +5758,10 @@ const dateStr = eventDate.toLocaleDateString('en-US', {
         
         // Load messages (with archive support)
 await loadEventMessages(eventId, event.created_at);
-        
+
+        // Mark event as read
+        await markEventAsRead(eventId);
+
         // Set up broadcast subscription for new messages
 eventMessageSubscription = supabase
     .channel(`event_${eventId}`)
@@ -6832,75 +6864,10 @@ window.findNearbyPlaces = async function() {
             );
         }
         
+// Legacy function - badges are now shown on individual match cards
 async function updateNotificationBadge() {
-    try {
-        if (!currentUser) {
-            document.querySelector('#matches-nav-item .notification-badge').classList.remove('has-count');
-            return;
-        }
-        
-        // Get all matches where user is a participant
-        const { data: participations, error } = await supabase
-            .from('match_participants')
-            .select(`
-                match_id,
-                last_read_at,
-                matches!inner(
-                    id,
-                    circle_id,
-                    activity_id
-                )
-            `)
-            .eq('profile_id', currentUser.id);
-        
-        if (error) throw error;
-        
-        if (!participations || participations.length === 0) {
-            document.querySelector('#matches-nav-item .notification-badge').classList.remove('has-count');
-            return;
-        }
-        
-        let unreadCount = 0;
-        
-        // Check each match for unread messages
-        for (const participation of participations) {
-            const matchId = participation.match_id;
-            const lastReadAt = participation.last_read_at;
-            
-            // Get latest message in this match
-            const { data: latestMessage, error: msgError } = await supabase
-                .from('match_messages')
-                .select('created_at, sender_id')
-                .eq('match_id', matchId)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-            
-            if (msgError && msgError.code !== 'PGRST116') { // PGRST116 = no rows found
-                console.error('Error checking messages:', msgError);
-                continue;
-            }
-            
-            // If there's a message newer than last_read_at and it's not from current user
-            if (latestMessage && 
-                new Date(latestMessage.created_at) > new Date(lastReadAt) &&
-                latestMessage.sender_id !== currentUser.id) {
-                unreadCount++;
-            }
-        }
-        
-        const badge = document.querySelector('#matches-nav-item .notification-badge');
-        
-        if (unreadCount > 0) {
-            badge.textContent = unreadCount > 9 ? '9+' : unreadCount.toString();
-            badge.classList.add('has-count');
-        } else {
-            badge.classList.remove('has-count');
-        }
-        
-    } catch (error) {
-        console.error('Error updating notification badge:', error);
-    }
+    // No-op: Badges are now displayed on individual match cards instead of nav tab
+    console.log('Badge updates now handled per-card in displayMatches');
 }
 
 async function markMatchAsRead(matchId) {
@@ -6911,16 +6878,107 @@ async function markMatchAsRead(matchId) {
             .update({ last_read_at: new Date().toISOString() })
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id);
-        
+
         if (error) throw error;
-        
+
         console.log('✅ Marked match as read:', matchId);
-        
-        // Update badge count
-        await updateNotificationBadge();
-        
+
+        // Refresh match list to update badges
+        if (window.location.hash === '#matches') {
+            await loadMatches();
+        }
+
     } catch (error) {
         console.error('Error marking match as read:', error);
+    }
+}
+
+async function markEventAsRead(eventId) {
+    try {
+        // Update last_read_at to now
+        const { error } = await supabase
+            .from('event_participants')
+            .update({ last_read_at: new Date().toISOString() })
+            .eq('event_id', eventId)
+            .eq('profile_id', currentUser.id);
+
+        if (error) throw error;
+
+        console.log('✅ Marked event as read:', eventId);
+
+        // Refresh match list to update badges
+        if (window.location.hash === '#matches') {
+            await loadMatches();
+        }
+
+    } catch (error) {
+        console.error('Error marking event as read:', error);
+    }
+}
+
+// Calculate unread badge for a specific match
+async function getMatchUnreadCount(matchId, lastReadAt) {
+    try {
+        if (!lastReadAt) return 0;
+
+        // Get latest message in this match
+        const { data: latestMessage, error } = await supabase
+            .from('match_messages')
+            .select('created_at, sender_id')
+            .eq('match_id', matchId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error checking match messages:', error);
+            return 0;
+        }
+
+        // If there's a message newer than last_read_at and it's not from current user
+        if (latestMessage &&
+            new Date(latestMessage.created_at) > new Date(lastReadAt) &&
+            latestMessage.sender_id !== currentUser.id) {
+            return 1;
+        }
+
+        return 0;
+    } catch (error) {
+        console.error('Error getting match unread count:', error);
+        return 0;
+    }
+}
+
+// Calculate unread badge for a specific event
+async function getEventUnreadCount(eventId, lastReadAt) {
+    try {
+        if (!lastReadAt) return 0;
+
+        // Get latest message in this event
+        const { data: latestMessage, error } = await supabase
+            .from('event_messages')
+            .select('created_at, sender_id')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error checking event messages:', error);
+            return 0;
+        }
+
+        // If there's a message newer than last_read_at and it's not from current user
+        if (latestMessage &&
+            new Date(latestMessage.created_at) > new Date(lastReadAt) &&
+            latestMessage.sender_id !== currentUser.id) {
+            return 1;
+        }
+
+        return 0;
+    } catch (error) {
+        console.error('Error getting event unread count:', error);
+        return 0;
     }
 }
 
