@@ -1298,7 +1298,7 @@ OneSignal.Notifications.addEventListener('click', (event) => {
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null;
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, currentCircleChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null;
 
 // ========== CHAT CONTEXT MANAGEMENT ==========
 // These helpers ensure only ONE chat context is active at a time
@@ -1307,6 +1307,7 @@ function clearAllChatContexts() {
     console.log('🧹 Clearing all chat contexts');
     currentEvent = null;
     currentMatchChat = null;
+    currentCircleChat = null;
     currentMatchId = null;
 }
 
@@ -1323,11 +1324,19 @@ function setMatchContext(match) {
     currentMatchId = match.id; // Keep for backwards compatibility during refactor
 }
 
+function setCircleChatContext(circle) {
+    console.log('📍 Setting circle chat context:', circle.id);
+    clearAllChatContexts();
+    currentCircleChat = circle;
+}
+
 function getCurrentChatContext() {
     if (currentEvent) {
         return { type: 'event', id: currentEvent.id, data: currentEvent };
     } else if (currentMatchChat) {
         return { type: 'match', id: currentMatchChat.id, data: currentMatchChat };
+    } else if (currentCircleChat) {
+        return { type: 'circle', id: currentCircleChat.id, data: currentCircleChat };
     }
     return { type: 'none', id: null, data: null };
 }
@@ -2279,6 +2288,7 @@ window.selectCircleActivityCategory = function(category) {
             <div class="circle-code">Invite Code: <strong>${circle.code}</strong></div>
           </div>
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+    <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%; background: #667eea;">💬 Open Circle Chat</button>
     <div style="display: flex; gap: 8px;">
         <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${circle.code}')" style="flex: 1;">Copy Code</button>
         <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${circle.name}', '${circle.code}')" style="flex: 1;">Invite</button>
@@ -4152,6 +4162,191 @@ async function setupMatchChatSubscription(matchId) {
     allActiveSubscriptions.push(matchMessageSubscription);
 }
 
+// ========== CIRCLE CHAT FUNCTIONS ==========
+
+window.openCircleChat = async function(circleId) {
+    try {
+        console.log('🔄 Opening circle chat:', circleId);
+        showLoader('Loading circle chat...');
+
+        // Find the circle
+        const circle = circles.find(c => c.id === circleId);
+        if (!circle) {
+            hideLoader();
+            showNotification('Circle not found', 'error');
+            return;
+        }
+
+        // Mark circle as read
+        await markCircleAsRead(circleId);
+
+        // Clean up any existing subscriptions
+        if (matchMessageSubscription) {
+            await supabase.removeChannel(matchMessageSubscription);
+            const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
+            if (index > -1) allActiveSubscriptions.splice(index, 1);
+            matchMessageSubscription = null;
+        }
+
+        // Set circle chat context
+        setCircleChatContext(circle);
+
+        // Get all circle members
+        const { data: members, error: membersError } = await supabase
+            .from('circle_members')
+            .select(`
+                profile_id,
+                profiles!inner(id, name, avatar)
+            `)
+            .eq('circle_id', circleId);
+
+        if (membersError) throw membersError;
+
+        // Update header
+        document.getElementById('event-activity-name').textContent = `👥 ${circle.name}`;
+        document.getElementById('event-participants').innerHTML = `${members?.length || 0} members in circle`;
+
+        // Render circle chat
+        await renderCircleChat(circleId);
+
+        // Setup subscription for real-time messages
+        await setupCircleChatSubscription(circleId);
+
+        hideLoader();
+        showPage('chat');
+
+    } catch (error) {
+        hideLoader();
+        console.error('Error opening circle chat:', error);
+        showNotification('Error loading circle chat', 'error');
+    }
+}
+
+async function renderCircleChat(circleId) {
+    const messagesContainer = document.getElementById('chat-messages');
+    messagesContainer.innerHTML = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
+    header.innerHTML = '<h4 style="margin: 0; font-size: 14px; color: #666; font-weight: 600;">💬 CIRCLE CHAT</h4>';
+    messagesContainer.appendChild(header);
+
+    // Load and display messages
+    await loadAndDisplayCircleMessages(circleId);
+
+    // Scroll to bottom
+    setTimeout(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 100);
+}
+
+async function loadAndDisplayCircleMessages(circleId) {
+    try {
+        const { data: messages, error } = await supabase
+            .from('circle_messages')
+            .select(`
+                *,
+                sender:profiles(id, name, avatar)
+            `)
+            .eq('circle_id', circleId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        const messagesContainer = document.getElementById('chat-messages');
+
+        if (!messages || messages.length === 0) {
+            const placeholder = document.createElement('p');
+            placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px; font-size: 14px;';
+            placeholder.textContent = 'No messages yet. Start the conversation!';
+            messagesContainer.appendChild(placeholder);
+            return;
+        }
+
+        // Display each message
+        messages.forEach(message => {
+            appendMessage(message);
+        });
+
+    } catch (error) {
+        console.error('Error loading circle messages:', error);
+    }
+}
+
+async function setupCircleChatSubscription(circleId) {
+    console.log('🔔 Setting up circle chat subscription for:', circleId);
+
+    // Clean up existing subscription
+    if (matchMessageSubscription) {
+        await supabase.removeChannel(matchMessageSubscription);
+        const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
+        if (index > -1) allActiveSubscriptions.splice(index, 1);
+        matchMessageSubscription = null;
+    }
+
+    // Subscribe to broadcast messages
+    matchMessageSubscription = supabase
+        .channel(`circle_chat_${circleId}`)
+        .on('broadcast', { event: 'new_circle_message' }, (payload) => {
+            console.log('📨 Circle message received:', payload.payload);
+
+            // Don't duplicate messages we sent ourselves
+            if (payload.payload.sender_id === currentUser.id) {
+                console.log('⏭️ Skipping own message');
+                return;
+            }
+
+            // Append message to chat
+            const message = {
+                id: payload.payload.id,
+                sender_id: payload.payload.sender_id,
+                content: payload.payload.content,
+                created_at: payload.payload.created_at,
+                sender: {
+                    id: payload.payload.sender_id,
+                    name: payload.payload.sender_name,
+                    avatar: payload.payload.sender_avatar
+                }
+            };
+
+            appendMessage(message);
+
+            // Update badge if we're not currently viewing this circle chat
+            const currentContext = getCurrentChatContext();
+            if (!currentContext || currentContext.id !== payload.payload.circle_id) {
+                updateNotificationBadge();
+            }
+        })
+        .subscribe((status) => {
+            console.log('Circle chat subscription status:', status);
+        });
+
+    allActiveSubscriptions.push(matchMessageSubscription);
+}
+
+async function markCircleAsRead(circleId) {
+    try {
+        const { error } = await supabase
+            .from('circle_members')
+            .update({ last_read_at: new Date().toISOString() })
+            .eq('circle_id', circleId)
+            .eq('profile_id', currentUser.id);
+
+        if (error) throw error;
+
+        console.log('✅ Marked circle as read:', circleId);
+
+        // Update notification badge
+        updateNotificationBadge();
+
+    } catch (error) {
+        console.error('Error marking circle as read:', error);
+    }
+}
+
+// ========== END CIRCLE CHAT FUNCTIONS ==========
+
 // Load a single message with sender info
 async function loadSingleMessage(messageId) {
     try {
@@ -5372,11 +5567,11 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 })
                 .select(`*, sender:profiles(id, name, avatar)`)
                 .single();
-            
+
             if (error) throw error;
-            
+
             appendMessage(data);
-            
+
             const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
@@ -5390,7 +5585,38 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     created_at: data.created_at
                 }
             });
-            
+
+        } else if (context.type === 'circle') {
+            // CIRCLE CHAT
+            const { data, error } = await supabase
+                .from('circle_messages')
+                .insert({
+                    circle_id: context.id,
+                    sender_id: currentUser.id,
+                    content: messageContent
+                })
+                .select(`*, sender:profiles(id, name, avatar)`)
+                .single();
+
+            if (error) throw error;
+
+            appendMessage(data);
+
+            const channel = supabase.channel(`circle_chat_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'new_circle_message',
+                payload: {
+                    id: data.id,
+                    sender_id: currentUser.id,
+                    sender_name: currentUser.name,
+                    sender_avatar: currentUser.avatar,
+                    content: data.content,
+                    created_at: data.created_at,
+                    circle_id: context.id
+                }
+            });
+
         } else {
             console.error('❌ No active chat context');
             showNotification('No active chat', 'error');
@@ -5425,13 +5651,26 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     .select('profile_id')
                     .eq('match_id', context.id)
                     .neq('profile_id', currentUser.id);
-                
+
                 recipientIds = participants?.map(p => p.profile_id) || [];
-                
+
                 // Get activity name
                 const match = matches.find(m => m.id === context.id);
                 const activity = match?.activity || activities.find(a => a.id === match?.activity_id);
                 activityName = activity ? `${activity.emoji} ${activity.name}` : 'Chat';
+            } else if (context.type === 'circle') {
+                // Get circle members (excluding sender)
+                const { data: members } = await supabase
+                    .from('circle_members')
+                    .select('profile_id')
+                    .eq('circle_id', context.id)
+                    .neq('profile_id', currentUser.id);
+
+                recipientIds = members?.map(m => m.profile_id) || [];
+
+                // Get circle name
+                const circle = circles.find(c => c.id === context.id);
+                activityName = circle ? `👥 ${circle.name}` : 'Circle Chat';
             }
             
             console.log('📬 Recipient IDs:', recipientIds);
