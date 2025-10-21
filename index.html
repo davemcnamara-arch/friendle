@@ -2244,21 +2244,28 @@ window.selectCircleActivityCategory = function(category) {
 
         async function renderCircles() {
   showLoader('Loading circles...');
-  
+
   try {
-    // Get circles with member counts
+    // Get circles with last_read_at for unread tracking
     const { data, error } = await supabase
       .from('circle_members')
       .select(`
-        circle_id, 
+        circle_id,
         circles(*),
-        profile_id
+        profile_id,
+        last_read_at
       `)
       .eq('profile_id', currentUser.id);
 
     if (error) throw error;
 
     circles = data.map(d => d.circles);
+
+    // Create map of circle_id -> last_read_at
+    const lastReadMap = new Map();
+    data.forEach(d => {
+      lastReadMap.set(d.circle_id, d.last_read_at);
+    });
 
     // Get member counts for each circle
     const circleIds = circles.map(c => c.id);
@@ -2275,15 +2282,31 @@ window.selectCircleActivityCategory = function(category) {
       counts[member.circle_id] = (counts[member.circle_id] || 0) + 1;
     });
 
+    // Get unread counts for all circles in parallel
+    const unreadPromises = circles.map(circle =>
+      getCircleUnreadCount(circle.id, lastReadMap.get(circle.id))
+    );
+    const unreadCounts = await Promise.all(unreadPromises);
+
+    // Create map of circle_id -> unread count
+    const unreadMap = new Map();
+    circles.forEach((circle, index) => {
+      unreadMap.set(circle.id, unreadCounts[index]);
+    });
+
     const list = document.getElementById('circles-list');
     list.innerHTML = circles.map(circle => {
       const memberCount = counts[circle.id] || 0;
       const memberText = memberCount === 1 ? '1 member' : `${memberCount} members`;
-      
+      const unreadCount = unreadMap.get(circle.id) || 0;
+
       return `
         <div class="circle-card">
           <div class="main-content" onclick='selectCircle("${circle.id}")'>
-            <div class="circle-name">${circle.name}</div>
+            <div class="circle-name">
+              ${circle.name}
+              ${unreadCount > 0 ? `<span style="background: #ff4d4f; color: white; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: bold; margin-left: 8px;">💬 New</span>` : ''}
+            </div>
             <div class="circle-members">${memberText}</div>
             <div class="circle-code">Invite Code: <strong>${circle.code}</strong></div>
           </div>
@@ -4337,8 +4360,10 @@ async function markCircleAsRead(circleId) {
 
         console.log('✅ Marked circle as read:', circleId);
 
-        // Update notification badge
-        updateNotificationBadge();
+        // Refresh circles list to update badges
+        if (window.location.hash === '#circles') {
+            await renderCircles();
+        }
 
     } catch (error) {
         console.error('Error marking circle as read:', error);
@@ -7364,6 +7389,39 @@ async function getEventUnreadCount(eventId, lastReadAt) {
         return 0;
     } catch (error) {
         console.error('Error getting event unread count:', error);
+        return 0;
+    }
+}
+
+// Calculate unread badge for a specific circle
+async function getCircleUnreadCount(circleId, lastReadAt) {
+    try {
+        if (!lastReadAt) return 0;
+
+        // Get latest message in this circle
+        const { data: latestMessage, error } = await supabase
+            .from('circle_messages')
+            .select('created_at, sender_id')
+            .eq('circle_id', circleId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error checking circle messages:', error);
+            return 0;
+        }
+
+        // If there's a message newer than last_read_at and it's not from current user
+        if (latestMessage &&
+            new Date(latestMessage.created_at) > new Date(lastReadAt) &&
+            latestMessage.sender_id !== currentUser.id) {
+            return 1;
+        }
+
+        return 0;
+    } catch (error) {
+        console.error('Error getting circle unread count:', error);
         return 0;
     }
 }
