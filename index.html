@@ -1630,8 +1630,13 @@ async function updateMuteButton(matchId, eventId) {
             query = query.is('event_id', null);
         }
 
-        const { data: muted } = await query.maybeSingle();
-        
+        const { data: muted, error } = await query.maybeSingle();
+
+        if (error) {
+            console.error('Error checking mute status:', error);
+            return;
+        }
+
         const btnText = document.getElementById('mute-btn-text');
         if (muted) {
             btnText.textContent = '🔕 Unmute';
@@ -1649,13 +1654,13 @@ window.toggleMuteChat = async function() {
         showNotification('No chat selected', 'error');
         return;
     }
-    
+
     const matchId = currentChatContext.type === 'match' ? currentChatContext.id : null;
     const eventId = currentChatContext.type === 'event' ? currentChatContext.id : null;
-    
+
     try {
         showLoader('Updating...');
-        
+
         // Check if already muted
         let query = supabase
             .from('muted_chats')
@@ -1675,34 +1680,55 @@ window.toggleMuteChat = async function() {
             query = query.is('event_id', null);
         }
 
-        const { data: existing } = await query.maybeSingle();
-        
+        const { data: existing, error: selectError } = await query.maybeSingle();
+
+        if (selectError) {
+            hideLoader();
+            console.error('Error checking mute status:', selectError);
+            showNotification('Error checking mute status', 'error');
+            return;
+        }
+
         if (existing) {
             // Unmute
-            await supabase
+            const { error: deleteError } = await supabase
                 .from('muted_chats')
                 .delete()
                 .eq('id', existing.id);
-            
+
+            if (deleteError) {
+                hideLoader();
+                console.error('Error unmuting chat:', deleteError);
+                showNotification('Error unmuting chat', 'error');
+                return;
+            }
+
             hideLoader();
             showNotification('🔔 Chat unmuted - you\'ll receive notifications');
         } else {
             // Mute
-            await supabase
+            const { error: insertError } = await supabase
                 .from('muted_chats')
                 .insert({
                     profile_id: currentUser.id,
                     match_id: matchId,
                     event_id: eventId
                 });
-            
+
+            if (insertError) {
+                hideLoader();
+                console.error('Error muting chat:', insertError);
+                showNotification('Error muting chat', 'error');
+                return;
+            }
+
             hideLoader();
             showNotification('🔕 Chat muted - you won\'t receive notifications');
         }
-        
+
         // Update button text
         await updateMuteButton(matchId, eventId);
-        
+
     } catch (error) {
         hideLoader();
         console.error('Error toggling mute:', error);
