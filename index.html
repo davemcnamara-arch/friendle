@@ -4127,8 +4127,7 @@ window.joinEventFromChat = async function(eventId, matchId) {
             .insert([{
                 event_id: eventId,
                 profile_id: currentUser.id,
-                status: 'accepted',
-                last_read_at: new Date().toISOString()
+                status: 'accepted'
             }]);
         
         if (error) throw error;
@@ -4782,12 +4781,12 @@ async function loadMatches() {
 
     let matchesWithEvents = await Promise.all(
     matches.map(async (match) => {
-        // Get all events for this match with last_read_at for user
+        // Get all events for this match
         const query = supabase
             .from('events')
             .select(`
                 *,
-                event_participants(profile_id, status, last_read_at, profiles(id, name, avatar))
+                event_participants(profile_id, status, profiles(id, name, avatar))
             `)
             .eq('match_id', match.id)
             .order('scheduled_date', { ascending: true });
@@ -4816,9 +4815,26 @@ async function loadMatches() {
         const eventsWithUnread = await Promise.all((allEvents || []).map(async event => {
             const userParticipation = event.event_participants?.find(p => p.profile_id === currentUser.id);
             const isUserJoined = !!userParticipation;
-            const eventUnreadCount = isUserJoined && userParticipation.last_read_at
-                ? await getEventUnreadCount(event.id, userParticipation.last_read_at)
-                : 0;
+
+            // Try to get last_read_at for event (backwards compatible if column doesn't exist)
+            let eventUnreadCount = 0;
+            if (isUserJoined) {
+                try {
+                    const { data: eventParticipant } = await supabase
+                        .from('event_participants')
+                        .select('last_read_at')
+                        .eq('event_id', event.id)
+                        .eq('profile_id', currentUser.id)
+                        .single();
+
+                    if (eventParticipant?.last_read_at) {
+                        eventUnreadCount = await getEventUnreadCount(event.id, eventParticipant.last_read_at);
+                    }
+                } catch (err) {
+                    // Column doesn't exist yet - badges won't show for events until migration is run
+                    console.log('Event badges not available yet - run migration to enable');
+                }
+            }
 
             return {
                 ...event,
@@ -5100,8 +5116,7 @@ window.joinEvent = async function(eventId) {
             .insert([{
                 event_id: eventId,
                 profile_id: currentUser.id,
-                status: 'accepted',
-                last_read_at: new Date().toISOString()
+                status: 'accepted'
             }]);
         
         if (error) throw error;
@@ -6895,14 +6910,21 @@ async function markMatchAsRead(matchId) {
 
 async function markEventAsRead(eventId) {
     try {
-        // Update last_read_at to now
+        // Update last_read_at to now (backwards compatible if column doesn't exist)
         const { error } = await supabase
             .from('event_participants')
             .update({ last_read_at: new Date().toISOString() })
             .eq('event_id', eventId)
             .eq('profile_id', currentUser.id);
 
-        if (error) throw error;
+        if (error) {
+            // Silently fail if column doesn't exist yet
+            if (error.code === '42703') {
+                console.log('Event read tracking not available yet - run migration to enable');
+                return;
+            }
+            throw error;
+        }
 
         console.log('✅ Marked event as read:', eventId);
 
