@@ -1650,7 +1650,9 @@ async function updateMuteButton(matchId, eventId) {
 
 // Toggle mute for current chat
 window.toggleMuteChat = async function() {
-    if (!currentChatContext) {
+    const currentChatContext = getCurrentChatContext();
+
+    if (!currentChatContext || currentChatContext.type === 'none') {
         showNotification('No chat selected', 'error');
         return;
     }
