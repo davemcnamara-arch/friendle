@@ -1618,7 +1618,7 @@ async function processInviteCode() {
         // Utility Functions
         function generateCode() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 	// Check if chat is muted and update button
-async function updateMuteButton(matchId, eventId) {
+async function updateMuteButton(matchId, eventId, circleId) {
     try {
         // Build query dynamically to handle nulls correctly
         let query = supabase
@@ -1637,6 +1637,12 @@ async function updateMuteButton(matchId, eventId) {
             query = query.eq('event_id', eventId);
         } else {
             query = query.is('event_id', null);
+        }
+
+        if (circleId) {
+            query = query.eq('circle_id', circleId);
+        } else {
+            query = query.is('circle_id', null);
         }
 
         const { data: muted, error } = await query.maybeSingle();
@@ -1668,6 +1674,7 @@ window.toggleMuteChat = async function() {
 
     const matchId = currentChatContext.type === 'match' ? currentChatContext.id : null;
     const eventId = currentChatContext.type === 'event' ? currentChatContext.id : null;
+    const circleId = currentChatContext.type === 'circle' ? currentChatContext.id : null;
 
     try {
         showLoader('Updating...');
@@ -1689,6 +1696,12 @@ window.toggleMuteChat = async function() {
             query = query.eq('event_id', eventId);
         } else {
             query = query.is('event_id', null);
+        }
+
+        if (circleId) {
+            query = query.eq('circle_id', circleId);
+        } else {
+            query = query.is('circle_id', null);
         }
 
         const { data: existing, error: selectError } = await query.maybeSingle();
@@ -1723,7 +1736,8 @@ window.toggleMuteChat = async function() {
                 .insert({
                     profile_id: currentUser.id,
                     match_id: matchId,
-                    event_id: eventId
+                    event_id: eventId,
+                    circle_id: circleId
                 });
 
             if (insertError) {
@@ -1738,7 +1752,7 @@ window.toggleMuteChat = async function() {
         }
 
         // Update button text
-        await updateMuteButton(matchId, eventId);
+        await updateMuteButton(matchId, eventId, circleId);
 
     } catch (error) {
         hideLoader();
@@ -3921,7 +3935,7 @@ document.getElementById('event-participants').innerHTML =
         const muteChatBtn = document.getElementById('mute-chat-btn');
         if (muteChatBtn) {
             muteChatBtn.style.display = 'inline-block';
-            updateMuteButton(matchId, null);
+            updateMuteButton(matchId, null, null);
         }
 
         // Hide event details banner in general chat (redundant with event cards)
@@ -4212,6 +4226,13 @@ window.openCircleChat = async function(circleId) {
 
         // Set circle chat context
         setCircleChatContext(circle);
+
+        // Show mute button for circle chats
+        const muteChatBtn = document.getElementById('mute-chat-btn');
+        if (muteChatBtn) {
+            muteChatBtn.style.display = 'inline-block';
+            await updateMuteButton(null, null, circleId);
+        }
 
         // Get all circle members
         const { data: members, error: membersError } = await supabase
@@ -5702,9 +5723,35 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 const circle = circles.find(c => c.id === context.id);
                 activityName = circle ? `👥 ${circle.name}` : 'Circle Chat';
             }
-            
-            console.log('📬 Recipient IDs:', recipientIds);
-            
+
+            console.log('📬 Recipient IDs (before mute filter):', recipientIds);
+
+            // Filter out users who have muted this chat
+            if (recipientIds.length > 0) {
+                let muteQuery = supabase
+                    .from('muted_chats')
+                    .select('profile_id')
+                    .in('profile_id', recipientIds);
+
+                if (context.type === 'match') {
+                    muteQuery = muteQuery.eq('match_id', context.id);
+                } else if (context.type === 'event') {
+                    muteQuery = muteQuery.eq('event_id', context.id);
+                } else if (context.type === 'circle') {
+                    muteQuery = muteQuery.eq('circle_id', context.id);
+                }
+
+                const { data: mutedUsers, error: muteError } = await muteQuery;
+
+                if (!muteError && mutedUsers && mutedUsers.length > 0) {
+                    const mutedUserIds = mutedUsers.map(u => u.profile_id);
+                    recipientIds = recipientIds.filter(id => !mutedUserIds.includes(id));
+                    console.log('🔕 Filtered out muted users:', mutedUserIds);
+                }
+            }
+
+            console.log('📬 Recipient IDs (after mute filter):', recipientIds);
+
             if (recipientIds.length > 0) {
                 console.log('🚀 Calling Edge Function with:', {
                     senderId: currentUser.id,
@@ -6103,7 +6150,7 @@ async function openEventChat(eventId) {
         const muteChatBtn = document.getElementById('mute-chat-btn');
         if (muteChatBtn) {
             muteChatBtn.style.display = 'inline-block';
-            updateMuteButton(null, eventId);
+            updateMuteButton(null, eventId, null);
         }
 
 // Get activity details - load from database if not in current activities array
