@@ -3798,6 +3798,33 @@ window.skipJoinChat = async function(matchId) {
     showNotification('You can join the chat anytime from here');
 }
 
+// Stay Interested - reset inactivity timer
+window.stayInterested = async function(matchId) {
+    try {
+        showLoader('Updating...');
+
+        // Call edge function to update last_interaction_at
+        const { data, error } = await supabase.functions.invoke('stay-interested', {
+            body: {
+                matchId: matchId,
+                profileId: currentUser.id
+            }
+        });
+
+        if (error) throw error;
+
+        hideLoader();
+        showNotification('Great! We\'ll keep you in the match.');
+
+        // Reload matches to update UI
+        await loadMatches();
+    } catch (error) {
+        console.error('Error updating interaction:', error);
+        hideLoader();
+        showNotification('Failed to update. Please try again.', 'error');
+    }
+}
+
 // Join chat as normal (not first)
 window.joinMatchChatNormal = async function(matchId) {
     showLoader('Joining chat...');
@@ -5094,6 +5121,18 @@ async function loadMatches() {
         .eq('profile_id', currentUser.id)
         .in('match_id', matchIds);
 
+    // Fetch inactivity warnings for user
+    const { data: inactivityWarnings } = await supabase
+        .from('inactivity_warnings')
+        .select('match_id, profile_id, warned_at')
+        .eq('profile_id', currentUser.id)
+        .eq('status', 'pending')
+        .in('match_id', matchIds);
+
+    const warningsMap = new Map(
+        (inactivityWarnings || []).map(w => [w.match_id, w])
+    );
+
     const matchParticipationMap = new Map(
         (allMatchParticipations || []).map(p => [p.match_id, p])
     );
@@ -5256,6 +5295,9 @@ if (!showPastEvents) {
 
         // Check if user is first
         const isFirst = match.inChatCount === 0;
+
+        // Check for inactivity warning
+        const hasWarning = warningsMap.has(match.id);
         
         // Get interested users display
         const interestedCount = match.interestedCount || 0;
@@ -5323,6 +5365,15 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             </button>
         </div>
     ` : match.userInChat ? `
+        ${hasWarning ? `
+            <div style="background: #fff1f0; border: 2px solid #ff4d4f; border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #333; font-weight: 500;">⚠️ Still interested?</p>
+                <p style="margin: 0 0 10px 0; font-size: 12px; color: #666; line-height: 1.4;">We haven't seen you active in a while. Let us know you're still interested!</p>
+                <button onclick="stayInterested('${match.id}')" class="btn" style="font-size: 13px; padding: 10px 16px; width: 100%; background: #ff4d4f;">
+                    👍 Yes, I'm Still Interested
+                </button>
+            </div>
+        ` : ''}
         <button onclick="openMatchChatThreaded('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0;">
             💬 Open Chat
         </button>
@@ -5480,7 +5531,7 @@ window.joinMatch = async function(matchId) {
 window.joinEvent = async function(eventId) {
     try {
         showLoader('Joining event...');
-        
+
         // Add user to event participants
         const { error } = await supabase
             .from('event_participants')
@@ -5489,14 +5540,15 @@ window.joinEvent = async function(eventId) {
                 profile_id: currentUser.id,
                 status: 'accepted'
             }]);
-        
+
         if (error) throw error;
-        
+
         // Get event details for notification
         const { data: event, error: eventError } = await supabase
             .from('events')
             .select(`
                 id,
+                match_id,
                 scheduled_date,
                 activity_id,
                 activities(name, emoji),
@@ -5504,11 +5556,20 @@ window.joinEvent = async function(eventId) {
             `)
             .eq('id', eventId)
             .single();
-        
+
         if (eventError) {
             console.error('Error loading event details:', eventError);
         }
-        
+
+        // Update last_interaction_at for inactivity tracking
+        if (event && event.match_id) {
+            await supabase
+                .from('match_participants')
+                .update({ last_interaction_at: new Date().toISOString() })
+                .eq('match_id', event.match_id)
+                .eq('profile_id', currentUser.id);
+        }
+
         // Send notification to existing participants
         if (event) {
             await sendEventJoinNotification(event);
@@ -5622,6 +5683,13 @@ window.markActivityAsToday = async function(activityId, matchId) {
             if (error) throw error;
 
             appendMessage(data);
+
+            // Update last_interaction_at for inactivity tracking
+            await supabase
+                .from('match_participants')
+                .update({ last_interaction_at: new Date().toISOString() })
+                .eq('match_id', context.id)
+                .eq('profile_id', currentUser.id);
 
             const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
@@ -5981,9 +6049,16 @@ async function createEvent(e) {
                 profile_id: currentUser.id,
                 status: 'accepted'
             }]);
-        
+
         if (insertError) throw insertError;
-        
+
+        // Update last_interaction_at for inactivity tracking
+        await supabase
+            .from('match_participants')
+            .update({ last_interaction_at: new Date().toISOString() })
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id);
+
         closeCreateEventModal();
         
         // Refresh matches to show new event

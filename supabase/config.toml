@@ -1,0 +1,10 @@
+# Supabase Edge Functions Configuration
+
+[functions.inactivity-cleanup]
+# Daily cron job to check for inactive users and send warnings/auto-remove
+# Runs at 10:00 AM UTC every day
+verify_jwt = false
+
+[functions.stay-interested]
+# Endpoint called when users click "Stay Interested" button
+verify_jwt = false
