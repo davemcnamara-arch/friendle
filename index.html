@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Friendle - Match Activities with Friends</title>
     <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#667eea">
+    <meta name="theme-color" content="#5b4fc7">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -13,25 +16,71 @@
             box-sizing: border-box;
         }
 
+        :root {
+            /* Light Mode Colors */
+            --primary-gradient-start: #5b4fc7;
+            --primary-gradient-end: #6d3a9f;
+            --primary-color: #5b4fc7;
+            --primary-hover: #4d41a8;
+            --bg-color: #ffffff;
+            --bg-secondary: #f8f9fb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-tertiary: #999999;
+            --border-color: #e5e7eb;
+            --border-hover: #d1d5db;
+            --card-bg: #ffffff;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --transition-speed: 0.2s;
+        }
+
+        body.dark-mode {
+            --primary-gradient-start: #6d5acf;
+            --primary-gradient-end: #7d4aaf;
+            --primary-color: #7866d9;
+            --primary-hover: #8a7ae3;
+            --bg-color: #0f0f11;
+            --bg-secondary: #1a1a1e;
+            --text-primary: #e5e5e7;
+            --text-secondary: #a8a8aa;
+            --text-tertiary: #6e6e70;
+            --border-color: #2a2a2e;
+            --border-hover: #3a3a3e;
+            --card-bg: #1a1a1e;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+        }
+
         html, body {
             height: 100%;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+            color: var(--text-primary);
+            transition: background var(--transition-speed) ease, color var(--transition-speed) ease;
         }
 
         .app-container {
             max-width: 400px;
             margin: 0 auto;
-            background: white;
+            background: var(--bg-color);
             height: 100%;
             position: relative;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-xl);
             display: flex;
             flex-direction: column;
+            transition: background var(--transition-speed) ease;
         }
 
         .page {
@@ -58,15 +107,16 @@
 
         .logo {
             font-size: 2.5em;
-            font-weight: bold;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
             margin-bottom: 10px;
         }
 
         .tagline {
-            color: #666;
+            color: var(--text-secondary);
             font-size: 0.9em;
         }
 
@@ -76,23 +126,27 @@
 
         .form-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 500;
-            color: #555;
+            color: var(--text-primary);
         }
 
-        .form-group input, .form-group select {
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
+            padding: 12px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
             font-size: 16px;
-            transition: border-color 0.3s;
+            font-family: inherit;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
         }
 
-        .form-group input:focus, .form-group select:focus {
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(91, 79, 199, 0.1);
         }
         
         #activity-search {
@@ -101,32 +155,44 @@
 
         .btn {
             width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 14px 20px;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: var(--radius-md);
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed), filter var(--transition-speed);
             margin: 10px 0;
+            font-family: inherit;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+            filter: brightness(1.05);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .btn-secondary {
-            background: #f8f9fa;
-            color: #333;
-            border: 2px solid #e1e5e9;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
         }
 
-        .btn-secondary:hover {
-            background: #e9ecef;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--border-hover);
+            box-shadow: var(--shadow-md);
+            filter: none;
         }
         
         .btn-small {
@@ -147,70 +213,77 @@
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            border: 3px solid #e1e5e9;
+            border: 3px solid var(--border-color);
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all var(--transition-speed);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.5em;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
         }
 
         .avatar-option:hover {
-            transform: scale(1.1);
+            transform: scale(1.08);
+            border-color: var(--primary-color);
         }
 
         .avatar-option.selected {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-color: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
+            box-shadow: var(--shadow-md);
         }
 
         .circle-card {
-            background: #f8f9fa;
-            border-radius: 15px;
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
             padding: 20px;
             margin: 15px 0;
-            border: 2px solid transparent;
-            transition: all 0.3s;
+            border: 2px solid var(--border-color);
+            transition: all var(--transition-speed);
+            box-shadow: var(--shadow-sm);
         }
-        
+
         .circle-card .main-content {
             cursor: pointer;
         }
 
         .circle-card:hover {
-            border-color: #667eea;
+            border-color: var(--primary-color);
             transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
         .circle-name {
             font-size: 1.2em;
             font-weight: 600;
             margin-bottom: 5px;
+            color: var(--text-primary);
         }
 
         .circle-members {
-            color: #666;
+            color: var(--text-secondary);
             font-size: 0.9em;
             margin-bottom: 10px;
         }
 
         .circle-code {
-            background: white;
+            background: var(--bg-secondary);
             padding: 10px;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-size: 0.8em;
-            color: #555;
+            color: var(--text-secondary);
             text-align: center;
             margin-top: 10px;
+            border: 1px solid var(--border-color);
         }
-        
+
         .circle-code strong {
             letter-spacing: 2px;
             font-size: 1.1em;
-            color: #667eea;
+            color: var(--primary-color);
+            font-weight: 600;
         }
 
         .activities-grid, .frequent-grid {
@@ -223,32 +296,35 @@
         .section-title {
             font-size: 1.1em;
             font-weight: 600;
-            color: #555;
+            color: var(--text-primary);
             margin: 20px 0 10px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border-color);
         }
 
         .activity-card {
-            background: white;
-            border: 2px solid #e1e5e9;
-            border-radius: 15px;
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
             padding: 20px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all var(--transition-speed);
             position: relative;
+            box-shadow: var(--shadow-sm);
         }
 
         .activity-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-color);
         }
 
         .activity-card.selected {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
-            border-color: #667eea;
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-md);
         }
 
         .activity-emoji {
@@ -262,32 +338,218 @@
         }
 
         .bulk-controls {
-            background: #f8f9fa;
+            background: var(--bg-secondary);
             padding: 15px;
-            border-radius: 10px;
+            border-radius: var(--radius-md);
             margin-bottom: 20px;
+            border: 1px solid var(--border-color);
         }
 
         .bulk-controls h4 {
             margin-bottom: 10px;
-            color: #555;
+            color: var(--text-primary);
         }
 
         .bulk-btn {
             display: inline-block;
-            padding: 8px 12px;
+            padding: 8px 14px;
             margin: 5px 5px 5px 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            font-size: 0.8em;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            font-size: 0.85em;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all var(--transition-speed);
+            color: var(--text-primary);
         }
 
         .bulk-btn:hover {
-            background: #667eea;
+            background: var(--primary-color);
             color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+        }
+
+        /* Modern Toggle Switch */
+        .toggle-container {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            transition: all var(--transition-speed);
+        }
+
+        .toggle-container:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .toggle-text {
+            flex: 1;
+        }
+
+        .toggle-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .toggle-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 28px;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: 0.3s;
+            border-radius: 28px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .toggle-switch input:focus + .toggle-slider {
+            box-shadow: 0 0 0 3px rgba(91, 79, 199, 0.1);
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 60px 30px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state-description {
+            font-size: 0.95em;
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Mobile Optimizations */
+        @media (max-width: 480px) {
+            .btn, .btn-secondary {
+                padding: 16px 20px;
+                font-size: 16px;
+                min-height: 48px; /* Better touch targets */
+            }
+
+            .activity-card {
+                padding: 24px;
+                min-height: 120px;
+            }
+
+            .toggle-switch {
+                width: 52px;
+                height: 32px;
+            }
+
+            .toggle-slider:before {
+                height: 24px;
+                width: 24px;
+            }
+
+            .toggle-switch input:checked + .toggle-slider:before {
+                transform: translateX(20px);
+            }
+
+            .nav-item {
+                padding: 8px 0;
+            }
+
+            .nav-icon {
+                font-size: 1.4em !important;
+            }
+        }
+
+        /* Smooth scrolling */
+        * {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Prevent text selection on double-tap */
+        .activity-card, .circle-card, .nav-item, .btn, .bulk-btn {
+            -webkit-tap-highlight-color: rgba(91, 79, 199, 0.1);
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+
+        /* Allow text selection in inputs and textareas */
+        input, textarea, .message-bubble {
+            -webkit-touch-callout: default;
+            user-select: text;
         }
 
         .chat-container {
@@ -298,7 +560,7 @@
         }
 
         .chat-header {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
             padding: 15px;
             flex-shrink: 0;
@@ -309,7 +571,7 @@
             height: 40px;
             border-radius: 50%;
             background: white;
-            color: #667eea;
+            color: var(--primary-color);
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -331,7 +593,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
         }
 
         .message {
@@ -396,7 +658,7 @@
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background: #667eea;
+            background: var(--primary-color);
             color: white;
             display: flex;
             align-items: center;
@@ -412,7 +674,7 @@
 
         .message-sender {
             font-size: 0.8em;
-            color: #888;
+            color: var(--text-tertiary);
             margin-bottom: 4px;
             padding: 0 12px;
         }
@@ -424,15 +686,18 @@
         }
 
         .message-bubble {
-            background: white;
+            background: var(--card-bg);
             padding: 12px 15px;
-            border-radius: 15px;
+            border-radius: var(--radius-lg);
             position: relative;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
         }
 
         .message.own .message-bubble {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
+            border-color: transparent;
         }
 
         .message-photo {
@@ -537,20 +802,26 @@
         .bottom-nav {
             position: relative;
             width: 100%;
-            background: white;
-            border-top: 1px solid #ddd;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border-color);
             display: flex;
             justify-content: space-around;
             padding: 15px 0;
             flex-shrink: 0;
+            transition: background var(--transition-speed);
         }
 
         .nav-item {
             text-align: center;
             cursor: pointer;
-            transition: color 0.2s;
+            transition: all var(--transition-speed);
             flex: 1;
             position: relative;
+            color: var(--text-secondary);
+        }
+
+        .nav-item:hover {
+            transform: translateY(-2px);
         }
         
         .notification-badge {
@@ -576,7 +847,7 @@
 }
 
         .nav-item.active {
-            color: #667eea;
+            color: var(--primary-color);
         }
 
         .nav-item .nav-icon {
@@ -595,7 +866,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
             z-index: 2000;
             display: none;
             align-items: center;
@@ -604,14 +876,15 @@
         }
 
         .modal-content {
-    	background: white;
+    	background: var(--bg-color);
     	padding: 25px;
-    	border-radius: 15px;
+    	border-radius: var(--radius-lg);
     	max-width: 90%;
     	width: 350px;
     	max-height: 90vh;
     	overflow-y: auto;
-    	box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    	box-shadow: var(--shadow-xl);
+    	border: 1px solid var(--border-color);
 	}
         
         .modal-image-content {
@@ -641,15 +914,20 @@
             top: 10px;
             right: 15px;
             font-size: 1.5em;
-            color: #aaa;
+            color: var(--text-tertiary);
             cursor: pointer;
+            transition: color var(--transition-speed);
+        }
+
+        .modal-content .close-modal-btn:hover {
+            color: var(--text-primary);
         }
 
         .modal-header {
             font-size: 1.4em;
             font-weight: 600;
             margin-bottom: 20px;
-            color: #333;
+            color: var(--text-primary);
         }
         
         .undo-container {
@@ -1042,18 +1320,92 @@ OneSignal.Notifications.addEventListener('click', (event) => {
     </div>
 </div>
             <div id="settings" class="page">
-            <div class="header"><div class="logo">⭕ Settings</div><div class="tagline">Manage your preferences</div></div>
-    <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name">Your Name</h2></div>
-    
-<div class="form-group">
-    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-        <span>Event Reminders</span>
-        <input type="checkbox" id="event-reminders-toggle" onchange="toggleEventReminders()" style="width: auto; cursor: pointer;">
-    </label>
-    <div style="font-size: 0.85em; color: #666; margin-top: 5px;">
-        Get notified at 9 AM on the day of your events
+            <div class="header"><div class="logo">⚙️ Settings</div><div class="tagline">Manage your preferences</div></div>
+    <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name" style="color: var(--text-primary);">Your Name</h2></div>
+
+    <div class="section-title" style="margin-top: 0;">🎨 Appearance</div>
+
+    <div class="toggle-container">
+        <label class="toggle-label" for="dark-mode-toggle">
+            <div class="toggle-text">
+                <div class="toggle-title">🌙 Dark Mode</div>
+                <div class="toggle-description">Switch between light and dark theme</div>
+            </div>
+            <div class="toggle-switch">
+                <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
     </div>
-</div>
+
+    <div class="section-title">🔔 Notifications</div>
+
+    <div class="toggle-container">
+        <label class="toggle-label" for="event-reminders-toggle">
+            <div class="toggle-text">
+                <div class="toggle-title">Event Reminders</div>
+                <div class="toggle-description">Get notified at 9 AM on the day of your events</div>
+            </div>
+            <div class="toggle-switch">
+                <input type="checkbox" id="event-reminders-toggle" onchange="toggleEventReminders()">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
+    </div>
+
+    <div class="toggle-container">
+        <label class="toggle-label" for="new-match-toggle">
+            <div class="toggle-text">
+                <div class="toggle-title">New Matches</div>
+                <div class="toggle-description">Get notified when a new activity match is found</div>
+            </div>
+            <div class="toggle-switch">
+                <input type="checkbox" id="new-match-toggle" onchange="toggleNewMatches()">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
+    </div>
+
+    <div class="toggle-container">
+        <label class="toggle-label" for="event-join-toggle">
+            <div class="toggle-text">
+                <div class="toggle-title">Event Joins</div>
+                <div class="toggle-description">Get notified when someone joins your event</div>
+            </div>
+            <div class="toggle-switch">
+                <input type="checkbox" id="event-join-toggle" onchange="toggleEventJoins()">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
+    </div>
+
+    <div class="toggle-container">
+        <label class="toggle-label" for="inactivity-warnings-toggle">
+            <div class="toggle-text">
+                <div class="toggle-title">Inactivity Warnings</div>
+                <div class="toggle-description">Get notified if you've been inactive in a match</div>
+            </div>
+            <div class="toggle-switch">
+                <input type="checkbox" id="inactivity-warnings-toggle" onchange="toggleInactivityWarnings()">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
+    </div>
+
+    <div class="toggle-container">
+        <label class="toggle-label" for="chat-messages-toggle">
+            <div class="toggle-text">
+                <div class="toggle-title">Chat Messages</div>
+                <div class="toggle-description">Get notified when you receive new messages</div>
+            </div>
+            <div class="toggle-switch">
+                <input type="checkbox" id="chat-messages-toggle" onchange="toggleChatMessages()">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
+    </div>
+
+    <div class="section-title">👤 Profile</div>
 
     <div class="form-group">
         <label for="min-group-size">Minimum Group Size</label>
@@ -1831,7 +2183,11 @@ window.toggleMuteChat = async function() {
 function showLoader(message = 'Loading...') {
     // Remove existing loader if any
     hideLoader();
-    
+
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    const bgColor = isDarkMode ? '#1a1a1e' : '#ffffff';
+    const textColor = isDarkMode ? '#e5e5e7' : '#1a1a1a';
+
     const loader = document.createElement('div');
     loader.id = 'app-loader';
     loader.style.cssText = `
@@ -1840,32 +2196,20 @@ function showLoader(message = 'Loading...') {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0,0,0,0.5);
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(4px);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 9999;
     `;
     loader.innerHTML = `
-        <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-            <div style="font-size: 3em; margin-bottom: 15px; animation: spin 1s linear infinite;">⏳</div>
-            <div style="font-size: 16px; color: #333; font-weight: 500;">${message}</div>
+        <div style="background: ${bgColor}; padding: 40px; border-radius: 16px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); animation: fadeIn 0.2s ease;">
+            <div style="font-size: 3em; margin-bottom: 20px; animation: spin 1s linear infinite;">⏳</div>
+            <div style="font-size: 16px; color: ${textColor}; font-weight: 500;">${message}</div>
         </div>
     `;
     document.body.appendChild(loader);
-    
-    // Add CSS animation for spinner
-    if (!document.getElementById('loader-animation-style')) {
-        const style = document.createElement('style');
-        style.id = 'loader-animation-style';
-        style.textContent = `
-            @keyframes spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
 }
 
 function hideLoader() {
@@ -1951,16 +2295,47 @@ loadMinimumGroupSize();
 
 async function loadMinimumGroupSize() {
     if (!currentUser) return;
-    
+
     const select = document.getElementById('min-group-size');
     if (select) {
         select.value = currentUser.minimum_group_size || 2;
     }
-    
-    // Load event reminders setting
+
+    // Load all notification preferences
     const reminderToggle = document.getElementById('event-reminders-toggle');
     if (reminderToggle) {
         reminderToggle.checked = currentUser.event_reminders_enabled || false;
+    }
+
+    const newMatchToggle = document.getElementById('new-match-toggle');
+    if (newMatchToggle) {
+        newMatchToggle.checked = currentUser.notify_new_matches !== false; // Default true
+    }
+
+    const eventJoinToggle = document.getElementById('event-join-toggle');
+    if (eventJoinToggle) {
+        eventJoinToggle.checked = currentUser.notify_event_joins !== false; // Default true
+    }
+
+    const inactivityToggle = document.getElementById('inactivity-warnings-toggle');
+    if (inactivityToggle) {
+        inactivityToggle.checked = currentUser.notify_inactivity_warnings !== false; // Default true
+    }
+
+    const chatToggle = document.getElementById('chat-messages-toggle');
+    if (chatToggle) {
+        chatToggle.checked = currentUser.notify_chat_messages !== false; // Default true
+    }
+
+    // Load dark mode preference
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    if (darkModeToggle) {
+        const isDarkMode = currentUser.dark_mode_enabled || false;
+        darkModeToggle.checked = isDarkMode;
+        // Apply dark mode on load
+        if (isDarkMode) {
+            document.body.classList.add('dark-mode');
+        }
     }
 }
 
@@ -2046,6 +2421,139 @@ window.toggleEventReminders = async function() {
         showNotification('Error updating setting', 'error');
         // Revert toggle on error
         toggle.checked = !isEnabled;
+    }
+}
+
+window.toggleNewMatches = async function() {
+    const toggle = document.getElementById('new-match-toggle');
+    const isEnabled = toggle.checked;
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ notify_new_matches: isEnabled })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.notify_new_matches = isEnabled;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        showNotification(isEnabled ? '🔔 New match notifications enabled!' : '🔕 New match notifications disabled');
+
+    } catch (error) {
+        console.error('Error toggling new match notifications:', error);
+        showNotification('Error updating setting', 'error');
+        toggle.checked = !isEnabled;
+    }
+}
+
+window.toggleEventJoins = async function() {
+    const toggle = document.getElementById('event-join-toggle');
+    const isEnabled = toggle.checked;
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ notify_event_joins: isEnabled })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.notify_event_joins = isEnabled;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        showNotification(isEnabled ? '🔔 Event join notifications enabled!' : '🔕 Event join notifications disabled');
+
+    } catch (error) {
+        console.error('Error toggling event join notifications:', error);
+        showNotification('Error updating setting', 'error');
+        toggle.checked = !isEnabled;
+    }
+}
+
+window.toggleInactivityWarnings = async function() {
+    const toggle = document.getElementById('inactivity-warnings-toggle');
+    const isEnabled = toggle.checked;
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ notify_inactivity_warnings: isEnabled })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.notify_inactivity_warnings = isEnabled;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        showNotification(isEnabled ? '🔔 Inactivity warnings enabled!' : '🔕 Inactivity warnings disabled');
+
+    } catch (error) {
+        console.error('Error toggling inactivity warnings:', error);
+        showNotification('Error updating setting', 'error');
+        toggle.checked = !isEnabled;
+    }
+}
+
+window.toggleChatMessages = async function() {
+    const toggle = document.getElementById('chat-messages-toggle');
+    const isEnabled = toggle.checked;
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ notify_chat_messages: isEnabled })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.notify_chat_messages = isEnabled;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        showNotification(isEnabled ? '🔔 Chat notifications enabled!' : '🔕 Chat notifications disabled');
+
+    } catch (error) {
+        console.error('Error toggling chat notifications:', error);
+        showNotification('Error updating setting', 'error');
+        toggle.checked = !isEnabled;
+    }
+}
+
+window.toggleDarkMode = async function() {
+    const toggle = document.getElementById('dark-mode-toggle');
+    const isEnabled = toggle.checked;
+
+    try {
+        // Apply dark mode immediately for smooth UX
+        if (isEnabled) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({ dark_mode_enabled: isEnabled })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.dark_mode_enabled = isEnabled;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        showNotification(isEnabled ? '🌙 Dark mode enabled!' : '☀️ Light mode enabled');
+
+    } catch (error) {
+        console.error('Error toggling dark mode:', error);
+        showNotification('Error updating setting', 'error');
+        // Revert dark mode on error
+        toggle.checked = !isEnabled;
+        if (isEnabled) {
+            document.body.classList.remove('dark-mode');
+        } else {
+            document.body.classList.add('dark-mode');
+        }
     }
 }
 
@@ -2832,7 +3340,7 @@ window.initializeSwipeView = async function() {
     document.getElementById('card-stack').innerHTML = '';
     
     if (sortedActivities.length === 0) {
-        document.getElementById('card-stack').innerHTML = '<div style="text-align: center; padding: 60px; color: #666;">No activities available</div>';
+        document.getElementById('card-stack').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">No Activities Available</div><div class="empty-state-description">Add some activities to your circle to get started!</div></div>';
         return;
     }
     
@@ -2908,7 +3416,7 @@ function filterSwipeActivities(searchTerm) {
         
         if (sortedActivities.length === 0) {
             document.getElementById('card-stack').innerHTML = 
-                '<div style="text-align: center; padding: 60px; color: #666;">No activities match your search</div>';
+                '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No Matches Found</div><div class="empty-state-description">Try a different search term</div></div>';
             document.getElementById('swipe-progress').textContent = 'No results';
         } else {
             showNextCard();
@@ -5162,7 +5670,7 @@ async function loadMatches() {
     const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
     
     if (!matches || matches.length === 0) {
-        matchesList.innerHTML = '<p>No matches yet. Select some activities to get started!</p>';
+        matchesList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💫</div><div class="empty-state-title">No Matches Yet</div><div class="empty-state-description">Select some activities to find friends who want to hang out!</div></div>';
         return;
     }
 
