@@ -1618,7 +1618,7 @@ async function processInviteCode() {
         // Utility Functions
         function generateCode() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 	// Check if chat is muted and update button
-async function updateMuteButton(matchId, eventId) {
+async function updateMuteButton(matchId, eventId, circleId) {
     try {
         // Build query dynamically to handle nulls correctly
         let query = supabase
@@ -1637,6 +1637,12 @@ async function updateMuteButton(matchId, eventId) {
             query = query.eq('event_id', eventId);
         } else {
             query = query.is('event_id', null);
+        }
+
+        if (circleId) {
+            query = query.eq('circle_id', circleId);
+        } else {
+            query = query.is('circle_id', null);
         }
 
         const { data: muted, error } = await query.maybeSingle();
@@ -1668,6 +1674,7 @@ window.toggleMuteChat = async function() {
 
     const matchId = currentChatContext.type === 'match' ? currentChatContext.id : null;
     const eventId = currentChatContext.type === 'event' ? currentChatContext.id : null;
+    const circleId = currentChatContext.type === 'circle' ? currentChatContext.id : null;
 
     try {
         showLoader('Updating...');
@@ -1689,6 +1696,12 @@ window.toggleMuteChat = async function() {
             query = query.eq('event_id', eventId);
         } else {
             query = query.is('event_id', null);
+        }
+
+        if (circleId) {
+            query = query.eq('circle_id', circleId);
+        } else {
+            query = query.is('circle_id', null);
         }
 
         const { data: existing, error: selectError } = await query.maybeSingle();
@@ -1723,7 +1736,8 @@ window.toggleMuteChat = async function() {
                 .insert({
                     profile_id: currentUser.id,
                     match_id: matchId,
-                    event_id: eventId
+                    event_id: eventId,
+                    circle_id: circleId
                 });
 
             if (insertError) {
@@ -1738,7 +1752,7 @@ window.toggleMuteChat = async function() {
         }
 
         // Update button text
-        await updateMuteButton(matchId, eventId);
+        await updateMuteButton(matchId, eventId, circleId);
 
     } catch (error) {
         hideLoader();
@@ -2301,11 +2315,10 @@ window.selectCircleActivityCategory = function(category) {
       const unreadCount = unreadMap.get(circle.id) || 0;
 
       return `
-        <div class="circle-card">
+        <div class="circle-card" style="${unreadCount > 0 ? 'border: 2px solid #1890ff; background: #f0f8ff;' : ''}">
           <div class="main-content" onclick='selectCircle("${circle.id}")'>
             <div class="circle-name">
               ${circle.name}
-              ${unreadCount > 0 ? `<span style="background: #ff4d4f; color: white; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: bold; margin-left: 8px;">💬 New</span>` : ''}
             </div>
             <div class="circle-members">${memberText}</div>
             <div class="circle-code">Invite Code: <strong>${circle.code}</strong></div>
@@ -3922,7 +3935,7 @@ document.getElementById('event-participants').innerHTML =
         const muteChatBtn = document.getElementById('mute-chat-btn');
         if (muteChatBtn) {
             muteChatBtn.style.display = 'inline-block';
-            updateMuteButton(matchId, null);
+            updateMuteButton(matchId, null, null);
         }
 
         // Hide event details banner in general chat (redundant with event cards)
@@ -4213,6 +4226,13 @@ window.openCircleChat = async function(circleId) {
 
         // Set circle chat context
         setCircleChatContext(circle);
+
+        // Show mute button for circle chats
+        const muteChatBtn = document.getElementById('mute-chat-btn');
+        if (muteChatBtn) {
+            muteChatBtn.style.display = 'inline-block';
+            await updateMuteButton(null, null, circleId);
+        }
 
         // Get all circle members
         const { data: members, error: membersError } = await supabase
@@ -5272,12 +5292,11 @@ const pastEvents = events.filter(e =>
 console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
         return `
-    <div class="match-card" style="margin-bottom: 25px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
+    <div class="match-card" style="margin-bottom: 25px; padding: 20px; background: ${matchUnreadCount > 0 ? '#f0f8ff' : 'white'}; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; ${matchUnreadCount > 0 ? 'border: 2px solid #1890ff;' : ''}">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
     <h3 style="margin: 0 0 4px 0; font-size: 20px; display: flex; align-items: center; gap: 8px;">
         ${activityEmoji} ${activityName}
-        ${matchUnreadCount > 0 ? `<span style="background: #ff4d4f; color: white; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: bold;">💬 New</span>` : ''}
     </h3>
             <p style="margin: 8px 0 0 0; color: #666; font-size: 14px; line-height: 1.4;">
                 ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested${interestedDisplay ? ': ' + interestedDisplay : ''}
@@ -5333,12 +5352,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             const participantCount = event.event_participants?.length || 0;
             
             return `
-                <div class="event-item" style="padding: 15px; margin-bottom: 10px; background: ${event.isUserJoined ? '#f5f5f5' : '#fff8e1'}; border-radius: 8px; border-left: 4px solid ${event.isUserJoined ? '#4CAF50' : '#FFA726'}; position: relative;">
+                <div class="event-item" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}" style="padding: 15px; margin-bottom: 10px; background: ${event.unreadCount > 0 ? '#f0f8ff' : (event.isUserJoined ? '#f5f5f5' : '#fff8e1')}; border-radius: 8px; border-left: 4px solid ${event.isUserJoined ? '#4CAF50' : '#FFA726'}; ${event.unreadCount > 0 ? 'border: 2px solid #1890ff;' : ''} position: relative;">
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                         <div style="flex: 1;">
     <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
         📅 ${dateStr}
-        ${event.unreadCount > 0 ? `<span style="background: #ff4d4f; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: bold;">New</span>` : ''}
     </div>
                             ${event.location ? `<div style="color: #666; font-size: 13px;">📍 ${event.location}</div>` : ''}
                             <div style="color: #666; font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${event.isUserJoined ? 'going' : 'interested'}</div>
@@ -5417,9 +5435,17 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         });
         item.addEventListener('mouseleave', function() {
             if (this.style.opacity === '0.7') {
+                // Past events
                 this.style.background = '#fafafa';
-            } else {
+            } else if (this.dataset.unread === 'true') {
+                // Unread events
+                this.style.background = '#f0f8ff';
+            } else if (this.dataset.joined === 'true') {
+                // Joined events
                 this.style.background = '#f5f5f5';
+            } else {
+                // Not joined events
+                this.style.background = '#fff8e1';
             }
         });
     });
@@ -5697,9 +5723,35 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 const circle = circles.find(c => c.id === context.id);
                 activityName = circle ? `👥 ${circle.name}` : 'Circle Chat';
             }
-            
-            console.log('📬 Recipient IDs:', recipientIds);
-            
+
+            console.log('📬 Recipient IDs (before mute filter):', recipientIds);
+
+            // Filter out users who have muted this chat
+            if (recipientIds.length > 0) {
+                let muteQuery = supabase
+                    .from('muted_chats')
+                    .select('profile_id')
+                    .in('profile_id', recipientIds);
+
+                if (context.type === 'match') {
+                    muteQuery = muteQuery.eq('match_id', context.id);
+                } else if (context.type === 'event') {
+                    muteQuery = muteQuery.eq('event_id', context.id);
+                } else if (context.type === 'circle') {
+                    muteQuery = muteQuery.eq('circle_id', context.id);
+                }
+
+                const { data: mutedUsers, error: muteError } = await muteQuery;
+
+                if (!muteError && mutedUsers && mutedUsers.length > 0) {
+                    const mutedUserIds = mutedUsers.map(u => u.profile_id);
+                    recipientIds = recipientIds.filter(id => !mutedUserIds.includes(id));
+                    console.log('🔕 Filtered out muted users:', mutedUserIds);
+                }
+            }
+
+            console.log('📬 Recipient IDs (after mute filter):', recipientIds);
+
             if (recipientIds.length > 0) {
                 console.log('🚀 Calling Edge Function with:', {
                     senderId: currentUser.id,
@@ -6098,7 +6150,7 @@ async function openEventChat(eventId) {
         const muteChatBtn = document.getElementById('mute-chat-btn');
         if (muteChatBtn) {
             muteChatBtn.style.display = 'inline-block';
-            updateMuteButton(null, eventId);
+            updateMuteButton(null, eventId, null);
         }
 
 // Get activity details - load from database if not in current activities array
