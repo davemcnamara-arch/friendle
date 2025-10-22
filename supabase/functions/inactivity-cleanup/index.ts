@@ -48,7 +48,8 @@ serve(async (req) => {
         match_id,
         profile_id,
         last_interaction_at,
-        profiles!inner(id, name, onesignal_player_id)
+        profiles!inner(id, name, onesignal_player_id),
+        matches!inner(id, activity_id, circle_id)
       `)
       .lte('last_interaction_at', fiveDaysAgo.toISOString())
       .not('profiles.onesignal_player_id', 'is', null) // Has push notification enabled
@@ -68,10 +69,34 @@ serve(async (req) => {
         existingWarnings?.map(w => `${w.match_id}:${w.profile_id}`) || []
       )
 
-      const participantsToWarn = day5Participants.filter((p: any) => {
-        const key = `${p.match_id}:${p.profile_id}`
-        return !warningSet.has(key)
-      })
+      // Filter out participants who don't have matching preferences (removed activity from that circle)
+      const participantsWithPreferences = []
+      for (const participant of day5Participants) {
+        const key = `${participant.match_id}:${participant.profile_id}`
+
+        // Skip if already has pending warning
+        if (warningSet.has(key)) {
+          continue
+        }
+
+        // Check if user still has this activity in their preferences for this circle
+        const { data: preference } = await supabaseClient
+          .from('preferences')
+          .select('id')
+          .eq('profile_id', participant.profile_id)
+          .eq('activity_id', participant.matches.activity_id)
+          .eq('circle_id', participant.matches.circle_id)
+          .limit(1)
+
+        // Only warn if they still have the preference (match is visible to them)
+        if (preference && preference.length > 0) {
+          participantsWithPreferences.push(participant)
+        } else {
+          console.log(`Skipping warning for ${participant.profile_id} - no longer has preference for match ${participant.match_id}`)
+        }
+      }
+
+      const participantsToWarn = participantsWithPreferences
 
       if (participantsToWarn.length > 0) {
         console.log(`Sending warnings to ${participantsToWarn.length} participants`)
