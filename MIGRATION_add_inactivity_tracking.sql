@@ -5,9 +5,9 @@
 ALTER TABLE match_participants
 ADD COLUMN IF NOT EXISTS last_interaction_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
--- Initialize last_interaction_at with created_at or current time for existing records
+-- Initialize last_interaction_at with current time for existing records
 UPDATE match_participants
-SET last_interaction_at = COALESCE(created_at, NOW())
+SET last_interaction_at = NOW()
 WHERE last_interaction_at IS NULL;
 
 -- Add index for efficient querying of inactive participants
