@@ -48,10 +48,11 @@ serve(async (req) => {
         match_id,
         profile_id,
         last_interaction_at,
-        profiles!inner(id, name, onesignal_player_id)
+        profiles!inner(id, name, onesignal_player_id, notify_inactivity_warnings)
       `)
       .lte('last_interaction_at', fiveDaysAgo.toISOString())
       .not('profiles.onesignal_player_id', 'is', null) // Has push notification enabled
+      .eq('profiles.notify_inactivity_warnings', true) // Check user preference
 
     if (day5Error) {
       console.error('Error fetching day 5 participants:', day5Error)
