@@ -771,6 +771,9 @@
       console.log('Token refreshed');
     } else if (event === 'USER_UPDATED') {
       console.log('User updated');
+    } else if (event === 'PASSWORD_RECOVERY') {
+      console.log('Password recovery detected');
+      showPasswordResetModal();
     }
   });
 </script>
@@ -912,6 +915,14 @@ OneSignal.Notifications.addEventListener('click', (event) => {
         <div class="form-group"><label for="reset-email">Email</label><input type="email" id="reset-email" placeholder="Enter your email"></div>
         <button class="btn" onclick="sendPasswordReset()">Send Reset Link</button>
         <button class="btn btn-secondary" onclick="showLogin()">Back to Sign In</button>
+    </div>
+
+    <div id="password-reset-form" style="display: none;">
+        <h2 style="text-align: center; margin-bottom: 20px;">🔒 Reset Your Password</h2>
+        <p style="text-align: center; color: #666; margin-bottom: 20px;">Enter your new password below</p>
+        <div class="form-group"><label for="new-reset-password">New Password</label><input type="password" id="new-reset-password" placeholder="Enter new password (6+ characters)"></div>
+        <div class="form-group"><label for="confirm-reset-password">Confirm Password</label><input type="password" id="confirm-reset-password" placeholder="Confirm new password"></div>
+        <button class="btn" onclick="submitPasswordReset()">Reset Password</button>
     </div>
 </div>
             <div id="circles" class="page">
@@ -1354,19 +1365,74 @@ function getCurrentChatContext() {
 function showRegister() {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('forgot-password-form').style.display = 'none';
+    document.getElementById('password-reset-form').style.display = 'none';
     document.getElementById('register-form').style.display = 'block';
 }
 
 function showLogin() {
     document.getElementById('register-form').style.display = 'none';
     document.getElementById('forgot-password-form').style.display = 'none';
+    document.getElementById('password-reset-form').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
 }
 
 function showForgotPassword() {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('register-form').style.display = 'none';
+    document.getElementById('password-reset-form').style.display = 'none';
     document.getElementById('forgot-password-form').style.display = 'block';
+}
+
+function showPasswordResetModal() {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('forgot-password-form').style.display = 'none';
+    document.getElementById('password-reset-form').style.display = 'block';
+
+    // Show the auth page if not already visible
+    document.getElementById('auth').classList.add('active');
+}
+
+async function submitPasswordReset() {
+    const newPassword = document.getElementById('new-reset-password').value;
+    const confirmPassword = document.getElementById('confirm-reset-password').value;
+
+    if (!newPassword || !confirmPassword) {
+        return showNotification('Please fill in both password fields', 'error');
+    }
+
+    if (newPassword.length < 6) {
+        return showNotification('New password must be at least 6 characters', 'error');
+    }
+
+    if (newPassword !== confirmPassword) {
+        return showNotification('Passwords do not match', 'error');
+    }
+
+    try {
+        showLoader('Resetting password...');
+
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (error) throw error;
+
+        hideLoader();
+        showNotification('Password reset successful! 🎉 You can now sign in with your new password.', 'success');
+
+        // Clear form fields
+        document.getElementById('new-reset-password').value = '';
+        document.getElementById('confirm-reset-password').value = '';
+
+        // Redirect to login
+        showLogin();
+
+    } catch (error) {
+        hideLoader();
+        console.error('Password reset error:', error);
+        showNotification(error.message || 'Error resetting password', 'error');
+    }
 }
 
 async function sendPasswordReset() {
