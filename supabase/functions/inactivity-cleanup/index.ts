@@ -51,7 +51,7 @@ serve(async (req) => {
         profiles!inner(id, name, onesignal_player_id)
       `)
       .lte('last_interaction_at', fiveDaysAgo.toISOString())
-      .is('profiles.onesignal_player_id', null).not // Has push notification enabled
+      .not('profiles.onesignal_player_id', 'is', null) // Has push notification enabled
 
     if (day5Error) {
       console.error('Error fetching day 5 participants:', day5Error)
