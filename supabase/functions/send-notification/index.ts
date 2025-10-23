@@ -8,6 +8,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const ONESIGNAL_APP_ID = '67c70940-dc92-4d95-9072-503b2f5d84c8'
 const ONESIGNAL_API_KEY = Deno.env.get('ONESIGNAL_REST_API_KEY')
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 // Map notification type to user preference field
 const NOTIFICATION_PREFERENCE_MAP: Record<string, string> = {
   'new_match': 'notify_new_matches',
@@ -26,6 +32,11 @@ interface NotificationRequest {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
   try {
     // Parse request body
     const body: NotificationRequest = await req.json()
@@ -39,7 +50,7 @@ serve(async (req) => {
           error: 'Missing required fields: senderId, recipientIds, message, notificationType'
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400
         }
       )
@@ -54,7 +65,7 @@ serve(async (req) => {
           error: `Invalid notification type: ${notificationType}. Must be one of: new_match, event_join, chat_message`
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400
         }
       )
@@ -81,7 +92,7 @@ serve(async (req) => {
           error: 'Failed to fetch sender profile'
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500
         }
       )
@@ -108,7 +119,7 @@ serve(async (req) => {
           error: 'Failed to fetch recipient profiles'
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500
         }
       )
@@ -139,7 +150,7 @@ serve(async (req) => {
           totalRecipients: recipientIds.length
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
         }
       )
@@ -204,7 +215,7 @@ serve(async (req) => {
           details: errorText
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500
         }
       )
@@ -222,7 +233,7 @@ serve(async (req) => {
         oneSignalId: oneSignalResult.id
       }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
       }
     )
@@ -235,7 +246,7 @@ serve(async (req) => {
         error: error.message || 'Unknown error'
       }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       }
     )

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notification Diagnostics</title>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .result {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🔔 Friendle Notification Diagnostics</h1>
+
+    <div class="test-section">
+        <h2>1. OneSignal Status</h2>
+        <button onclick="checkOneSignal()">Check OneSignal</button>
+        <div id="onesignal-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Database Check</h2>
+        <input type="text" id="user-id" placeholder="Enter your user ID" style="padding: 8px; width: 300px;">
+        <button onclick="checkDatabase()">Check Database</button>
+        <div id="database-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test Edge Function</h2>
+        <input type="text" id="test-recipient" placeholder="Recipient user ID" style="padding: 8px; width: 300px;">
+        <button onclick="testEdgeFunction()">Test Notification</button>
+        <div id="edge-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Notification Permission</h2>
+        <button onclick="checkPermission()">Check Permission</button>
+        <button onclick="requestPermission()">Request Permission</button>
+        <div id="permission-result" class="result"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+        // Initialize Supabase (you'll need to add your credentials)
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL'
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'
+
+        window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+        // Initialize OneSignal
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function(OneSignal) {
+            try {
+                await OneSignal.init({
+                    appId: "67c70940-dc92-4d95-9072-503b2f5d84c8",
+                    allowLocalhostAsSecureOrigin: true,
+                    serviceWorkerParam: { scope: '/' },
+                    serviceWorkerPath: '/OneSignalSDKWorker.js'
+                });
+                console.log('✅ OneSignal initialized');
+            } catch (error) {
+                console.error('❌ OneSignal init error:', error);
+            }
+        });
+
+        window.checkOneSignal = async function() {
+            const result = document.getElementById('onesignal-result');
+            result.innerHTML = 'Checking...';
+
+            try {
+                const playerId = await OneSignal.User.PushSubscription.id;
+                const optedIn = await OneSignal.User.PushSubscription.optedIn;
+                const token = await OneSignal.User.PushSubscription.token;
+
+                result.className = 'result ' + (playerId ? 'success' : 'error');
+                result.innerHTML = `
+                    <strong>Player ID:</strong> ${playerId || 'NOT SET'}<br>
+                    <strong>Opted In:</strong> ${optedIn}<br>
+                    <strong>Token:</strong> ${token ? 'Present' : 'Not set'}
+                `;
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        window.checkDatabase = async function() {
+            const result = document.getElementById('database-result');
+            const userId = document.getElementById('user-id').value;
+
+            if (!userId) {
+                result.className = 'result error';
+                result.innerHTML = 'Please enter a user ID';
+                return;
+            }
+
+            result.innerHTML = 'Checking database...';
+
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, name, onesignal_player_id, notify_new_matches, notify_event_joins, notify_chat_messages, notify_inactivity_warnings')
+                    .eq('id', userId)
+                    .single();
+
+                if (error) throw error;
+
+                const hasPlayerId = !!data.onesignal_player_id;
+                result.className = 'result ' + (hasPlayerId ? 'success' : 'warning');
+                result.innerHTML = `
+                    <strong>Name:</strong> ${data.name}<br>
+                    <strong>OneSignal Player ID:</strong> ${data.onesignal_player_id || 'NOT SET ⚠️'}<br>
+                    <strong>Notify New Matches:</strong> ${data.notify_new_matches}<br>
+                    <strong>Notify Event Joins:</strong> ${data.notify_event_joins}<br>
+                    <strong>Notify Chat Messages:</strong> ${data.notify_chat_messages}<br>
+                    <strong>Notify Inactivity Warnings:</strong> ${data.notify_inactivity_warnings}
+                `;
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        window.testEdgeFunction = async function() {
+            const result = document.getElementById('edge-result');
+            const userId = document.getElementById('user-id').value;
+            const recipientId = document.getElementById('test-recipient').value;
+
+            if (!userId || !recipientId) {
+                result.className = 'result error';
+                result.innerHTML = 'Please enter both user ID and recipient ID';
+                return;
+            }
+
+            result.innerHTML = 'Calling edge function...';
+
+            try {
+                const { data, error } = await supabase.functions.invoke('send-notification', {
+                    body: {
+                        senderId: userId,
+                        recipientIds: [recipientId],
+                        message: 'Test notification from diagnostics',
+                        activityName: 'Test Activity',
+                        chatType: 'match',
+                        chatId: 'test-123',
+                        notificationType: 'chat_message'
+                    }
+                });
+
+                if (error) throw error;
+
+                const success = data.success && data.sent > 0;
+                result.className = 'result ' + (success ? 'success' : 'warning');
+                result.innerHTML = `
+                    <strong>Response:</strong><br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        window.checkPermission = async function() {
+            const result = document.getElementById('permission-result');
+
+            try {
+                const permission = await OneSignal.Notifications.permission;
+                const isPushSupported = await OneSignal.Notifications.isPushSupported();
+
+                result.className = 'result ' + (permission ? 'success' : 'warning');
+                result.innerHTML = `
+                    <strong>Permission:</strong> ${permission ? 'Granted ✅' : 'Not granted ⚠️'}<br>
+                    <strong>Push Supported:</strong> ${isPushSupported}
+                `;
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        window.requestPermission = async function() {
+            const result = document.getElementById('permission-result');
+            result.innerHTML = 'Requesting permission...';
+
+            try {
+                await OneSignal.Notifications.requestPermission();
+                await checkPermission();
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
