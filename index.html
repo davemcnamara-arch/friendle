@@ -235,6 +235,71 @@
             box-shadow: var(--shadow-md);
         }
 
+        .profile-picture-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+            cursor: pointer;
+        }
+
+        .profile-picture {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--border-color);
+            background: var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            transition: all var(--transition-speed);
+        }
+
+        .profile-picture:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .profile-picture-overlay {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: var(--primary-color);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            border: 3px solid var(--bg-color);
+            transition: all var(--transition-speed);
+        }
+
+        .profile-picture-overlay:hover {
+            background: var(--primary-hover);
+            transform: scale(1.1);
+        }
+
+        .avatar-display {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .avatar-display.emoji {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            background: var(--bg-secondary);
+        }
+
         .circle-card {
             background: var(--card-bg);
             border-radius: var(--radius-lg);
@@ -1454,7 +1519,17 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
 </div>
             <div id="settings" class="page">
             <div class="header"><div class="logo">⚙️ Settings</div><div class="tagline">Manage your preferences</div></div>
-    <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name" style="color: var(--text-primary);">Your Name</h2></div>
+    <div style="text-align: center; margin: 40px 0;">
+        <div class="profile-picture-container" onclick="document.getElementById('profile-picture-input').click()">
+            <div class="profile-picture">
+                <div id="profile-avatar" class="avatar-display emoji">😊</div>
+            </div>
+            <div class="profile-picture-overlay" title="Change profile picture">📷</div>
+        </div>
+        <input type="file" id="profile-picture-input" accept="image/*" style="display: none;" onchange="uploadProfilePicture(event)">
+        <h2 id="profile-name" style="color: var(--text-primary);">Your Name</h2>
+        <button class="btn btn-secondary" onclick="removeProfilePicture()" id="remove-picture-btn" style="display: none; margin-top: 10px; font-size: 0.9em; padding: 8px 16px;">Remove Picture</button>
+    </div>
 
     <div class="form-group">
         <label for="new-username">Display Name</label>
@@ -2519,10 +2594,29 @@ function closeNotificationPrompt() {
   processInvite();
 }
 
-        function updateProfile() { if (currentUser) { document.getElementById('profile-name').textContent = currentUser.name; document.getElementById('profile-avatar').textContent = currentUser.avatar;
-loadMinimumGroupSize(); 
-	}
-}
+        function updateProfile() {
+            if (currentUser) {
+                document.getElementById('profile-name').textContent = currentUser.name;
+
+                const avatarElement = document.getElementById('profile-avatar');
+                const removePictureBtn = document.getElementById('remove-picture-btn');
+
+                // Check if avatar is a URL or emoji
+                if (currentUser.avatar && currentUser.avatar.startsWith('http')) {
+                    // It's an image URL
+                    avatarElement.innerHTML = `<img src="${currentUser.avatar}" alt="Profile picture" class="avatar-display">`;
+                    avatarElement.classList.remove('emoji');
+                    if (removePictureBtn) removePictureBtn.style.display = 'inline-block';
+                } else {
+                    // It's an emoji
+                    avatarElement.textContent = currentUser.avatar || '😊';
+                    avatarElement.classList.add('emoji');
+                    if (removePictureBtn) removePictureBtn.style.display = 'none';
+                }
+
+                loadMinimumGroupSize();
+            }
+        }
 
 async function loadMinimumGroupSize() {
     if (!currentUser) return;
@@ -2599,30 +2693,156 @@ window.saveMinimumGroupSize = async function() {
 
 window.changeUsername = async function() {
     const newName = document.getElementById('new-username').value.trim();
-    
+
     if (!newName) {
         return showNotification('Please enter a name', 'error');
     }
-    
+
     try {
         const { error } = await supabase
             .from('profiles')
             .update({ name: newName })
             .eq('id', currentUser.id);
-        
+
         if (error) throw error;
-        
+
         currentUser.name = newName;
         localStorage.setItem('friendle_user', JSON.stringify(currentUser));
-        
+
         updateProfile();
         document.getElementById('new-username').value = '';
-        
+
         showNotification('Name updated successfully!');
-        
+
     } catch (error) {
         console.error('Error changing username:', error);
         showNotification('Error updating name', 'error');
+    }
+}
+
+window.uploadProfilePicture = async function(event) {
+    const file = event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        return showNotification('Please select an image file', 'error');
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        return showNotification('Image must be less than 5MB', 'error');
+    }
+
+    try {
+        showLoader('Uploading profile picture...');
+
+        // Get file extension
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${currentUser.id}/avatar.${fileExt}`;
+
+        // Delete old avatar if exists
+        const { data: existingFiles } = await supabase.storage
+            .from('avatars')
+            .list(currentUser.id);
+
+        if (existingFiles && existingFiles.length > 0) {
+            for (const oldFile of existingFiles) {
+                await supabase.storage
+                    .from('avatars')
+                    .remove([`${currentUser.id}/${oldFile.name}`]);
+            }
+        }
+
+        // Upload new avatar
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: true
+            });
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+
+        const avatarUrl = urlData.publicUrl;
+
+        // Update profile with new avatar URL
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ avatar: avatarUrl })
+            .eq('id', currentUser.id);
+
+        if (updateError) throw updateError;
+
+        // Update current user and UI
+        currentUser.avatar = avatarUrl;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        updateProfile();
+        hideLoader();
+        showNotification('Profile picture updated successfully!');
+
+    } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        hideLoader();
+        showNotification('Error uploading profile picture', 'error');
+    }
+}
+
+window.removeProfilePicture = async function() {
+    if (!confirm('Are you sure you want to remove your profile picture?')) {
+        return;
+    }
+
+    try {
+        showLoader('Removing profile picture...');
+
+        // Delete avatar from storage if it's a URL
+        if (currentUser.avatar && currentUser.avatar.includes('supabase')) {
+            const { data: existingFiles } = await supabase.storage
+                .from('avatars')
+                .list(currentUser.id);
+
+            if (existingFiles && existingFiles.length > 0) {
+                for (const file of existingFiles) {
+                    await supabase.storage
+                        .from('avatars')
+                        .remove([`${currentUser.id}/${file.name}`]);
+                }
+            }
+        }
+
+        // Set default emoji avatar
+        const defaultAvatar = '😊';
+
+        // Update profile with default avatar
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ avatar: defaultAvatar })
+            .eq('id', currentUser.id);
+
+        if (updateError) throw updateError;
+
+        // Update current user and UI
+        currentUser.avatar = defaultAvatar;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        updateProfile();
+        hideLoader();
+        showNotification('Profile picture removed');
+
+    } catch (error) {
+        console.error('Error removing profile picture:', error);
+        hideLoader();
+        showNotification('Error removing profile picture', 'error');
     }
 }
 
@@ -7341,6 +7561,21 @@ function toggleArchivedMessages(eventId, eventCreatedAt) {
     }
 }
 
+// Helper function to render avatar HTML (supports both image URLs and emojis)
+function renderAvatar(avatar, size = 32) {
+    if (!avatar) {
+        avatar = '👤'; // Default avatar
+    }
+
+    // Check if avatar is an image URL
+    if (avatar.startsWith('http')) {
+        return `<img src="${avatar}" alt="Avatar" style="width: ${size}px; height: ${size}px; border-radius: 50%; object-fit: cover;">`;
+    } else {
+        // It's an emoji
+        return `<div style="width: ${size}px; height: ${size}px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: ${size * 0.56}px;">${avatar}</div>`;
+    }
+}
+
 // Helper to append message to specific container
 function appendMessageToContainer(message, container) {
     const isOwnMessage = message.sender_id === currentUser.id;
@@ -7363,9 +7598,7 @@ function appendMessageToContainer(message, container) {
     
     messageDiv.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                ${message.sender.avatar || '👤'}
-            </div>
+            ${renderAvatar(message.sender.avatar, 32)}
             <span style="font-size: 13px; color: #666; font-weight: 500;">
                 ${isOwnMessage ? 'You' : message.sender.name}
             </span>
@@ -7421,9 +7654,7 @@ function appendMessage(message) {
     
     messageDiv.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                ${message.sender.avatar || '👤'}
-            </div>
+            ${renderAvatar(message.sender.avatar, 32)}
             <span style="font-size: 13px; color: #666; font-weight: 500;">
                 ${isOwnMessage ? 'You' : message.sender.name}
             </span>
