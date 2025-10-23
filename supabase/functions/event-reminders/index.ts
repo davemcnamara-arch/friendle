@@ -1,5 +1,5 @@
 // Edge Function: Event Reminders
-// Runs daily via cron job at 9:00 AM UTC to send reminders for events scheduled today
+// Runs hourly via cron job to send timezone-specific 9am reminders for events scheduled today
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -15,6 +15,115 @@ interface EventReminder {
   profile_name: string
   onesignal_player_id: string
   match_id: string
+  timezone: string
+}
+
+// Helper function to get current hour in a given timezone
+function getHourInTimezone(timezone: string): number {
+  try {
+    const now = new Date()
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false
+    })
+    const hour = parseInt(formatter.format(now))
+    return hour
+  } catch (error) {
+    console.error(`Error getting hour for timezone ${timezone}:`, error)
+    return -1
+  }
+}
+
+// Helper function to get start and end of today in a given timezone
+function getTodayInTimezone(timezone: string): { start: Date, end: Date } | null {
+  try {
+    const now = new Date()
+
+    // Get the date string in the target timezone (e.g., "12/25/2023")
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+
+    const parts = dateFormatter.formatToParts(now)
+    const month = parts.find(p => p.type === 'month')?.value
+    const day = parts.find(p => p.type === 'day')?.value
+    const year = parts.find(p => p.type === 'year')?.value
+
+    if (!month || !day || !year) return null
+
+    // Create start of day in target timezone
+    const startOfDayLocal = new Date(`${year}-${month}-${day}T00:00:00`)
+    const endOfDayLocal = new Date(`${year}-${month}-${day}T23:59:59`)
+
+    // Convert to UTC for database queries
+    // Get the offset for this timezone
+    const offsetFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'short'
+    })
+
+    // This is a simplified approach - we'll use the date string to construct UTC boundaries
+    // Get midnight in the target timezone as a UTC timestamp
+    const localMidnightString = `${year}-${month}-${day}T00:00:00`
+    const localEndOfDayString = `${year}-${month}-${day}T23:59:59.999`
+
+    // Parse these as if they were in the local timezone, then adjust
+    const tempDate = new Date(localMidnightString)
+    const utcString = tempDate.toLocaleString('en-US', { timeZone: timezone })
+
+    // Better approach: calculate the actual UTC boundaries
+    // Get current time in both UTC and target timezone to calculate offset
+    const utcTime = new Date().getTime()
+    const utcDate = new Date(utcTime)
+
+    const localTimeString = utcDate.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
+
+    // For simplicity, let's use a different approach
+    // We'll check if events.scheduled_date falls on the same calendar date when converted to the user's timezone
+    // This requires checking in the application logic rather than pure SQL
+
+    return { start: startOfDayLocal, end: endOfDayLocal }
+  } catch (error) {
+    console.error(`Error calculating today for timezone ${timezone}:`, error)
+    return null
+  }
+}
+
+// Helper to check if a date is today in a given timezone
+function isToday(dateString: string, timezone: string): boolean {
+  try {
+    const date = new Date(dateString)
+    const now = new Date()
+
+    // Format both dates in the target timezone
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+
+    const dateInTz = dateFormatter.format(date)
+    const nowInTz = dateFormatter.format(now)
+
+    return dateInTz === nowInTz
+  } catch (error) {
+    console.error(`Error checking if date is today:`, error)
+    return false
+  }
 }
 
 serve(async (req) => {
@@ -26,51 +135,154 @@ serve(async (req) => {
     )
 
     const now = new Date()
-
-    // Get start and end of today (UTC)
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000)
-
-    console.log('Starting event reminders job', {
-      now: now.toISOString(),
-      startOfToday: startOfToday.toISOString(),
-      endOfToday: endOfToday.toISOString()
+    console.log('Starting timezone-aware event reminders job', {
+      now: now.toISOString()
     })
 
     // ==========================================
-    // Find events scheduled for today
+    // Step 1: Get all users with reminders enabled and their timezones
     // ==========================================
 
-    const { data: todaysEvents, error: eventsError } = await supabaseClient
-      .from('events')
+    const { data: usersWithReminders, error: usersError } = await supabaseClient
+      .from('profiles')
+      .select('id, name, timezone, onesignal_player_id')
+      .eq('event_reminders_enabled', true)
+      .not('onesignal_player_id', 'is', null)
+
+    if (usersError) {
+      console.error('Error fetching users:', usersError)
+      throw usersError
+    }
+
+    if (!usersWithReminders || usersWithReminders.length === 0) {
+      console.log('No users with event reminders enabled')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'No users with reminders enabled',
+          timestamp: now.toISOString()
+        }),
+        {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+
+    console.log(`Found ${usersWithReminders.length} users with reminders enabled`)
+
+    // ==========================================
+    // Step 2: Filter users who are currently in their 9am hour
+    // ==========================================
+
+    const usersAt9am = usersWithReminders.filter(user => {
+      const hour = getHourInTimezone(user.timezone || 'America/Los_Angeles')
+      return hour === 9
+    })
+
+    if (usersAt9am.length === 0) {
+      console.log('No users currently in their 9am hour')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'No users in 9am hour',
+          timestamp: now.toISOString()
+        }),
+        {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+
+    console.log(`Found ${usersAt9am.length} users in their 9am hour`)
+
+    // ==========================================
+    // Step 3: Get all events for these users
+    // ==========================================
+
+    const userIds = usersAt9am.map(u => u.id)
+
+    const { data: userEvents, error: eventsError } = await supabaseClient
+      .from('event_participants')
       .select(`
-        id,
-        name,
-        scheduled_date,
-        match_id,
-        event_participants!inner(
-          profile_id,
-          profiles!inner(
-            id,
-            name,
-            onesignal_player_id,
-            event_reminders_enabled
-          )
+        profile_id,
+        events!inner(
+          id,
+          name,
+          scheduled_date,
+          match_id,
+          status
         )
       `)
-      .gte('scheduled_date', startOfToday.toISOString())
-      .lt('scheduled_date', endOfToday.toISOString())
-      .eq('status', 'scheduled')
-      .eq('event_participants.profiles.event_reminders_enabled', true)
-      .not('event_participants.profiles.onesignal_player_id', 'is', null)
+      .in('profile_id', userIds)
+      .eq('events.status', 'scheduled')
 
     if (eventsError) {
       console.error('Error fetching events:', eventsError)
       throw eventsError
     }
 
-    if (!todaysEvents || todaysEvents.length === 0) {
-      console.log('No events scheduled for today with eligible participants')
+    if (!userEvents || userEvents.length === 0) {
+      console.log('No events found for users')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'No events found',
+          timestamp: now.toISOString()
+        }),
+        {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+
+    console.log(`Found ${userEvents.length} event participations`)
+
+    // ==========================================
+    // Step 4: Filter events that are today in each user's timezone
+    // ==========================================
+
+    const remindersToSend: EventReminder[] = []
+
+    for (const participation of userEvents) {
+      const user = usersAt9am.find(u => u.id === participation.profile_id)
+      if (!user) continue
+
+      const event = participation.events
+      const userTimezone = user.timezone || 'America/Los_Angeles'
+
+      // Check if event is scheduled for today in user's timezone
+      if (isToday(event.scheduled_date, userTimezone)) {
+        // Check if user has muted this event
+        const { data: mutedChat } = await supabaseClient
+          .from('muted_chats')
+          .select('id')
+          .eq('profile_id', user.id)
+          .eq('event_id', event.id)
+          .maybeSingle()
+
+        if (mutedChat) {
+          console.log(`Skipping ${user.name} - has muted event ${event.id}`)
+          continue
+        }
+
+        remindersToSend.push({
+          event_id: event.id,
+          event_name: event.name,
+          event_scheduled_date: event.scheduled_date,
+          profile_id: user.id,
+          profile_name: user.name,
+          onesignal_player_id: user.onesignal_player_id,
+          match_id: event.match_id,
+          timezone: userTimezone
+        })
+      }
+    }
+
+    if (remindersToSend.length === 0) {
+      console.log('No events scheduled for today for any users in 9am hour')
       return new Response(
         JSON.stringify({
           success: true,
@@ -84,66 +296,12 @@ serve(async (req) => {
       )
     }
 
-    console.log(`Found ${todaysEvents.length} events scheduled for today`)
-
-    // ==========================================
-    // Process each event and collect reminders
-    // ==========================================
-
-    const remindersToSend: EventReminder[] = []
-
-    for (const event of todaysEvents) {
-      // Check if each participant has muted this event's chat
-      for (const participant of event.event_participants) {
-        const profile = participant.profiles
-
-        // Check if user has muted this event
-        const { data: mutedChat } = await supabaseClient
-          .from('muted_chats')
-          .select('id')
-          .eq('profile_id', profile.id)
-          .eq('event_id', event.id)
-          .single()
-
-        if (mutedChat) {
-          console.log(`Skipping ${profile.name} - has muted event ${event.id}`)
-          continue
-        }
-
-        remindersToSend.push({
-          event_id: event.id,
-          event_name: event.name,
-          event_scheduled_date: event.scheduled_date,
-          profile_id: profile.id,
-          profile_name: profile.name,
-          onesignal_player_id: profile.onesignal_player_id,
-          match_id: event.match_id
-        })
-      }
-    }
-
-    if (remindersToSend.length === 0) {
-      console.log('No reminders to send (all participants have muted notifications)')
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'No reminders to send - all muted',
-          timestamp: now.toISOString()
-        }),
-        {
-          headers: { 'Content-Type': 'application/json' },
-          status: 200
-        }
-      )
-    }
-
     console.log(`Sending ${remindersToSend.length} event reminders`)
 
     // ==========================================
-    // Group reminders by user and send notifications
+    // Step 5: Group by user and send notifications
     // ==========================================
 
-    // Group reminders by user to send one notification per user
     const remindersByUser = new Map<string, EventReminder[]>()
 
     for (const reminder of remindersToSend) {
@@ -196,7 +354,7 @@ serve(async (req) => {
           console.error(`OneSignal API error for user ${profileId}:`, errorText)
         } else {
           successCount++
-          console.log(`Sent notification to ${firstEvent.profile_name}`)
+          console.log(`Sent notification to ${firstEvent.profile_name} (${firstEvent.timezone})`)
         }
       } catch (notifError) {
         console.error(`Error sending notification to user ${profileId}:`, notifError)
@@ -209,7 +367,8 @@ serve(async (req) => {
         message: 'Event reminders sent',
         timestamp: now.toISOString(),
         stats: {
-          eventsFound: todaysEvents.length,
+          usersChecked: usersWithReminders.length,
+          usersAt9am: usersAt9am.length,
           remindersSent: successCount,
           uniqueUsers: remindersByUser.size
         }

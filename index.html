@@ -1728,6 +1728,28 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         </label>
     </div>
 
+    <div style="margin: 0 0 20px 0;">
+        <label for="timezone-select" style="display: block; font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">Your Timezone</label>
+        <select id="timezone-select" onchange="updateTimezone()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 1em;">
+            <option value="America/New_York">Eastern Time (ET)</option>
+            <option value="America/Chicago">Central Time (CT)</option>
+            <option value="America/Denver">Mountain Time (MT)</option>
+            <option value="America/Los_Angeles">Pacific Time (PT)</option>
+            <option value="America/Anchorage">Alaska Time (AKT)</option>
+            <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+            <option value="Europe/London">London (GMT/BST)</option>
+            <option value="Europe/Paris">Central European (CET)</option>
+            <option value="Europe/Athens">Eastern European (EET)</option>
+            <option value="Asia/Dubai">Dubai (GST)</option>
+            <option value="Asia/Kolkata">India (IST)</option>
+            <option value="Asia/Shanghai">China (CST)</option>
+            <option value="Asia/Tokyo">Japan (JST)</option>
+            <option value="Australia/Sydney">Sydney (AEDT)</option>
+            <option value="Pacific/Auckland">New Zealand (NZDT)</option>
+        </select>
+        <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 4px;">Reminders will be sent at 9 AM in your timezone</div>
+    </div>
+
     <div style="margin: 20px 0; padding: 15px; background: var(--card-bg); border-radius: 8px;">
         <h3 style="margin: 0 0 10px 0; font-size: 1em; color: var(--text-primary);">Push Notifications</h3>
         <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary);">Control which push notifications you receive</p>
@@ -3166,6 +3188,12 @@ async function loadMinimumGroupSize() {
         reminderToggle.checked = currentUser.event_reminders_enabled || false;
     }
 
+    // Load timezone preference
+    const timezoneSelect = document.getElementById('timezone-select');
+    if (timezoneSelect) {
+        timezoneSelect.value = currentUser.timezone || 'America/Los_Angeles';
+    }
+
     const newMatchToggle = document.getElementById('new-match-toggle');
     if (newMatchToggle) {
         newMatchToggle.checked = currentUser.notify_new_matches !== false; // Default true
@@ -3383,29 +3411,56 @@ window.removeProfilePicture = async function() {
 window.toggleEventReminders = async function() {
     const toggle = document.getElementById('event-reminders-toggle');
     const isEnabled = toggle.checked;
-    
+
     try {
         showLoader('Updating settings...');
-        
+
         const { error } = await supabase
             .from('profiles')
             .update({ event_reminders_enabled: isEnabled })
             .eq('id', currentUser.id);
-        
+
         if (error) throw error;
-        
+
         currentUser.event_reminders_enabled = isEnabled;
         localStorage.setItem('friendle_user', JSON.stringify(currentUser));
-        
+
         hideLoader();
         showNotification(isEnabled ? '🔔 Event reminders enabled!' : '🔕 Event reminders disabled');
-        
+
     } catch (error) {
         hideLoader();
         console.error('Error toggling event reminders:', error);
         showNotification('Error updating setting', 'error');
         // Revert toggle on error
         toggle.checked = !isEnabled;
+    }
+}
+
+window.updateTimezone = async function() {
+    const select = document.getElementById('timezone-select');
+    const timezone = select.value;
+
+    try {
+        showLoader('Updating timezone...');
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({ timezone: timezone })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.timezone = timezone;
+        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        hideLoader();
+        showNotification('Timezone updated!');
+
+    } catch (error) {
+        hideLoader();
+        console.error('Error updating timezone:', error);
+        showNotification('Error updating timezone', 'error');
     }
 }
 

@@ -10,6 +10,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.event-reminders]
-# Daily cron job to send 9am reminders for events scheduled today
-# Runs at 9:00 AM UTC every day
+# Hourly cron job to send timezone-aware 9am reminders for events scheduled today
+# Runs every hour and checks which users are currently in their 9am hour
 verify_jwt = false
