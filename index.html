@@ -5068,14 +5068,8 @@ document.getElementById('event-participants').innerHTML =
         hideLoader();
         showPage('chat');
 
-        // Ensure scroll to bottom after page is shown (especially for notifications)
-        setTimeout(() => {
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                console.log('📜 Final scroll to bottom after page shown');
-            }
-        }, 600);
+        // Force scroll to bottom after page is shown (especially for notifications)
+        setTimeout(() => forceScrollToBottom(), 300);
 
     } catch (error) {
         hideLoader();
@@ -5404,14 +5398,8 @@ window.openCircleChat = async function(circleId) {
         hideLoader();
         showPage('chat');
 
-        // Ensure scroll to bottom after page is shown (especially for notifications)
-        setTimeout(() => {
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                console.log('📜 Final scroll to bottom after page shown');
-            }
-        }, 600);
+        // Force scroll to bottom after page is shown (especially for notifications)
+        setTimeout(() => forceScrollToBottom(), 300);
 
     } catch (error) {
         hideLoader();
@@ -7543,14 +7531,8 @@ allActiveSubscriptions.push(eventMessageSubscription);
 
         showPage('chat');
 
-        // Ensure scroll to bottom after page is shown (especially for notifications)
-        setTimeout(() => {
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                console.log('📜 Final scroll to bottom after page shown');
-            }
-        }, 600);
+        // Force scroll to bottom after page is shown (especially for notifications)
+        setTimeout(() => forceScrollToBottom(), 300);
 
     } catch (error) {
         console.error('Error loading event chat:', error);
@@ -7701,6 +7683,32 @@ function renderAvatar(avatar, size = 32) {
     } else {
         // It's an emoji
         return `<div style="width: ${size}px; height: ${size}px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: ${size * 0.56}px;">${avatar}</div>`;
+    }
+}
+
+// Helper function to force scroll to bottom of chat - tries multiple times for reliability
+function forceScrollToBottom(attempts = 0) {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) {
+        console.warn('No messages container found for scrolling');
+        return;
+    }
+
+    // Method 1: Scroll using scrollTop
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Method 2: Find last message and scroll it into view
+    const messages = messagesContainer.querySelectorAll('.message, div[style*="margin-bottom: 15px"]');
+    if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    console.log(`📜 Force scroll to bottom (attempt ${attempts + 1}), scrollTop: ${messagesContainer.scrollTop}, scrollHeight: ${messagesContainer.scrollHeight}`);
+
+    // Retry up to 3 times with increasing delays to handle async content loading
+    if (attempts < 3) {
+        setTimeout(() => forceScrollToBottom(attempts + 1), 200 + (attempts * 200));
     }
 }
 
