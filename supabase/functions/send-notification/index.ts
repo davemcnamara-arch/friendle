@@ -125,8 +125,38 @@ serve(async (req) => {
       )
     }
 
+    // Filter out recipients who have muted this chat
+    let filteredRecipients = recipients || []
+
+    if (chatId && chatType) {
+      // Build query to check for muted chats
+      let muteQuery = supabaseClient
+        .from('muted_chats')
+        .select('profile_id')
+
+      // Apply the appropriate filter based on chat type
+      if (chatType === 'match') {
+        muteQuery = muteQuery.eq('match_id', chatId)
+      } else if (chatType === 'event') {
+        muteQuery = muteQuery.eq('event_id', chatId)
+      } else if (chatType === 'circle') {
+        muteQuery = muteQuery.eq('circle_id', chatId)
+      }
+
+      const { data: mutedChats, error: mutedError } = await muteQuery
+
+      if (mutedError) {
+        console.error('Error checking muted chats:', mutedError)
+        // Continue sending notifications even if mute check fails
+      } else if (mutedChats && mutedChats.length > 0) {
+        const mutedProfileIds = new Set(mutedChats.map(m => m.profile_id))
+        filteredRecipients = filteredRecipients.filter(r => !mutedProfileIds.has(r.id))
+        console.log(`Filtered out ${mutedChats.length} muted recipients`)
+      }
+    }
+
     // Filter out null player IDs and get array of player IDs
-    const playerIds = recipients
+    const playerIds = filteredRecipients
       ?.map(r => r.onesignal_player_id)
       .filter((id): id is string => id !== null) || []
 
