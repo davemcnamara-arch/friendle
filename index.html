@@ -245,6 +245,15 @@
             box-shadow: var(--shadow-sm);
         }
 
+        .circle-card.unread {
+            border: 2px solid #ff4d4f;
+            background: #fff1f0;
+        }
+
+        body.dark-mode .circle-card.unread {
+            background: #2a1a1a;
+        }
+
         .circle-card .main-content {
             cursor: pointer;
         }
@@ -335,6 +344,113 @@
         .activity-name {
             font-weight: 600;
             font-size: 0.9em;
+        }
+
+        /* Match Cards */
+        .match-card {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+
+        .match-card.unread {
+            background: #fff1f0;
+            border: 2px solid #ff4d4f;
+        }
+
+        body.dark-mode .match-card.unread {
+            background: #2a1a1a;
+            border: 2px solid #ff4d4f;
+        }
+
+        .match-card h3 {
+            margin: 0 0 4px 0;
+            font-size: 20px;
+            color: var(--text-primary);
+        }
+
+        .match-card p {
+            color: var(--text-secondary);
+        }
+
+        .match-info-box {
+            background: var(--bg-secondary);
+            border: 2px solid var(--primary-color);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .match-info-box.warning {
+            background: #fff1f0;
+            border-color: #ff4d4f;
+        }
+
+        body.dark-mode .match-info-box.warning {
+            background: #2a1a1a;
+            border-color: #ff4d4f;
+        }
+
+        .match-info-box p {
+            color: var(--text-primary);
+        }
+
+        .event-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+            position: relative;
+        }
+
+        .event-item.pending {
+            background: #fff8e1;
+            border-left-color: #FFA726;
+        }
+
+        body.dark-mode .event-item.pending {
+            background: #2a2415;
+        }
+
+        .event-item.unread {
+            background: #fff1f0;
+            border: 2px solid #ff4d4f;
+        }
+
+        body.dark-mode .event-item.unread {
+            background: #2a1a1a;
+        }
+
+        .event-item div {
+            color: var(--text-primary);
+        }
+
+        .event-item .event-meta {
+            color: var(--text-secondary);
+        }
+
+        .circle-tag {
+            padding: 4px 10px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .empty-event-placeholder {
+            padding: 15px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            border: 1px dashed var(--border-color);
         }
 
         .bulk-controls {
@@ -1231,10 +1347,6 @@ OneSignal.Notifications.addEventListener('click', (event) => {
         <option value="">Choose a circle...</option>
     </select>
 </div>
-
-<div class="form-group">
-    <input type="text" id="activity-search" placeholder="🔍 Search for an activity..." onkeyup="handleSearch(event)">
-</div>
     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
     <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
     <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
@@ -1323,22 +1435,11 @@ OneSignal.Notifications.addEventListener('click', (event) => {
             <div class="header"><div class="logo">⚙️ Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;"><div id="profile-avatar" style="font-size: 2em; margin: 0 auto 20px;">😊</div><h2 id="profile-name" style="color: var(--text-primary);">Your Name</h2></div>
 
-    <div class="section-title" style="margin-top: 0;">🎨 Appearance</div>
-
-    <div class="toggle-container">
-        <label class="toggle-label" for="dark-mode-toggle">
-            <div class="toggle-text">
-                <div class="toggle-title">🌙 Dark Mode</div>
-                <div class="toggle-description">Switch between light and dark theme</div>
-            </div>
-            <div class="toggle-switch">
-                <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
-                <span class="toggle-slider"></span>
-            </div>
-        </label>
+    <div class="form-group">
+        <label for="new-username">Display Name</label>
+        <input type="text" id="new-username" placeholder="Enter new name">
     </div>
-
-    <div class="section-title">🔔 Notifications</div>
+    <button class="btn btn-secondary" onclick="changeUsername()">Update Name</button>
 
     <div class="toggle-container">
         <label class="toggle-label" for="event-reminders-toggle">
@@ -1353,60 +1454,6 @@ OneSignal.Notifications.addEventListener('click', (event) => {
         </label>
     </div>
 
-    <div class="toggle-container">
-        <label class="toggle-label" for="new-match-toggle">
-            <div class="toggle-text">
-                <div class="toggle-title">New Matches</div>
-                <div class="toggle-description">Get notified when a new activity match is found</div>
-            </div>
-            <div class="toggle-switch">
-                <input type="checkbox" id="new-match-toggle" onchange="toggleNewMatches()">
-                <span class="toggle-slider"></span>
-            </div>
-        </label>
-    </div>
-
-    <div class="toggle-container">
-        <label class="toggle-label" for="event-join-toggle">
-            <div class="toggle-text">
-                <div class="toggle-title">Event Joins</div>
-                <div class="toggle-description">Get notified when someone joins your event</div>
-            </div>
-            <div class="toggle-switch">
-                <input type="checkbox" id="event-join-toggle" onchange="toggleEventJoins()">
-                <span class="toggle-slider"></span>
-            </div>
-        </label>
-    </div>
-
-    <div class="toggle-container">
-        <label class="toggle-label" for="inactivity-warnings-toggle">
-            <div class="toggle-text">
-                <div class="toggle-title">Inactivity Warnings</div>
-                <div class="toggle-description">Get notified if you've been inactive in a match</div>
-            </div>
-            <div class="toggle-switch">
-                <input type="checkbox" id="inactivity-warnings-toggle" onchange="toggleInactivityWarnings()">
-                <span class="toggle-slider"></span>
-            </div>
-        </label>
-    </div>
-
-    <div class="toggle-container">
-        <label class="toggle-label" for="chat-messages-toggle">
-            <div class="toggle-text">
-                <div class="toggle-title">Chat Messages</div>
-                <div class="toggle-description">Get notified when you receive new messages</div>
-            </div>
-            <div class="toggle-switch">
-                <input type="checkbox" id="chat-messages-toggle" onchange="toggleChatMessages()">
-                <span class="toggle-slider"></span>
-            </div>
-        </label>
-    </div>
-
-    <div class="section-title">👤 Profile</div>
-
     <div class="form-group">
         <label for="min-group-size">Minimum Group Size</label>
         <select id="min-group-size" onchange="saveMinimumGroupSize()">
@@ -1417,19 +1464,19 @@ OneSignal.Notifications.addEventListener('click', (event) => {
         </select>
         <div style="font-size: 0.85em; color: #666; margin-top: 5px;">Only show matches with at least this many total participants</div>
     </div>
-    
-    <div class="form-group">
-        <label for="new-username">Change Display Name</label>
-        <input type="text" id="new-username" placeholder="Enter new name">
+
+    <div class="toggle-container">
+        <label class="toggle-label" for="dark-mode-toggle">
+            <div class="toggle-text">
+                <div class="toggle-title">🌙 Dark Mode</div>
+                <div class="toggle-description">Switch between light and dark theme</div>
+            </div>
+            <div class="toggle-switch">
+                <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
     </div>
-    <button class="btn btn-secondary" onclick="changeUsername()">Update Name</button>
-    
-    <div class="form-group">
-        <label for="new-password">Change Password</label>
-        <input type="password" id="new-password" placeholder="New password (6+ characters)">
-        <input type="password" id="confirm-password" placeholder="Confirm new password" style="margin-top: 10px;">
-    </div>
-    <button class="btn btn-secondary" onclick="changePassword()">Update Password</button>
     
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
     <button class="btn btn-secondary" onclick="exportData()">Export My Data</button>
@@ -2886,13 +2933,29 @@ window.selectCircleActivityCategory = function(category) {
     });
 
     const list = document.getElementById('circles-list');
+
+    if (circles.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">👥</div>
+          <div class="empty-state-title">No Circles Yet</div>
+          <div class="empty-state-description">Circles are your friend groups. Create one to start coordinating activities, or join an existing circle with an invite code.</div>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+            <button class="btn" onclick="showCreateCircle()">+ Create Circle</button>
+            <button class="btn btn-secondary" onclick="showJoinCircle()">Join Circle</button>
+          </div>
+        </div>`;
+      hideLoader();
+      return;
+    }
+
     list.innerHTML = circles.map(circle => {
       const memberCount = counts[circle.id] || 0;
       const memberText = memberCount === 1 ? '1 member' : `${memberCount} members`;
       const unreadCount = unreadMap.get(circle.id) || 0;
 
       return `
-        <div class="circle-card" style="${unreadCount > 0 ? 'border: 2px solid #ff4d4f; background: #fff1f0;' : ''}">
+        <div class="circle-card${unreadCount > 0 ? ' unread' : ''}">
           <div class="main-content" onclick='selectCircle("${circle.id}")'>
             <div class="circle-name">
               ${circle.name}
@@ -2902,6 +2965,7 @@ window.selectCircleActivityCategory = function(category) {
           </div>
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
     <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%; background: #667eea;">💬 Open Circle Chat</button>
+    <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="width: 100%;">👥 View Members</button>
     <div style="display: flex; gap: 8px;">
         <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${circle.code}')" style="flex: 1;">Copy Code</button>
         <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${circle.name}', '${circle.code}')" style="flex: 1;">Invite</button>
@@ -3096,24 +3160,80 @@ window.inviteByEmail = function(circleName, circleCode) {
 
 window.renameCircle = async function(circleId) {
     const circle = circles.find(c => c.id === circleId);
-    const newName = prompt('Enter new circle name:', circle.name);
-    
-    if (newName && newName.trim() && newName.trim() !== circle.name) {
-        try {
-            const { error } = await supabase
-                .from('circles')
-                .update({ name: newName.trim() })
-                .eq('id', circleId)
-                .eq('created_by', currentUser.id); // Only creator can rename
 
-            if (error) throw error;
-            
-            showNotification('Circle renamed!');
-            renderCircles(); // Refresh the display
-        } catch (error) {
-            console.error('Error renaming circle:', error);
-            showNotification('Error renaming circle', 'error');
+    if (!circle) {
+        showNotification('Circle not found', 'error');
+        return;
+    }
+
+    const newName = prompt('Enter new circle name:', circle.name);
+
+    if (!newName || !newName.trim()) {
+        return; // User cancelled or entered empty name
+    }
+
+    if (newName.trim() === circle.name) {
+        return; // No change
+    }
+
+    try {
+        const { error } = await supabase
+            .from('circles')
+            .update({ name: newName.trim() })
+            .eq('id', circleId)
+            .eq('created_by', currentUser.id); // Only creator can rename
+
+        if (error) {
+            if (error.code === '42501') {
+                showNotification('Only the circle creator can rename it', 'error');
+            } else {
+                throw error;
+            }
+            return;
         }
+
+        showNotification('Circle renamed!');
+        await renderCircles(); // Refresh the display
+    } catch (error) {
+        console.error('Error renaming circle:', error);
+        showNotification('Error renaming circle', 'error');
+    }
+}
+
+window.viewCircleMembers = async function(circleId) {
+    const circle = circles.find(c => c.id === circleId);
+
+    if (!circle) {
+        showNotification('Circle not found', 'error');
+        return;
+    }
+
+    try {
+        showLoader('Loading members...');
+
+        const { data: members, error } = await supabase
+            .from('circle_members')
+            .select('profile_id, profiles(id, name, avatar)')
+            .eq('circle_id', circleId);
+
+        if (error) throw error;
+
+        hideLoader();
+
+        if (!members || members.length === 0) {
+            alert('No members found in this circle.');
+            return;
+        }
+
+        const membersList = members
+            .map(m => `${m.profiles.avatar} ${m.profiles.name}`)
+            .join('\n');
+
+        alert(`Members of ${circle.name}:\n\n${membersList}`);
+    } catch (error) {
+        hideLoader();
+        console.error('Error loading circle members:', error);
+        showNotification('Error loading members', 'error');
     }
 }
 
@@ -3917,34 +4037,6 @@ async function loadDefaultActivities() {
     card.innerHTML = `
         <div class="activity-emoji">${activity.emoji}</div>
         <div class="activity-name">${activity.name}</div>
-        ${isSelected ? `
-    <div style="position: absolute; top: 6px; right: 6px; display: flex; gap: 4px;">
-        <div onclick="event.stopPropagation(); setActivityMode('${activity.id}', false);" style="
-            background: ${!isToday ? '#667eea' : '#e0e0e0'};
-            color: ${!isToday ? 'white' : '#999'};
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 0.65em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        ">
-            ANYTIME
-        </div>
-        <div onclick="event.stopPropagation(); setActivityMode('${activity.id}', true);" style="
-            background: ${isToday ? '#4CAF50' : '#e0e0e0'};
-            color: ${isToday ? 'white' : '#999'};
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 0.65em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        ">
-            TODAY
-        </div>
-    </div>
-` : ''}
     `;
     
     card.onclick = (event) => {
@@ -5673,7 +5765,13 @@ async function loadMatches() {
     const showPastEvents = document.getElementById('show-past-events')?.checked ?? true;
     
     if (!matches || matches.length === 0) {
-        matchesList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💫</div><div class="empty-state-title">No Matches Yet</div><div class="empty-state-description">Select some activities to find friends who want to hang out!</div></div>';
+        matchesList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">💫</div>
+                <div class="empty-state-title">No Matches Yet</div>
+                <div class="empty-state-description">Select some activities to find friends who want to hang out!</div>
+                <button class="btn" onclick="showPage('activities')" style="margin-top: 20px;">🎯 Choose Activities</button>
+            </div>`;
         return;
     }
 
@@ -5846,6 +5944,13 @@ if (!showPastEvents) {
     });
 }
 
+    // Filter by minimum group size preference
+    const minimumGroupSize = currentUser?.minimum_group_size || 2;
+    matchesWithEvents = matchesWithEvents.filter(({ match }) => {
+        const interestedCount = match.interestedCount || 0;
+        return interestedCount >= minimumGroupSize;
+    });
+
     // Pre-load any missing activities
     const missingActivityIds = new Set();
     matchesWithEvents.forEach(({ match }) => {
@@ -5853,7 +5958,7 @@ if (!showPastEvents) {
             missingActivityIds.add(match.activity_id);
         }
     });
-    
+
     // Fetch missing activities
     const missingActivities = [];
     if (missingActivityIds.size > 0) {
@@ -5863,7 +5968,7 @@ if (!showPastEvents) {
             .in('id', Array.from(missingActivityIds));
         if (data) missingActivities.push(...data);
     }
-    
+
     matchesList.innerHTML = matchesWithEvents.map(({ match, events, matchUnreadCount }) => {
         let activity = activities.find(a => a.id === match.activity_id);
 
@@ -5911,41 +6016,38 @@ const pastEvents = events.filter(e =>
 console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
         return `
-    <div class="match-card" style="margin-bottom: 25px; padding: 20px; background: ${matchUnreadCount > 0 ? '#fff1f0' : 'white'}; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; ${matchUnreadCount > 0 ? 'border: 2px solid #ff4d4f;' : ''}">
+    <div class="match-card${matchUnreadCount > 0 ? ' unread' : ''}">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
-    <h3 style="margin: 0 0 4px 0; font-size: 20px; display: flex; align-items: center; gap: 8px;">
+    <h3 style="display: flex; align-items: center; gap: 8px;">
         ${activityEmoji} ${activityName}
     </h3>
-            <p style="margin: 8px 0 0 0; color: #666; font-size: 14px; line-height: 1.4;">
+            <p style="margin: 8px 0 0 0; font-size: 14px; line-height: 1.4;">
                 ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested${interestedDisplay ? ': ' + interestedDisplay : ''}
             </p>
             ${match.inChatCount > 0 ? `
-                <p style="margin: 4px 0 0 0; color: #667eea; font-size: 13px;">
+                <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px;">
                     💬 ${match.inChatCount} in chat${match.userInChat ? ' (including you)' : ''}
                 </p>
             ` : ''}
         </div>
         <div style="display: flex; flex-direction: column; gap: 10px; min-width: 140px; align-items: flex-end;">
-    <span style="padding: 4px 10px; background: #e8e8e8; border-radius: 12px; font-size: 12px; font-weight: 500; color: #666;">
+    <span class="circle-tag">
         ${circles.find(c => c.id === match.circle_id)?.name || 'Circle'}
     </span>
     ${isFirst ? `
-        <div style="background: #f0f7ff; border: 2px solid #667eea; border-radius: 10px; padding: 12px; text-align: center;">
-            <p style="margin: 0 0 10px 0; font-size: 13px; color: #333; font-weight: 500;">🎉 You're first!</p>
-            <p style="margin: 0 0 12px 0; font-size: 12px; color: #666; line-height: 1.4;">Want to put it out there? Others will see and can join.</p>
-            <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0 0 6px 0; width: 100%;">
+        <div class="match-info-box">
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500;">🎉 You're first!</p>
+            <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;">Want to put it out there? Others will see and can join.</p>
+            <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0; width: 100%;">
                 Join Chat & Coordinate
-            </button>
-            <button onclick="skipJoinChat('${match.id}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; margin: 0; width: 100%;">
-                Not Yet
             </button>
         </div>
     ` : match.userInChat ? `
         ${hasWarning ? `
-            <div style="background: #fff1f0; border: 2px solid #ff4d4f; border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                <p style="margin: 0 0 8px 0; font-size: 13px; color: #333; font-weight: 500;">⚠️ Still interested?</p>
-                <p style="margin: 0 0 10px 0; font-size: 12px; color: #666; line-height: 1.4;">We haven't seen you active in a while. Let us know you're still interested!</p>
+            <div class="match-info-box warning" style="margin-bottom: 10px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 500;">⚠️ Still interested?</p>
+                <p style="margin: 0 0 10px 0; font-size: 12px; line-height: 1.4;">We haven't seen you active in a while. Let us know you're still interested!</p>
                 <button onclick="stayInterested('${match.id}')" class="btn" style="font-size: 13px; padding: 10px 16px; width: 100%; background: #ff4d4f;">
                     👍 Yes, I'm Still Interested
                 </button>
@@ -5980,14 +6082,14 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             const participantCount = event.event_participants?.length || 0;
             
             return `
-                <div class="event-item" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}" style="padding: 15px; margin-bottom: 10px; background: ${event.unreadCount > 0 ? '#fff1f0' : (event.isUserJoined ? '#f5f5f5' : '#fff8e1')}; border-radius: 8px; border-left: 4px solid ${event.isUserJoined ? '#4CAF50' : '#FFA726'}; ${event.unreadCount > 0 ? 'border: 2px solid #ff4d4f;' : ''} position: relative;">
+                <div class="event-item${event.unreadCount > 0 ? ' unread' : (event.isUserJoined ? '' : ' pending')}" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}">
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                         <div style="flex: 1;">
     <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
         📅 ${dateStr}
     </div>
-                            ${event.location ? `<div style="color: #666; font-size: 13px;">📍 ${event.location}</div>` : ''}
-                            <div style="color: #666; font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${event.isUserJoined ? 'going' : 'interested'}</div>
+                            ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
+                            <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${event.isUserJoined ? 'going' : 'interested'}</div>
                         </div>
                         ${event.isUserJoined ? `
                             <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
@@ -6013,7 +6115,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         }).join('')}
     </div>
 ` : `
-                    <div style="padding: 15px; background: #f9f9f9; border-radius: 6px; text-align: center; color: #666; font-size: 14px; border: 1px dashed #ddd;">
+                    <div class="empty-event-placeholder">
                         💬 No events scheduled yet - schedule something!
                     </div>
                 `}
