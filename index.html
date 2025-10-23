@@ -5865,6 +5865,12 @@ async function setupMatchChatSubscription(matchId) {
             console.log('🗑️ Match message deleted:', payload);
             loadAndDisplayGeneralMessages(matchId);
         })
+        .on('broadcast', { event: 'reaction_changed' }, async (payload) => {
+            console.log('👍 Match message reaction changed:', payload);
+            const messageId = payload.payload.messageId;
+            await fetchMessageReactions(messageId, 'match');
+            updateReactionDisplay(messageId, 'match');
+        })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
         });
@@ -6062,6 +6068,12 @@ async function setupCircleChatSubscription(circleId) {
         .on('broadcast', { event: 'message_deleted' }, (payload) => {
             console.log('🗑️ Circle message deleted:', payload);
             loadAndDisplayCircleMessages(circleId);
+        })
+        .on('broadcast', { event: 'reaction_changed' }, async (payload) => {
+            console.log('👍 Circle message reaction changed:', payload);
+            const messageId = payload.payload.messageId;
+            await fetchMessageReactions(messageId, 'circle');
+            updateReactionDisplay(messageId, 'circle');
         })
         .subscribe((status) => {
             console.log('Circle chat subscription status:', status);
@@ -7718,6 +7730,297 @@ window.deleteEventMessage = async function(msgId) {
     }
 }
 
+// ========== MESSAGE REACTIONS ==========
+// Available reaction emojis
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '😮', '👏'];
+
+// Store reactions for all messages in memory
+const messageReactions = new Map(); // messageId -> array of reactions
+
+// Fetch reactions for a specific message
+window.fetchMessageReactions = async function(messageId, messageType) {
+    const tableName = messageType === 'event' ? 'event_message_reactions' :
+                      messageType === 'match' ? 'match_message_reactions' :
+                      'circle_message_reactions';
+
+    try {
+        const { data, error } = await supabase
+            .from(tableName)
+            .select('id, emoji, profile_id, created_at, profiles:profile_id(name, avatar)')
+            .eq('message_id', messageId);
+
+        if (error) throw error;
+
+        // Store in cache
+        messageReactions.set(messageId, data || []);
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching reactions:', error);
+        return [];
+    }
+}
+
+// Toggle a reaction on a message
+window.toggleReaction = async function(messageId, emoji, messageType) {
+    const tableName = messageType === 'event' ? 'event_message_reactions' :
+                      messageType === 'match' ? 'match_message_reactions' :
+                      'circle_message_reactions';
+
+    try {
+        // Check if user already reacted with this emoji
+        const { data: existing, error: fetchError } = await supabase
+            .from(tableName)
+            .select('id')
+            .eq('message_id', messageId)
+            .eq('profile_id', currentUser.id)
+            .eq('emoji', emoji)
+            .maybeSingle();
+
+        if (fetchError) throw fetchError;
+
+        if (existing) {
+            // Remove reaction
+            const { error: deleteError } = await supabase
+                .from(tableName)
+                .delete()
+                .eq('id', existing.id);
+
+            if (deleteError) throw deleteError;
+        } else {
+            // Add reaction
+            const { error: insertError } = await supabase
+                .from(tableName)
+                .insert({
+                    message_id: messageId,
+                    profile_id: currentUser.id,
+                    emoji: emoji
+                });
+
+            if (insertError) throw insertError;
+        }
+
+        // Refresh reactions for this message
+        await fetchMessageReactions(messageId, messageType);
+
+        // Broadcast reaction change
+        const context = getCurrentChatContext();
+        const channelName = messageType === 'event' ? `event_${context.id}` :
+                           messageType === 'match' ? `match_chat_${context.id}` :
+                           `circle_chat_${context.id}`;
+
+        const channel = supabase.channel(channelName);
+        await channel.send({
+            type: 'broadcast',
+            event: 'reaction_changed',
+            payload: { messageId }
+        });
+
+        // Update UI
+        updateReactionDisplay(messageId, messageType);
+
+    } catch (error) {
+        console.error('Error toggling reaction:', error);
+        showNotification('Failed to update reaction', 'error');
+    }
+}
+
+// Show reaction picker for a message
+window.showReactionPicker = function(messageId, messageType, event) {
+    event.stopPropagation();
+
+    // Close any existing pickers
+    document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
+
+    const picker = document.createElement('div');
+    picker.className = 'reaction-picker';
+    picker.style.cssText = `
+        position: absolute;
+        background: var(--card-bg, white);
+        border: 1px solid var(--border-color, #ddd);
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        gap: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    `;
+
+    REACTION_EMOJIS.forEach(emoji => {
+        const button = document.createElement('button');
+        button.textContent = emoji;
+        button.style.cssText = `
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        `;
+        button.onmouseover = () => button.style.background = 'var(--bg-secondary)';
+        button.onmouseout = () => button.style.background = 'none';
+        button.onclick = async () => {
+            await toggleReaction(messageId, emoji, messageType);
+            picker.remove();
+        };
+        picker.appendChild(button);
+    });
+
+    // Position picker near the clicked element
+    const rect = event.target.getBoundingClientRect();
+    picker.style.top = `${rect.top - 50}px`;
+    picker.style.left = `${rect.left}px`;
+
+    document.body.appendChild(picker);
+
+    // Close picker when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', function closePicker(e) {
+            if (!picker.contains(e.target)) {
+                picker.remove();
+                document.removeEventListener('click', closePicker);
+            }
+        });
+    }, 0);
+}
+
+// Render reactions display for a message
+window.renderReactions = function(messageId, messageType) {
+    const reactions = messageReactions.get(messageId) || [];
+
+    if (reactions.length === 0) {
+        return '';
+    }
+
+    // Group reactions by emoji
+    const grouped = {};
+    reactions.forEach(reaction => {
+        if (!grouped[reaction.emoji]) {
+            grouped[reaction.emoji] = [];
+        }
+        grouped[reaction.emoji].push(reaction);
+    });
+
+    // Create reaction buttons
+    const reactionButtons = Object.entries(grouped).map(([emoji, reactionList]) => {
+        const count = reactionList.length;
+        const userReacted = reactionList.some(r => r.profile_id === currentUser.id);
+        const names = reactionList.map(r => r.profiles.name).join(', ');
+
+        return `
+            <button
+                onclick="toggleReaction('${messageId}', '${emoji}', '${messageType}')"
+                onmouseenter="showReactionTooltip(event, '${names.replace(/'/g, "\\'")}')"
+                onmouseleave="hideReactionTooltip()"
+                style="
+                    background: ${userReacted ? 'var(--primary-color)' : 'var(--card-bg)'};
+                    color: ${userReacted ? 'white' : 'var(--text-primary)'};
+                    border: 1px solid ${userReacted ? 'var(--primary-color)' : 'var(--border-color)'};
+                    border-radius: 12px;
+                    padding: 4px 8px;
+                    font-size: 14px;
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    transition: all 0.2s;
+                "
+                onmouseover="if(!${userReacted}) this.style.background='var(--bg-secondary)'"
+                onmouseout="if(!${userReacted}) this.style.background='var(--card-bg)'"
+            >
+                <span>${emoji}</span>
+                <span style="font-size: 12px;">${count}</span>
+            </button>
+        `;
+    }).join('');
+
+    return `
+        <div class="message-reactions" style="
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        ">
+            ${reactionButtons}
+        </div>
+    `;
+}
+
+// Show tooltip with names of people who reacted
+let reactionTooltip = null;
+window.showReactionTooltip = function(event, names) {
+    hideReactionTooltip();
+
+    reactionTooltip = document.createElement('div');
+    reactionTooltip.style.cssText = `
+        position: fixed;
+        background: var(--tooltip-bg, rgba(0, 0, 0, 0.8));
+        color: white;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 10000;
+        pointer-events: none;
+        white-space: nowrap;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    `;
+    reactionTooltip.textContent = names;
+
+    const rect = event.target.getBoundingClientRect();
+    reactionTooltip.style.top = `${rect.top - 30}px`;
+    reactionTooltip.style.left = `${rect.left}px`;
+
+    document.body.appendChild(reactionTooltip);
+}
+
+window.hideReactionTooltip = function() {
+    if (reactionTooltip) {
+        reactionTooltip.remove();
+        reactionTooltip = null;
+    }
+}
+
+// Update reaction display for a specific message
+window.updateReactionDisplay = function(messageId, messageType) {
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!messageElement) return;
+
+    // Find or create reactions container
+    let reactionsContainer = messageElement.querySelector('.message-reactions-wrapper');
+    if (!reactionsContainer) {
+        reactionsContainer = document.createElement('div');
+        reactionsContainer.className = 'message-reactions-wrapper';
+        messageElement.appendChild(reactionsContainer);
+    }
+
+    reactionsContainer.innerHTML = `
+        ${renderReactions(messageId, messageType)}
+        <button
+            onclick="showReactionPicker('${messageId}', '${messageType}', event)"
+            style="
+                background: none;
+                border: 1px solid var(--border-color);
+                border-radius: 12px;
+                padding: 4px 8px;
+                font-size: 16px;
+                cursor: pointer;
+                color: var(--text-secondary);
+                transition: all 0.2s;
+            "
+            onmouseover="this.style.background='var(--bg-secondary)'"
+            onmouseout="this.style.background='none'"
+            title="Add reaction"
+        >
+            +
+        </button>
+    `;
+}
+
+// ========== END MESSAGE REACTIONS ==========
+
 // Global variable to track current event
 let currentEvent = null;
 let eventMessageSubscription = null;
@@ -8057,6 +8360,12 @@ eventMessageSubscription = supabase
         console.log('🗑️ Message deleted:', payload);
         loadEventMessages(currentEvent.id, currentEvent.created_at);
     })
+    .on('broadcast', { event: 'reaction_changed' }, async (payload) => {
+        console.log('👍 Event message reaction changed:', payload);
+        const messageId = payload.payload.messageId;
+        await fetchMessageReactions(messageId, 'event');
+        updateReactionDisplay(messageId, 'event');
+    })
     .subscribe((status) => {
         console.log('Event chat subscription status:', status);
     });
@@ -8249,23 +8558,28 @@ function forceScrollToBottom(attempts = 0) {
 // Helper to append message to specific container
 function appendMessageToContainer(message, container) {
     const isOwnMessage = message.sender_id === currentUser.id;
-    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit' 
+    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
     });
-    
+
+    // Determine message type from current context
+    const context = getCurrentChatContext();
+    const messageType = context.type;
+
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message';
+    messageDiv.setAttribute('data-message-id', message.id);
     messageDiv.style.cssText = `
         display: flex;
         flex-direction: column;
         align-items: ${isOwnMessage ? 'flex-end' : 'flex-start'};
         margin-bottom: 15px;
     `;
-    
+
     let onClick = '';
     let content = message.content;
-    
+
     messageDiv.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
             ${renderAvatar(message.sender.avatar, 32)}
@@ -8291,29 +8605,61 @@ function appendMessageToContainer(message, container) {
                 ${content}
             </div>
         </div>
+        <div class="message-reactions-wrapper" style="margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button
+                onclick="showReactionPicker('${message.id}', '${messageType}', event)"
+                style="
+                    background: none;
+                    border: 1px solid var(--border-color);
+                    border-radius: 12px;
+                    padding: 4px 8px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    color: var(--text-secondary);
+                    transition: all 0.2s;
+                "
+                onmouseover="this.style.background='var(--bg-secondary)'"
+                onmouseout="this.style.background='none'"
+                title="Add reaction"
+            >
+                +
+            </button>
+        </div>
     `;
-    
+
     // Add edit/delete for own messages (archived messages are read-only for simplicity)
-    
+
     container.appendChild(messageDiv);
+
+    // Fetch and display reactions for this message
+    if (messageType !== 'none') {
+        fetchMessageReactions(message.id, messageType).then(() => {
+            updateReactionDisplay(message.id, messageType);
+        });
+    }
 }
 
 function appendMessage(message) {
     const messagesContainer = document.getElementById('chat-messages');
-    
+
     // Remove placeholder text if it exists
     const placeholder = messagesContainer.querySelector('p');
     if (placeholder && placeholder.textContent.includes('No messages yet')) {
         messagesContainer.innerHTML = '';
     }
-    
+
     const isOwnMessage = message.sender_id === currentUser.id;
-    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit' 
+    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
     });
-    
+
+    // Determine message type from current context
+    const context = getCurrentChatContext();
+    const messageType = context.type;
+
     const messageDiv = document.createElement('div');
+    messageDiv.setAttribute('data-message-id', message.id);
     messageDiv.style.cssText = `
         display: flex;
         flex-direction: column;
@@ -8321,7 +8667,7 @@ function appendMessage(message) {
         margin-bottom: 15px;
         width: 100%;
     `;
-    
+
     messageDiv.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
             ${renderAvatar(message.sender.avatar, 32)}
@@ -8339,17 +8685,44 @@ function appendMessage(message) {
             ${isOwnMessage ? `
     <div class="message-actions" style="position: relative;">
         <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
-        <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
-            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
-            <button onclick="deleteEventMessage('${message.id}')" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Delete</button>
+        <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: var(--card-bg, white); border: 1px solid var(--border-color, #ddd); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
+            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer; color: var(--text-color, black);" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
+            <button onclick="deleteEventMessage('${message.id}')" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer; color: var(--text-color, black);" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Delete</button>
         </div>
     </div>
 ` : ''}
         </div>
+        <div class="message-reactions-wrapper" style="margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button
+                onclick="showReactionPicker('${message.id}', '${messageType}', event)"
+                style="
+                    background: none;
+                    border: 1px solid var(--border-color);
+                    border-radius: 12px;
+                    padding: 4px 8px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    color: var(--text-secondary);
+                    transition: all 0.2s;
+                "
+                onmouseover="this.style.background='var(--bg-secondary)'"
+                onmouseout="this.style.background='none'"
+                title="Add reaction"
+            >
+                +
+            </button>
+        </div>
     `;
-    
+
     messagesContainer.appendChild(messageDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Fetch and display reactions for this message
+    if (messageType !== 'none') {
+        fetchMessageReactions(message.id, messageType).then(() => {
+            updateReactionDisplay(message.id, messageType);
+        });
+    }
 }
 
 // Send message
