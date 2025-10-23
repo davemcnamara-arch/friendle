@@ -8,3 +8,8 @@ verify_jwt = false
 [functions.stay-interested]
 # Endpoint called when users click "Stay Interested" button
 verify_jwt = false
+
+[functions.event-reminders]
+# Daily cron job to send 9am reminders for events scheduled today
+# Runs at 9:00 AM UTC every day
+verify_jwt = false
