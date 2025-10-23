@@ -5,12 +5,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 interface StayInterestedRequest {
   matchId: string
   profileId: string
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
   try {
     // Parse request body
     const { matchId, profileId }: StayInterestedRequest = await req.json()
@@ -22,7 +33,7 @@ serve(async (req) => {
           error: 'Missing required fields: matchId and profileId'
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400
         }
       )
@@ -53,7 +64,7 @@ serve(async (req) => {
           error: 'Failed to update interaction timestamp'
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500
         }
       )
@@ -82,7 +93,7 @@ serve(async (req) => {
         message: 'Interaction timestamp updated successfully'
       }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
       }
     )
@@ -95,7 +106,7 @@ serve(async (req) => {
         error: error.message
       }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       }
     )
