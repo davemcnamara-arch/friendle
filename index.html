@@ -8199,15 +8199,44 @@ window.sharePhoto = function() {
                     })
                     .select(`*, sender:profiles(id, name, avatar)`)
                     .single();
-                
+
                 if (messageError) throw messageError;
-                
+
                 appendMessage(messageData);
-                
+
                 const channel = supabase.channel(`match_chat_${context.id}`);
                 await channel.send({
                     type: 'broadcast',
                     event: 'new_message',
+                    payload: {
+                        id: messageData.id,
+                        sender_id: currentUser.id,
+                        sender_name: currentUser.name,
+                        sender_avatar: currentUser.avatar,
+                        content: messageData.content,
+                        created_at: messageData.created_at
+                    }
+                });
+            } else if (context.type === 'circle') {
+                // CIRCLE CHAT
+                const { data: messageData, error: messageError } = await supabase
+                    .from('circle_messages')
+                    .insert({
+                        circle_id: context.id,
+                        sender_id: currentUser.id,
+                        content: `<img src="${photoUrl}" style="max-width: 100%; max-height: 300px; width: auto; height: auto; display: block; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
+                    })
+                    .select(`*, sender:profiles(id, name, avatar)`)
+                    .single();
+
+                if (messageError) throw messageError;
+
+                appendMessage(messageData);
+
+                const channel = supabase.channel(`circle_chat_${context.id}`);
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'new_circle_message',
                     payload: {
                         id: messageData.id,
                         sender_id: currentUser.id,
@@ -8424,15 +8453,44 @@ async function checkLocationPermission() {
                         })
                         .select(`*, sender:profiles(id, name, avatar)`)
                         .single();
-                    
+
                     if (error) throw error;
-                    
+
                     appendMessage(data);
-                    
+
                     const channel = supabase.channel(`match_chat_${context.id}`);
                     await channel.send({
                         type: 'broadcast',
                         event: 'new_general_message',
+                        payload: {
+                            id: data.id,
+                            sender_id: currentUser.id,
+                            sender_name: currentUser.name,
+                            sender_avatar: currentUser.avatar,
+                            content: data.content,
+                            created_at: data.created_at
+                        }
+                    });
+                } else if (context.type === 'circle') {
+                    // CIRCLE CHAT
+                    const { data, error } = await supabase
+                        .from('circle_messages')
+                        .insert({
+                            circle_id: context.id,
+                            sender_id: currentUser.id,
+                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e90ff; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
+                        })
+                        .select(`*, sender:profiles(id, name, avatar)`)
+                        .single();
+
+                    if (error) throw error;
+
+                    appendMessage(data);
+
+                    const channel = supabase.channel(`circle_chat_${context.id}`);
+                    await channel.send({
+                        type: 'broadcast',
+                        event: 'new_circle_message',
                         payload: {
                             id: data.id,
                             sender_id: currentUser.id,
@@ -8536,15 +8594,44 @@ window.findNearbyPlaces = async function() {
             })
             .select(`*, sender:profiles(id, name, avatar)`)
             .single();
-        
+
         if (error) throw error;
-        
+
         appendMessage(data);
-        
+
         const channel = supabase.channel(`match_chat_${context.id}`);
         await channel.send({
             type: 'broadcast',
             event: 'new_general_message',
+            payload: {
+                id: data.id,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                sender_avatar: currentUser.avatar,
+                content: data.content,
+                created_at: data.created_at
+            }
+        });
+    } else if (context.type === 'circle') {
+        // CIRCLE CHAT
+        const { data, error } = await supabase
+            .from('circle_messages')
+            .insert({
+                circle_id: context.id,
+                sender_id: currentUser.id,
+                content: `🔍 <a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline; font-weight: 500;">Find nearby ${activityName} spots</a>`
+            })
+            .select(`*, sender:profiles(id, name, avatar)`)
+            .single();
+
+        if (error) throw error;
+
+        appendMessage(data);
+
+        const channel = supabase.channel(`circle_chat_${context.id}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'new_circle_message',
             payload: {
                 id: data.id,
                 sender_id: currentUser.id,
