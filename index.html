@@ -4010,13 +4010,20 @@ function renderSwipeCard(activity) {
     const card = document.createElement('div');
     card.className = 'swipe-card';
     card.id = `card-${activity.id}`;
+
+    // Check for dark mode
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    const bgColor = isDarkMode ? '#1a1a1e' : 'white';
+    const borderColor = isDarkMode ? '#2a2a2e' : '#e1e5e9';
+    const textColor = isDarkMode ? '#e5e5e7' : '#1a1a1a';
+
     card.style.cssText = `
         position: absolute;
         width: 100%;
         max-width: 350px;
         height: 400px;
-        background: white;
-        border: 3px solid #e1e5e9;
+        background: ${bgColor};
+        border: 3px solid ${borderColor};
         border-radius: 20px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
         display: flex;
@@ -4028,12 +4035,12 @@ function renderSwipeCard(activity) {
         user-select: none;
         transition: transform 0.1s ease-out;
     `;
-    
+
     const isAlreadySelected = activities.some(a => a.id === activity.id);
-    
+
     card.innerHTML = `
         <div style="font-size: 5em; margin-bottom: 20px;">${activity.emoji}</div>
-        <h2 style="font-size: 1.8em; margin-bottom: 10px; text-align: center;">${activity.name}</h2>
+        <h2 style="font-size: 1.8em; margin-bottom: 10px; text-align: center; color: ${textColor};">${activity.name}</h2>
         ${activity.popularityCount > 0 ? `
             <div style="
                 background: linear-gradient(135deg, #667eea, #764ba2);
@@ -4059,7 +4066,7 @@ function renderSwipeCard(activity) {
             </div>
         ` : ''}
     `;
-    
+
     setupSwipeDetection(card, activity);
     return card;
 }
