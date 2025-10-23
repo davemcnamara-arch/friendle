@@ -16,16 +16,21 @@ SELECT cron.unschedule('event-reminders-hourly') WHERE EXISTS (
 -- Schedule the event-reminders function to run every hour
 -- The function will check which users are currently in their 9am hour
 -- and send reminders for events scheduled today in their timezone
+--
+-- IMPORTANT: Before running this, replace the following placeholders:
+--   - YOUR_PROJECT_REF: Find in Supabase Dashboard → Settings → General → Reference ID
+--   - YOUR_SERVICE_ROLE_KEY: Find in Supabase Dashboard → Settings → API → Service Role Key
+--
 SELECT cron.schedule(
   'event-reminders-hourly',          -- Job name
   '0 * * * *',                       -- Cron expression: Every hour at minute 0
   $$
     SELECT
       net.http_post(
-        url := 'https://' || current_setting('app.settings.project_ref') || '.supabase.co/functions/v1/event-reminders',
+        url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/event-reminders',
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
-          'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
+          'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
         ),
         body := '{}'::jsonb
       ) as request_id;
@@ -41,6 +46,23 @@ SELECT jobid, jobname, schedule, command
 FROM cron.job
 WHERE jobname = 'event-reminders-hourly';
 
--- Note: You'll need to set the following settings in your Supabase project:
--- ALTER DATABASE postgres SET app.settings.project_ref = 'your-project-ref';
--- ALTER DATABASE postgres SET app.settings.service_role_key = 'your-service-role-key';
+-- ==========================================
+-- SETUP INSTRUCTIONS
+-- ==========================================
+--
+-- This migration requires you to manually replace two placeholders in the SQL above:
+--
+-- 1. YOUR_PROJECT_REF
+--    - Location: Supabase Dashboard → Settings → General → Reference ID
+--    - Example: "abcdefghijklmnop"
+--
+-- 2. YOUR_SERVICE_ROLE_KEY
+--    - Location: Supabase Dashboard → Settings → API → Service Role Key
+--    - Example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ..."
+--    - ⚠️  IMPORTANT: Keep this secret! Only use in secure database queries.
+--
+-- Note: We hardcode these values because Supabase doesn't allow setting custom
+-- database-level parameters (ALTER DATABASE ... SET app.settings.*) without
+-- superuser privileges. The edge function will receive these credentials and
+-- use its own environment variables (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+-- for subsequent operations.
