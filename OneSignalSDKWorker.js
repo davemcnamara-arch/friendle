@@ -41,49 +41,45 @@ self.addEventListener('fetch', event => {
 
 // Handle notification clicks - focus existing client instead of opening new window
 self.addEventListener('notificationclick', event => {
-  console.log('Service Worker: Notification clicked', event);
-  console.log('Service Worker: Notification object:', event.notification);
-  console.log('Service Worker: Notification data:', event.notification.data);
-  console.log('Service Worker: Notification tag:', event.notification.tag);
-  console.log('Service Worker: Event action:', event.action);
+  console.log('🔔 SW: Notification clicked', event);
+  console.log('📦 SW: Full notification object:', JSON.stringify(event.notification, null, 2));
 
   event.notification.close();
 
-  // Get the notification data - try multiple locations
+  // Get the notification data - OneSignal stores it in event.notification.data
   const data = event.notification.data || {};
+  console.log('📦 SW: Notification data:', JSON.stringify(data, null, 2));
+  console.log('📦 SW: Data keys:', Object.keys(data));
 
-  // Try to extract from different possible locations (camelCase)
-  let chatType = data.chatType;
-  let chatId = data.chatId;
+  // Try to extract chat info from different possible locations
+  let chatType = data.chatType || data.chat_type;
+  let chatId = data.chatId || data.chat_id;
 
-  // Fallback to snake_case for backward compatibility
-  if (!chatType) {
-    chatType = data.chat_type;
-    chatId = data.chat_id;
+  // Check if data is nested (sometimes OneSignal nests custom data)
+  if (!chatType && typeof data === 'object') {
+    // Try to find chatType in any nested object
+    for (const key in data) {
+      if (data[key] && typeof data[key] === 'object') {
+        chatType = data[key].chatType || data[key].chat_type;
+        chatId = data[key].chatId || data[key].chat_id;
+        if (chatType) {
+          console.log('📦 SW: Found chat data nested in key:', key);
+          break;
+        }
+      }
+    }
   }
 
-  // If not found, try nested in additionalData
-  if (!chatType && data.additionalData) {
-    chatType = data.additionalData.chatType || data.additionalData.chat_type;
-    chatId = data.additionalData.chatId || data.additionalData.chat_id;
-  }
-
-  // If still not found, try to parse from notification tag or other fields
-  if (!chatType && event.notification.tag) {
-    console.log('Service Worker: Trying to parse from tag:', event.notification.tag);
-  }
-
-  console.log('Service Worker: Extracted chat info:', { chatType, chatId });
+  console.log('✅ SW: Extracted chat info:', { chatType, chatId });
 
   // Construct URL with query parameters for deep linking
   let urlToOpen = self.location.origin + '/';
 
   if (chatType && chatId) {
     urlToOpen = `${self.location.origin}/?openChat=${chatId}&chatType=${chatType}`;
-    console.log('Service Worker: Constructed URL with chat params:', urlToOpen);
+    console.log('🔗 SW: Constructed URL with chat params:', urlToOpen);
   } else {
-    console.log('Service Worker: No chat data found, using base URL');
-    console.log('Service Worker: Available data keys:', Object.keys(data));
+    console.log('⚠️ SW: No chat data found, using base URL');
   }
 
   event.waitUntil(
@@ -92,18 +88,19 @@ self.addEventListener('notificationclick', event => {
       includeUncontrolled: true
     })
     .then(clientList => {
-      console.log('Service Worker: Found', clientList.length, 'clients');
+      console.log('👥 SW: Found', clientList.length, 'clients');
 
       // Try to focus an existing client
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
-        console.log('Service Worker: Checking client', client.url);
+        console.log('🔍 SW: Checking client', client.url);
 
         if (client.url.includes(self.location.origin)) {
-          console.log('Service Worker: Focusing existing client and navigating to:', urlToOpen);
+          console.log('✅ SW: Focusing existing client and navigating to:', urlToOpen);
           // Always navigate to update the URL with chat parameters
           return client.focus().then(() => {
             if (chatType && chatId) {
+              console.log('🚀 SW: Navigating client to:', urlToOpen);
               return client.navigate(urlToOpen);
             }
             return client;
@@ -112,7 +109,7 @@ self.addEventListener('notificationclick', event => {
       }
 
       // No existing client found, open new window
-      console.log('Service Worker: Opening new client at:', urlToOpen);
+      console.log('🆕 SW: Opening new client at:', urlToOpen);
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
