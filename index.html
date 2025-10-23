@@ -5433,13 +5433,13 @@ async function saveMatchesToSupabase(matches, circleId) {
 async function sendNewMatchNotification(match) {
     try {
         console.log('📢 Sending new match notification for:', match.activity?.name);
-        
+
         // Get all users who are interested in this activity (have it in preferences)
         const { data: interestedUsers, error } = await supabase
             .from('preferences')
-            .select('profile_id, profiles(id, name, onesignal_player_id)')
-            .eq('circle_id', match.circleId)
-            .eq('activity_id', match.activity.id)
+            .select('profile_id, profiles(id, name, onesignal_player_id, notify_new_matches)')
+            .eq('circle_id', match.circle_id)
+            .eq('activity_id', match.activity_id || match.activity.id)
             .neq('profile_id', currentUser.id); // Don't notify yourself
         
         if (error) throw error;
@@ -5491,11 +5491,11 @@ async function sendNewMatchNotification(match) {
                 notificationType: 'new_match'
             }
         });
-        
+
         if (notifError) {
             console.error('❌ Error sending match notification:', notifError);
         } else {
-            console.log('✅ Match notifications sent successfully');
+            console.log('✅ Match notifications sent successfully:', data);
         }
         
     } catch (error) {
@@ -5562,11 +5562,11 @@ async function sendEventJoinNotification(event) {
                 notificationType: 'event_join'
             }
         });
-        
+
         if (notifError) {
             console.error('❌ Error sending event join notification:', notifError);
         } else {
-            console.log('✅ Event join notifications sent successfully');
+            console.log('✅ Event join notifications sent successfully:', data);
         }
         
     } catch (error) {
@@ -6402,19 +6402,24 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     activityName: activityName,
                     chatType: context.type
                 });
-                
-                await supabase.functions.invoke('send-notification', {
-    body: {
-        senderId: currentUser.id,
-        recipientIds: recipientIds,
-        message: messageContent,
-        activityName: activityName,
-        chatType: context.type,
-        chatId: context.id  // Add the match or event ID
-    }
-});
-                
-                console.log('✅ Push notification sent');
+
+                const { data: notifData, error: notifError } = await supabase.functions.invoke('send-notification', {
+                    body: {
+                        senderId: currentUser.id,
+                        recipientIds: recipientIds,
+                        message: messageContent,
+                        activityName: activityName,
+                        chatType: context.type,
+                        chatId: context.id,
+                        notificationType: 'chat_message'
+                    }
+                });
+
+                if (notifError) {
+                    console.error('❌ Error sending chat notification:', notifError);
+                } else {
+                    console.log('✅ Chat notification sent successfully:', notifData);
+                }
             }
         } catch (notifError) {
             console.error('Error sending notification:', notifError);
