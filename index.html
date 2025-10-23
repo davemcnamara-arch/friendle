@@ -1197,7 +1197,7 @@ OneSignal.Notifications.addEventListener('click', (event) => {
 
     <div id="password-reset-form" style="display: none;">
         <h2 style="text-align: center; margin-bottom: 20px;">🔒 Reset Your Password</h2>
-        <p style="text-align: center; color: #666; margin-bottom: 20px;">Enter your new password below</p>
+        <p style="text-align: center; color: #666; margin-bottom: 20px;">Welcome! Your password reset link worked. Enter your new password below to complete the process.</p>
         <div class="form-group"><label for="new-reset-password">New Password</label><input type="password" id="new-reset-password" placeholder="Enter new password (6+ characters)"></div>
         <div class="form-group"><label for="confirm-reset-password">Confirm Password</label><input type="password" id="confirm-reset-password" placeholder="Confirm new password"></div>
         <button class="btn" onclick="submitPasswordReset()">Reset Password</button>
@@ -1743,6 +1743,9 @@ function showPasswordResetModal() {
 
     // Show the auth page if not already visible
     document.getElementById('auth').classList.add('active');
+
+    // Hide loader if it's showing
+    hideLoader();
 }
 
 async function submitPasswordReset() {
@@ -1789,25 +1792,25 @@ async function submitPasswordReset() {
 
 async function sendPasswordReset() {
     const email = document.getElementById('reset-email').value.trim();
-    
+
     if (!email) {
         return showNotification('Please enter your email address', 'error');
     }
-    
+
     try {
         showLoader('Sending reset link...');
-        
+
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: window.location.origin
         });
-        
+
         if (error) throw error;
-        
+
         hideLoader();
-        showNotification('Password reset link sent! 📧 Please check your email (it may take a few minutes to arrive). Don\'t forget to check your spam folder!', 'success');
+        showNotification('Password reset link sent! 📧\n\nIMPORTANT: The email may take 5-15 minutes to arrive. Please be patient and check your spam/junk folder if you don\'t see it.\n\nClick the link in the email to reset your password.', 'success');
         showLogin();
         document.getElementById('reset-email').value = '';
-        
+
     } catch (error) {
         hideLoader();
         console.error('Password reset error:', error);
@@ -8206,19 +8209,33 @@ if (pageId === 'matches') {
 }
 
  async function initApp() {
+    // Check if this is a password recovery flow (from email link)
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const isPasswordRecovery = hashParams.get('type') === 'recovery';
+
+    if (isPasswordRecovery) {
+        // Show loader with recovery message
+        showLoader('Processing password reset...');
+        // Show auth page immediately so user doesn't see other content
+        document.getElementById('auth').classList.add('active');
+        // The onAuthStateChange listener will handle showing the password reset form
+        // when the PASSWORD_RECOVERY event fires
+        return;
+    }
+
     // Show loader immediately while checking auth
     showLoader('Loading...');
-    
+
     await loadDefaultActivities();
     const urlParams = new URLSearchParams(window.location.search);
     const inviteCode = urlParams.get('invite_code');
-    
+
     // Store invite code for after authentication
     if (inviteCode) {
         sessionStorage.setItem('pending_invite_code', inviteCode);
     }
     // Note: We'll clean up URL later, after checking for chat parameters
-    
+
     // Check for existing Supabase auth session
     const { data: { session } } = await supabase.auth.getSession();
     
