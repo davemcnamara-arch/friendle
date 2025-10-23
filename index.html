@@ -1159,6 +1159,8 @@
   
   // Add global Supabase error handler
   supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state changed:', event);
+
     if (event === 'SIGNED_OUT') {
       console.log('User signed out');
     } else if (event === 'TOKEN_REFRESHED') {
@@ -1166,8 +1168,12 @@
     } else if (event === 'USER_UPDATED') {
       console.log('User updated');
     } else if (event === 'PASSWORD_RECOVERY') {
-      console.log('Password recovery detected');
-      showPasswordResetModal();
+      console.log('Password recovery detected - showing reset form');
+      // Ensure we show the password reset form regardless of app state
+      // Use setTimeout to ensure DOM is ready and avoid race conditions
+      setTimeout(() => {
+        showPasswordResetModal();
+      }, 100);
     }
   });
 </script>
@@ -1189,22 +1195,46 @@
     }
     
     // Handle notification clicks
-OneSignal.Notifications.addEventListener('click', (event) => {
+OneSignal.Notifications.addEventListener('click', async (event) => {
   console.log('🔔 Notification clicked:', event);
 
   const data = event.notification.additionalData;
   console.log('📦 Notification data:', data);
 
-  // Always use URL parameters for reliable deep linking
-  // This ensures consistent behavior whether app is loaded or not
-  const baseUrl = window.location.origin + window.location.pathname;
+  // Check if app is already loaded and user is authenticated
+  const isAppLoaded = document.readyState === 'complete' && window.currentUser;
 
-  if (data && data.chatType && data.chatId) {
-    console.log('🚀 Redirecting to chat:', data.chatType, data.chatId);
-    window.location.href = `${baseUrl}?openChat=${data.chatId}&chatType=${data.chatType}`;
+  if (isAppLoaded && data && data.chatType && data.chatId) {
+    // App is loaded - navigate in-app without page reload
+    console.log('✅ App is loaded - navigating in-app to:', data.chatType, data.chatId);
+
+    try {
+      // Navigate directly to the chat
+      if (data.chatType === 'match') {
+        await openMatchChatThreaded(data.chatId);
+      } else if (data.chatType === 'event') {
+        await openEventChat(data.chatId);
+      } else if (data.chatType === 'circle') {
+        await openCircleChat(data.chatId);
+      }
+      console.log('✅ Successfully navigated to chat in-app');
+    } catch (error) {
+      console.error('❌ Error navigating to chat:', error);
+      // Fallback to showing matches page
+      showPage('matches');
+    }
   } else {
-    console.log('No chat data in notification, opening app home...');
-    window.location.href = baseUrl;
+    // App not loaded or user not authenticated - use URL parameters
+    console.log('⚠️ App not ready - using URL redirect method');
+    const baseUrl = window.location.origin + window.location.pathname;
+
+    if (data && data.chatType && data.chatId) {
+      console.log('🚀 Redirecting to chat with URL params:', data.chatType, data.chatId);
+      window.location.href = `${baseUrl}?openChat=${data.chatId}&chatType=${data.chatType}`;
+    } else {
+      console.log('No chat data in notification, opening app home...');
+      window.location.href = baseUrl;
+    }
   }
 });
     
@@ -1280,44 +1310,44 @@ OneSignal.Notifications.addEventListener('click', (event) => {
             <div id="welcome" class="page">
     <div class="header"><div class="logo">⭕ Friendle</div><div class="tagline">What do you feel like doing?</div></div>
     
-    <div id="login-form">
-        <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" placeholder="Enter your email"></div>
-        <div class="form-group"><label for="login-password">Password</label><input type="password" id="login-password" placeholder="Enter your password"></div>
-        <button class="btn" onclick="signIn()">Sign In</button>
-        <button class="btn btn-secondary" onclick="showRegister()">Create Account</button>
+    <form id="login-form" onsubmit="event.preventDefault(); signIn();">
+        <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" placeholder="Enter your email" autocomplete="email" inputmode="email"></div>
+        <div class="form-group"><label for="login-password">Password</label><input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password"></div>
+        <button type="submit" class="btn">Sign In</button>
+        <button type="button" class="btn btn-secondary" onclick="showRegister()">Create Account</button>
         <div style="text-align: center; margin-top: 15px;">
             <a href="#" onclick="showForgotPassword(); return false;" style="color: #667eea; text-decoration: underline; font-size: 0.9em;">Forgot password?</a>
         </div>
-    </div>
+    </form>
     
-    <div id="register-form" style="display: none;">
-        <div class="form-group"><label for="register-email">Email</label><input type="email" id="register-email" placeholder="Enter your email"></div>
-        <div class="form-group"><label for="register-password">Password</label><input type="password" id="register-password" placeholder="Create a password (6+ characters)"></div>
-        <div class="form-group"><label for="register-name">Your Name</label><input type="text" id="register-name" placeholder="Enter your name"></div>
+    <form id="register-form" style="display: none;" onsubmit="event.preventDefault(); signUp();">
+        <div class="form-group"><label for="register-email">Email</label><input type="email" id="register-email" placeholder="Enter your email" autocomplete="email" inputmode="email"></div>
+        <div class="form-group"><label for="register-password">Password</label><input type="password" id="register-password" placeholder="Create a password (6+ characters)" autocomplete="new-password"></div>
+        <div class="form-group"><label for="register-name">Your Name</label><input type="text" id="register-name" placeholder="Enter your name" autocomplete="name"></div>
         <div class="form-group"><label>Choose Your Avatar</label><div class="avatar-grid">
             <div class="avatar-option" data-avatar="😊">😊</div><div class="avatar-option" data-avatar="🌟">🌟</div><div class="avatar-option" data-avatar="🦄">🦄</div><div class="avatar-option" data-avatar="🐨">🐨</div>
             <div class="avatar-option" data-avatar="🎮">🎮</div><div class="avatar-option" data-avatar="🎨">🎨</div><div class="avatar-option" data-avatar="⚡">⚡</div><div class="avatar-option" data-avatar="🌙">🌙</div>
         </div></div>
-        <button class="btn" onclick="signUp()">Create Account</button>
+        <button type="submit" class="btn">Create Account</button>
         <div style="text-align: center; margin-top: 20px; margin-bottom: -10px; color: #666; font-size: 0.9em;">
     Already have an account?
 </div>
-<button class="btn btn-secondary" onclick="showLogin()">Sign In</button>
-    </div>
+<button type="button" class="btn btn-secondary" onclick="showLogin()">Sign In</button>
+    </form>
     
-    <div id="forgot-password-form" style="display: none;">
-        <div class="form-group"><label for="reset-email">Email</label><input type="email" id="reset-email" placeholder="Enter your email"></div>
-        <button class="btn" onclick="sendPasswordReset()">Send Reset Link</button>
-        <button class="btn btn-secondary" onclick="showLogin()">Back to Sign In</button>
-    </div>
+    <form id="forgot-password-form" style="display: none;" onsubmit="event.preventDefault(); sendPasswordReset();">
+        <div class="form-group"><label for="reset-email">Email</label><input type="email" id="reset-email" placeholder="Enter your email" autocomplete="email" inputmode="email"></div>
+        <button type="submit" class="btn">Send Reset Link</button>
+        <button type="button" class="btn btn-secondary" onclick="showLogin()">Back to Sign In</button>
+    </form>
 
-    <div id="password-reset-form" style="display: none;">
+    <form id="password-reset-form" style="display: none;" onsubmit="event.preventDefault(); submitPasswordReset();">
         <h2 style="text-align: center; margin-bottom: 20px;">🔒 Reset Your Password</h2>
         <p style="text-align: center; color: #666; margin-bottom: 20px;">Welcome! Your password reset link worked. Enter your new password below to complete the process.</p>
-        <div class="form-group"><label for="new-reset-password">New Password</label><input type="password" id="new-reset-password" placeholder="Enter new password (6+ characters)"></div>
-        <div class="form-group"><label for="confirm-reset-password">Confirm Password</label><input type="password" id="confirm-reset-password" placeholder="Confirm new password"></div>
-        <button class="btn" onclick="submitPasswordReset()">Reset Password</button>
-    </div>
+        <div class="form-group"><label for="new-reset-password">New Password</label><input type="password" id="new-reset-password" placeholder="Enter new password (6+ characters)" autocomplete="new-password"></div>
+        <div class="form-group"><label for="confirm-reset-password">Confirm Password</label><input type="password" id="confirm-reset-password" placeholder="Confirm new password" autocomplete="new-password"></div>
+        <button type="submit" class="btn">Reset Password</button>
+    </form>
 </div>
             <div id="circles" class="page">
     <div class="header">
@@ -1783,16 +1813,31 @@ function showForgotPassword() {
 }
 
 function showPasswordResetModal() {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('register-form').style.display = 'none';
-    document.getElementById('forgot-password-form').style.display = 'none';
-    document.getElementById('password-reset-form').style.display = 'block';
+    console.log('Showing password reset modal');
 
-    // Show the auth page if not already visible
-    document.getElementById('auth').classList.add('active');
+    // Hide all other forms
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
+    const passwordResetForm = document.getElementById('password-reset-form');
+
+    if (loginForm) loginForm.style.display = 'none';
+    if (registerForm) registerForm.style.display = 'none';
+    if (forgotPasswordForm) forgotPasswordForm.style.display = 'none';
+    if (passwordResetForm) passwordResetForm.style.display = 'block';
+
+    // Show the welcome page (which contains the password reset form)
+    const welcomePage = document.getElementById('welcome');
+    if (welcomePage) {
+        // Hide all other pages first
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        welcomePage.classList.add('active');
+    }
 
     // Hide loader if it's showing
     hideLoader();
+
+    console.log('Password reset form should now be visible');
 }
 
 async function submitPasswordReset() {
