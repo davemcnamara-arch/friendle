@@ -5067,7 +5067,16 @@ document.getElementById('event-participants').innerHTML =
         
         hideLoader();
         showPage('chat');
-        
+
+        // Ensure scroll to bottom after page is shown (especially for notifications)
+        setTimeout(() => {
+            const messagesContainer = document.getElementById('chat-messages');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                console.log('📜 Final scroll to bottom after page shown');
+            }
+        }, 600);
+
     } catch (error) {
         hideLoader();
         console.error('Error opening threaded chat:', error);
@@ -5394,6 +5403,15 @@ window.openCircleChat = async function(circleId) {
 
         hideLoader();
         showPage('chat');
+
+        // Ensure scroll to bottom after page is shown (especially for notifications)
+        setTimeout(() => {
+            const messagesContainer = document.getElementById('chat-messages');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                console.log('📜 Final scroll to bottom after page shown');
+            }
+        }, 600);
 
     } catch (error) {
         hideLoader();
@@ -7522,9 +7540,18 @@ eventMessageSubscription = supabase
     });
 
 allActiveSubscriptions.push(eventMessageSubscription);
-        
+
         showPage('chat');
-        
+
+        // Ensure scroll to bottom after page is shown (especially for notifications)
+        setTimeout(() => {
+            const messagesContainer = document.getElementById('chat-messages');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                console.log('📜 Final scroll to bottom after page shown');
+            }
+        }, 600);
+
     } catch (error) {
         console.error('Error loading event chat:', error);
         alert('Failed to load event chat');
