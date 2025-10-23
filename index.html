@@ -5221,11 +5221,23 @@ async function loadAndDisplayGeneralMessages(matchId) {
             `)
             .eq('match_id', matchId)
             .order('created_at', { ascending: true });
-        
+
         if (error) throw error;
-        
+
         const messagesContainer = document.getElementById('chat-messages');
-        
+
+        // Clear messages but preserve the header
+        const header = messagesContainer.querySelector('h4');
+        messagesContainer.innerHTML = '';
+
+        // Re-add header if it existed
+        if (header) {
+            const headerContainer = document.createElement('div');
+            headerContainer.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
+            headerContainer.appendChild(header);
+            messagesContainer.appendChild(headerContainer);
+        }
+
         if (!messages || messages.length === 0) {
             const placeholder = document.createElement('p');
             placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px; font-size: 14px;';
@@ -5233,12 +5245,17 @@ async function loadAndDisplayGeneralMessages(matchId) {
             messagesContainer.appendChild(placeholder);
             return;
         }
-        
+
         // Display each message
         messages.forEach(message => {
             appendMessage(message);
         });
-        
+
+        // Scroll to bottom after loading
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 50);
+
     } catch (error) {
         console.error('Error loading general messages:', error);
     }
@@ -5260,13 +5277,13 @@ async function setupMatchChatSubscription(matchId) {
         .channel(`match_chat_${matchId}`)
         .on('broadcast', { event: 'new_general_message' }, (payload) => {
             console.log('📨 Broadcast message received:', payload.payload);
-            
+
             // Don't duplicate messages we sent ourselves
             if (payload.payload.sender_id === currentUser.id) {
                 console.log('⏭️ Skipping own message');
                 return;
             }
-            
+
             // Append message to general chat
             const message = {
                 id: payload.payload.id,
@@ -5279,14 +5296,22 @@ async function setupMatchChatSubscription(matchId) {
                     avatar: payload.payload.sender_avatar
                 }
             };
-            
+
             appendMessage(message);
-            
+
             // Update badge if we're not currently viewing this match
             const currentContext = getCurrentChatContext();
             if (!currentContext || currentContext.id !== payload.payload.match_id) {
                 updateNotificationBadge();
             }
+        })
+        .on('broadcast', { event: 'message_edited' }, (payload) => {
+            console.log('✏️ Match message edited:', payload);
+            loadAndDisplayGeneralMessages(matchId);
+        })
+        .on('broadcast', { event: 'message_deleted' }, (payload) => {
+            console.log('🗑️ Match message deleted:', payload);
+            loadAndDisplayGeneralMessages(matchId);
         })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
@@ -5396,6 +5421,18 @@ async function loadAndDisplayCircleMessages(circleId) {
 
         const messagesContainer = document.getElementById('chat-messages');
 
+        // Clear messages but preserve the header
+        const header = messagesContainer.querySelector('h4');
+        messagesContainer.innerHTML = '';
+
+        // Re-add header if it existed
+        if (header) {
+            const headerContainer = document.createElement('div');
+            headerContainer.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
+            headerContainer.appendChild(header);
+            messagesContainer.appendChild(headerContainer);
+        }
+
         if (!messages || messages.length === 0) {
             const placeholder = document.createElement('p');
             placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px; font-size: 14px;';
@@ -5408,6 +5445,11 @@ async function loadAndDisplayCircleMessages(circleId) {
         messages.forEach(message => {
             appendMessage(message);
         });
+
+        // Scroll to bottom after loading
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 50);
 
     } catch (error) {
         console.error('Error loading circle messages:', error);
@@ -5457,6 +5499,14 @@ async function setupCircleChatSubscription(circleId) {
             if (!currentContext || currentContext.id !== payload.payload.circle_id) {
                 updateNotificationBadge();
             }
+        })
+        .on('broadcast', { event: 'message_edited' }, (payload) => {
+            console.log('✏️ Circle message edited:', payload);
+            loadAndDisplayCircleMessages(circleId);
+        })
+        .on('broadcast', { event: 'message_deleted' }, (payload) => {
+            console.log('🗑️ Circle message deleted:', payload);
+            loadAndDisplayCircleMessages(circleId);
         })
         .subscribe((status) => {
             console.log('Circle chat subscription status:', status);
@@ -6998,19 +7048,37 @@ window.editEventMessage = async function(msgId, currentContent) {
                 .update({ content: newContent.trim() })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
-            
+
             if (error) throw error;
-            
+
             const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_edited',
                 payload: { id: msgId, content: newContent.trim() }
             });
-            
+
             await loadMatchMessages(context.id);
+
+        } else if (context.type === 'circle') {
+            const { error } = await supabase
+                .from('circle_messages')
+                .update({ content: newContent.trim() })
+                .eq('id', msgId)
+                .eq('sender_id', currentUser.id);
+
+            if (error) throw error;
+
+            const channel = supabase.channel(`circle_chat_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'message_edited',
+                payload: { id: msgId, content: newContent.trim() }
+            });
+
+            await loadAndDisplayCircleMessages(context.id);
         }
-        
+
         showNotification('Message updated');
         
     } catch (error) {
@@ -7054,18 +7122,36 @@ window.deleteEventMessage = async function(msgId) {
                 .delete()
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
-            
+
             if (error) throw error;
-            
+
             const channel = supabase.channel(`match_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_deleted',
                 payload: { id: msgId }
             });
-            
+
             // Reload the general chat messages (not the full threaded view)
             await loadAndDisplayGeneralMessages(context.id);
+
+        } else if (context.type === 'circle') {
+            const { error } = await supabase
+                .from('circle_messages')
+                .delete()
+                .eq('id', msgId)
+                .eq('sender_id', currentUser.id);
+
+            if (error) throw error;
+
+            const channel = supabase.channel(`circle_chat_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'message_deleted',
+                payload: { id: msgId }
+            });
+
+            await loadAndDisplayCircleMessages(context.id);
         }
 
         showNotification('Message deleted');
