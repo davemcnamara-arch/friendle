@@ -169,22 +169,22 @@ serve(async (req) => {
       case 'new_match':
         heading = `${activityName || 'New Match'}!`
         content = `${senderName} just joined your match!`
-        notificationData.chat_type = chatType
-        notificationData.chat_id = chatId
+        notificationData.chatType = chatType  // Use camelCase for consistency with client code
+        notificationData.chatId = chatId
         break
 
       case 'event_join':
         heading = `${activityName || 'Event Update'}!`
         content = `${senderName} is joining your event!`
-        notificationData.chat_type = chatType
-        notificationData.chat_id = chatId
+        notificationData.chatType = chatType  // Use camelCase for consistency with client code
+        notificationData.chatId = chatId
         break
 
       case 'chat_message':
         heading = activityName || 'New Message'
         content = `${senderName}: ${message}`
-        notificationData.chat_type = chatType
-        notificationData.chat_id = chatId
+        notificationData.chatType = chatType  // Use camelCase for consistency with client code
+        notificationData.chatId = chatId
         notificationData.message = message
         break
     }
