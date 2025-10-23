@@ -1194,19 +1194,19 @@
       console.error('❌ OneSignal initialization error:', error);
     }
     
-    // Handle notification clicks
+    // Handle notification clicks - mostly handled by service worker
+    // This fires when app is in foreground
 OneSignal.Notifications.addEventListener('click', async (event) => {
-  console.log('🔔 Notification clicked:', event);
+  console.log('🔔 Page: Notification clicked (foreground handler)', event);
+  console.log('📦 Page: Notification data:', event.notification);
+  console.log('📦 Page: Additional data:', event.notification.additionalData);
 
-  const data = event.notification.additionalData;
-  console.log('📦 Notification data:', data);
+  const data = event.notification.additionalData || event.notification.data || {};
+  console.log('📦 Page: Extracted data:', data);
 
-  // Check if app is already loaded and user is authenticated
-  const isAppLoaded = document.readyState === 'complete' && window.currentUser;
-
-  if (isAppLoaded && data && data.chatType && data.chatId) {
-    // App is loaded - navigate in-app without page reload
-    console.log('✅ App is loaded - navigating in-app to:', data.chatType, data.chatId);
+  // When app is in foreground, navigate directly in-app
+  if (window.currentUser && data && data.chatType && data.chatId) {
+    console.log('✅ Page: User authenticated, navigating in-app to:', data.chatType, data.chatId);
 
     try {
       // Navigate directly to the chat
@@ -1217,24 +1217,15 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
       } else if (data.chatType === 'circle') {
         await openCircleChat(data.chatId);
       }
-      console.log('✅ Successfully navigated to chat in-app');
+      console.log('✅ Page: Successfully navigated to chat in-app');
     } catch (error) {
-      console.error('❌ Error navigating to chat:', error);
+      console.error('❌ Page: Error navigating to chat:', error);
       // Fallback to showing matches page
       showPage('matches');
     }
   } else {
-    // App not loaded or user not authenticated - use URL parameters
-    console.log('⚠️ App not ready - using URL redirect method');
-    const baseUrl = window.location.origin + window.location.pathname;
-
-    if (data && data.chatType && data.chatId) {
-      console.log('🚀 Redirecting to chat with URL params:', data.chatType, data.chatId);
-      window.location.href = `${baseUrl}?openChat=${data.chatId}&chatType=${data.chatType}`;
-    } else {
-      console.log('No chat data in notification, opening app home...');
-      window.location.href = baseUrl;
-    }
+    console.log('⚠️ Page: User not authenticated or no chat data, service worker will handle');
+    // Service worker will handle the navigation via URL parameters
   }
 });
     
@@ -1865,15 +1856,43 @@ async function submitPasswordReset() {
 
         if (error) throw error;
 
-        hideLoader();
-        showNotification('Password reset successful! 🎉 You can now sign in with your new password.', 'success');
+        // User is now authenticated with new password - load their profile and navigate to app
+        const { data: { session } } = await supabase.auth.getSession();
 
-        // Clear form fields
-        document.getElementById('new-reset-password').value = '';
-        document.getElementById('confirm-reset-password').value = '';
+        if (session) {
+            // Load user profile
+            const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
 
-        // Redirect to login
-        showLogin();
+            if (profileError) throw profileError;
+
+            currentUser = profileData;
+            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+            // Clear form fields
+            document.getElementById('new-reset-password').value = '';
+            document.getElementById('confirm-reset-password').value = '';
+
+            // Load app data
+            await renderCircles();
+            await loadMatches();
+            await updateNotificationBadge();
+
+            hideLoader();
+            showNotification('Password reset successful! 🎉 Welcome back!', 'success');
+
+            // Navigate to circles page
+            showPage('circles');
+            updateProfile();
+        } else {
+            // No session - show login
+            hideLoader();
+            showNotification('Password reset successful! 🎉 Please sign in with your new password.', 'success');
+            showLogin();
+        }
 
     } catch (error) {
         hideLoader();

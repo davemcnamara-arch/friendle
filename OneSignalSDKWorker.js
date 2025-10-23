@@ -42,12 +42,49 @@ self.addEventListener('fetch', event => {
 // Handle notification clicks - focus existing client instead of opening new window
 self.addEventListener('notificationclick', event => {
   console.log('Service Worker: Notification clicked', event);
+  console.log('Service Worker: Notification object:', event.notification);
+  console.log('Service Worker: Notification data:', event.notification.data);
+  console.log('Service Worker: Notification tag:', event.notification.tag);
+  console.log('Service Worker: Event action:', event.action);
 
   event.notification.close();
 
-  // Get the notification data
+  // Get the notification data - try multiple locations
   const data = event.notification.data || {};
-  const urlToOpen = data.url || '/';
+
+  // Try to extract from different possible locations (camelCase)
+  let chatType = data.chatType;
+  let chatId = data.chatId;
+
+  // Fallback to snake_case for backward compatibility
+  if (!chatType) {
+    chatType = data.chat_type;
+    chatId = data.chat_id;
+  }
+
+  // If not found, try nested in additionalData
+  if (!chatType && data.additionalData) {
+    chatType = data.additionalData.chatType || data.additionalData.chat_type;
+    chatId = data.additionalData.chatId || data.additionalData.chat_id;
+  }
+
+  // If still not found, try to parse from notification tag or other fields
+  if (!chatType && event.notification.tag) {
+    console.log('Service Worker: Trying to parse from tag:', event.notification.tag);
+  }
+
+  console.log('Service Worker: Extracted chat info:', { chatType, chatId });
+
+  // Construct URL with query parameters for deep linking
+  let urlToOpen = self.location.origin + '/';
+
+  if (chatType && chatId) {
+    urlToOpen = `${self.location.origin}/?openChat=${chatId}&chatType=${chatType}`;
+    console.log('Service Worker: Constructed URL with chat params:', urlToOpen);
+  } else {
+    console.log('Service Worker: No chat data found, using base URL');
+    console.log('Service Worker: Available data keys:', Object.keys(data));
+  }
 
   event.waitUntil(
     clients.matchAll({
@@ -63,17 +100,19 @@ self.addEventListener('notificationclick', event => {
         console.log('Service Worker: Checking client', client.url);
 
         if (client.url.includes(self.location.origin)) {
-          console.log('Service Worker: Focusing existing client');
-          // Navigate the client to the notification URL if needed
-          if (urlToOpen && urlToOpen !== '/') {
-            client.navigate(urlToOpen);
-          }
-          return client.focus();
+          console.log('Service Worker: Focusing existing client and navigating to:', urlToOpen);
+          // Always navigate to update the URL with chat parameters
+          return client.focus().then(() => {
+            if (chatType && chatId) {
+              return client.navigate(urlToOpen);
+            }
+            return client;
+          });
         }
       }
 
       // No existing client found, open new window
-      console.log('Service Worker: Opening new client');
+      console.log('Service Worker: Opening new client at:', urlToOpen);
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
