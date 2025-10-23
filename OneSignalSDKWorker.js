@@ -38,3 +38,45 @@ self.addEventListener('fetch', event => {
       .catch(() => caches.match(event.request))
   );
 });
+
+// Handle notification clicks - focus existing client instead of opening new window
+self.addEventListener('notificationclick', event => {
+  console.log('Service Worker: Notification clicked', event);
+
+  event.notification.close();
+
+  // Get the notification data
+  const data = event.notification.data || {};
+  const urlToOpen = data.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    })
+    .then(clientList => {
+      console.log('Service Worker: Found', clientList.length, 'clients');
+
+      // Try to focus an existing client
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        console.log('Service Worker: Checking client', client.url);
+
+        if (client.url.includes(self.location.origin)) {
+          console.log('Service Worker: Focusing existing client');
+          // Navigate the client to the notification URL if needed
+          if (urlToOpen && urlToOpen !== '/') {
+            client.navigate(urlToOpen);
+          }
+          return client.focus();
+        }
+      }
+
+      // No existing client found, open new window
+      console.log('Service Worker: Opening new client');
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
