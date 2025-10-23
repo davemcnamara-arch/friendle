@@ -1378,8 +1378,8 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
     
     <form id="register-form" style="display: none;" onsubmit="event.preventDefault(); signUp();">
         <div class="form-group"><label for="register-email">Email</label><input type="email" id="register-email" placeholder="Enter your email" autocomplete="email" inputmode="email"></div>
+        <div class="form-group"><label for="register-name">Your Name</label><input type="text" id="register-name" placeholder="Enter your name" autocomplete="given-name"></div>
         <div class="form-group"><label for="register-password">Password</label><input type="password" id="register-password" placeholder="Create a password (6+ characters)" autocomplete="new-password"></div>
-        <div class="form-group"><label for="register-name">Your Name</label><input type="text" id="register-name" placeholder="Enter your name" autocomplete="name"></div>
         <div class="form-group"><label>Choose Your Avatar</label><div class="avatar-grid">
             <div class="avatar-option" data-avatar="😊">😊</div><div class="avatar-option" data-avatar="🌟">🌟</div><div class="avatar-option" data-avatar="🦄">🦄</div><div class="avatar-option" data-avatar="🐨">🐨</div>
             <div class="avatar-option" data-avatar="🎮">🎮</div><div class="avatar-option" data-avatar="🎨">🎨</div><div class="avatar-option" data-avatar="⚡">⚡</div><div class="avatar-option" data-avatar="🌙">🌙</div>
@@ -2086,11 +2086,20 @@ window.signUp = async function() {
     const password = document.getElementById('register-password').value;
     const name = document.getElementById('register-name').value.trim();
     const selectedAvatar = document.querySelector('#register-form .avatar-option.selected');
-    
+
+    // Debug logging (password length only for security)
+    console.log('Sign up attempt:', {
+        email,
+        name,
+        passwordLength: password.length,
+        hasAvatar: !!selectedAvatar
+    });
+
     if (!email || !password || !name || !selectedAvatar) {
+        console.error('Validation failed: missing required fields');
         return showNotification('Please fill in all fields and select an avatar', 'error');
     }
-    
+
     if (password.length < 6) {
         return showNotification('Password must be at least 6 characters', 'error');
     }
@@ -2105,18 +2114,24 @@ window.signUp = async function() {
         if (authError) throw authError;
         
         // Create profile with authenticated user ID
+        const profileDataToInsert = {
+            id: authData.user.id, // Use Supabase Auth user ID
+            name: name,
+            avatar: selectedAvatar.dataset.avatar
+        };
+
+        console.log('Creating profile with data:', profileDataToInsert);
+
         const { data: profileData, error: profileError } = await supabase
             .from('profiles')
-            .insert([{
-                id: authData.user.id, // Use Supabase Auth user ID
-                name: name,
-                avatar: selectedAvatar.dataset.avatar
-            }])
+            .insert([profileDataToInsert])
             .select()
             .single();
-        
+
         if (profileError) throw profileError;
-        
+
+        console.log('Profile created successfully:', { id: profileData.id, name: profileData.name, avatar: profileData.avatar });
+
         currentUser = profileData;
         
         // Request notification permission
