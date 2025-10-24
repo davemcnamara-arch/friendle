@@ -7,7 +7,8 @@ verify_jwt = false
 
 [functions.stay-interested]
 # Endpoint called when users click "Stay Interested" button
-verify_jwt = false
+# SECURITY: JWT verification enabled to prevent user impersonation
+verify_jwt = true
 
 [functions.event-reminders]
 # Hourly cron job to send timezone-aware 9am reminders for events scheduled today

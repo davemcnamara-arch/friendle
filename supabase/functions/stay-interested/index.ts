@@ -39,13 +39,69 @@ serve(async (req) => {
       )
     }
 
-    // Create Supabase client
+    // SECURITY: Verify JWT and ensure user can only update their own data
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing Authorization header'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401
+        }
+      )
+    }
+
+    // Create Supabase client with service role for admin operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log('Stay interested request:', { matchId, profileId })
+    // Create a client with the user's JWT to verify authentication
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        }
+      }
+    )
+
+    // Verify the user from JWT
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid or expired authentication token'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401
+        }
+      )
+    }
+
+    // SECURITY: Ensure the authenticated user matches the profileId
+    if (user.id !== profileId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Unauthorized: You can only update your own interaction status'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403
+        }
+      )
+    }
+
+    console.log('Stay interested request:', { matchId, profileId, authenticatedUser: user.id })
 
     // Update last_interaction_at in match_participants
     const { error: updateError } = await supabaseClient

@@ -8569,6 +8569,15 @@ function toggleArchivedMessages(eventId, eventCreatedAt) {
     }
 }
 
+// SECURITY: Sanitize HTML to prevent XSS attacks
+// This function escapes all HTML special characters to prevent script injection
+function sanitizeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 // Helper function to render avatar HTML (supports both image URLs and emojis)
 function renderAvatar(avatar, size = 32) {
     if (!avatar) {
@@ -8633,13 +8642,14 @@ function appendMessageToContainer(message, container) {
     `;
 
     let onClick = '';
-    let content = message.content;
+    let content = sanitizeHTML(message.content); // SECURITY: Sanitize to prevent XSS
+    let senderName = sanitizeHTML(message.sender.name); // SECURITY: Sanitize sender name
 
     messageDiv.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
             ${renderAvatar(message.sender.avatar, 32)}
             <span style="font-size: 13px; color: #666; font-weight: 500;">
-                ${isOwnMessage ? 'You' : message.sender.name}
+                ${isOwnMessage ? 'You' : senderName}
             </span>
             <span style="font-size: 11px; color: #999;">
                 ${messageTime}
@@ -8713,6 +8723,11 @@ function appendMessage(message) {
     const context = getCurrentChatContext();
     const messageType = context.type;
 
+    // SECURITY: Sanitize user input to prevent XSS
+    const sanitizedContent = sanitizeHTML(message.content);
+    const sanitizedSenderName = sanitizeHTML(message.sender.name);
+    const escapedContentForEdit = message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/'/g, "\\'");
+
     const messageDiv = document.createElement('div');
     messageDiv.setAttribute('data-message-id', message.id);
     messageDiv.style.cssText = `
@@ -8727,7 +8742,7 @@ function appendMessage(message) {
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
             ${renderAvatar(message.sender.avatar, 32)}
             <span style="font-size: 13px; color: #666; font-weight: 500;">
-                ${isOwnMessage ? 'You' : message.sender.name}
+                ${isOwnMessage ? 'You' : sanitizedSenderName}
             </span>
             <span style="font-size: 11px; color: #999;">
                 ${messageTime}
@@ -8735,13 +8750,13 @@ function appendMessage(message) {
         </div>
         <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}; max-width: 100%;">
             <div style="background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'}; color: ${isOwnMessage ? 'white' : 'black'}; padding: 10px 14px; border-radius: 12px; max-width: 280px; word-wrap: break-word; overflow-wrap: break-word;">
-    ${message.content}
+    ${sanitizedContent}
 </div>
             ${isOwnMessage ? `
     <div class="message-actions" style="position: relative;">
         <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
         <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: var(--card-bg, white); border: 1px solid var(--border-color, #ddd); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
-            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer; color: var(--text-color, black);" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
+            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer; color: var(--text-color, black);" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
             <button onclick="deleteEventMessage('${message.id}')" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer; color: var(--text-color, black);" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Delete</button>
         </div>
     </div>
