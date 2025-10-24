@@ -1835,24 +1835,31 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
 
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
 
-    <!-- Advanced Settings Section -->
-    <div style="margin: 30px 0 20px 0; padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
-        <h3 style="margin: 0 0 15px 0; font-size: 1.1em; color: var(--text-primary);">⚙️ Advanced Settings</h3>
-
-        <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #0066cc;">
-            <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: var(--text-primary);">📥 Export My Data</h4>
-            <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
-                Download all your personal data including circles, activities, matches, and preferences as a JSON file. Required for GDPR compliance.
-            </p>
-            <button class="btn btn-secondary" onclick="exportData()" style="width: 100%;">Export My Data</button>
+    <!-- Advanced Settings Section (Collapsible) -->
+    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div onclick="toggleAdvancedSettings()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">⚙️ Advanced Settings</h3>
+            <span id="advanced-settings-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
         </div>
 
-        <div style="margin-bottom: 0; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #dc3545;">
-            <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: #dc3545;">⚠️ Delete All My Data</h4>
-            <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
-                Permanently delete all your data including circles, activities, matches, preferences, and profile. This action cannot be undone. Consider exporting your data first.
-            </p>
-            <button class="btn btn-secondary" onclick="resetApp()" style="width: 100%; background: #dc3545; color: white; font-weight: 600;">Delete All My Data</button>
+        <div id="advanced-settings-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+            <div style="padding: 0 20px 20px 20px;">
+                <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #0066cc;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: var(--text-primary);">📥 Export My Data</h4>
+                    <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                        Download all your personal data including circles, activities, matches, and preferences as a JSON file. Required for GDPR compliance.
+                    </p>
+                    <button class="btn btn-secondary" onclick="exportData()" style="width: 100%;">Export My Data</button>
+                </div>
+
+                <div style="margin-bottom: 0; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #dc3545;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: #dc3545;">⚠️ Delete All My Data</h4>
+                    <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                        Permanently delete all your data including circles, activities, matches, preferences, and profile. This action cannot be undone. Consider exporting your data first.
+                    </p>
+                    <button class="btn btn-secondary" onclick="resetApp()" style="width: 100%; background: #dc3545; color: white; font-weight: 600;">Delete All My Data</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -9870,6 +9877,9 @@ if (pageId === 'activities') {
 if (pageId === 'matches') {
     await loadMatches();
 }
+if (pageId === 'settings') {
+    initAdvancedSettings();
+}
 }
         // Export user data for GDPR compliance
         window.exportData = async function() {
@@ -9947,6 +9957,36 @@ if (pageId === 'matches') {
                     alert('All data has been deleted. The app will now reload.');
                     location.reload();
                 }
+            }
+        };
+
+        // Toggle Advanced Settings section
+        window.toggleAdvancedSettings = function() {
+            const content = document.getElementById('advanced-settings-content');
+            const arrow = document.getElementById('advanced-settings-arrow');
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+
+            if (isExpanded) {
+                // Collapse
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+                localStorage.setItem('advanced_settings_expanded', 'false');
+            } else {
+                // Expand - set to scrollHeight to animate smoothly
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+                localStorage.setItem('advanced_settings_expanded', 'true');
+            }
+        };
+
+        // Initialize Advanced Settings state on page load
+        window.initAdvancedSettings = function() {
+            const isExpanded = localStorage.getItem('advanced_settings_expanded') === 'true';
+            if (isExpanded) {
+                const content = document.getElementById('advanced-settings-content');
+                const arrow = document.getElementById('advanced-settings-arrow');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
             }
         };
         
