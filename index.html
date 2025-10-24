@@ -4220,7 +4220,13 @@ window.viewCircleMembers = async function(circleId) {
         }
 
         const membersList = members
-            .map(m => `${m.profiles.avatar} ${m.profiles.name}`)
+            .map(m => {
+                // Only show emoji avatars, not URLs
+                const avatar = m.profiles.avatar && !m.profiles.avatar.startsWith('http')
+                    ? `${m.profiles.avatar} `
+                    : '';
+                return `${avatar}${m.profiles.name}`;
+            })
             .join('\n');
 
         alert(`Members of ${circle.name}:\n\n${membersList}`);
