@@ -10552,7 +10552,7 @@ window.saveActivityVisibility = async function() {
 // Edge-based swipe navigation between pages
 (function initEdgeSwipeNavigation() {
     const pageOrder = ['circles', 'activities', 'matches', 'settings'];
-    const EDGE_THRESHOLD = 30; // pixels from edge to initiate swipe
+    const EDGE_THRESHOLD = 50; // pixels from edge to initiate swipe
     const SWIPE_THRESHOLD = 80; // minimum swipe distance to trigger navigation
 
     let touchStartX = 0;
@@ -10565,9 +10565,13 @@ window.saveActivityVisibility = async function() {
     const appContainer = document.querySelector('.app-container');
 
     if (!appContainer) {
-        console.error('Edge swipe: app-container not found');
+        console.error('🚫 Edge swipe: app-container not found');
         return;
     }
+
+    console.log('✅ Edge swipe navigation initialized');
+    console.log('   Edge threshold:', EDGE_THRESHOLD + 'px');
+    console.log('   Swipe threshold:', SWIPE_THRESHOLD + 'px');
 
     // Touch events
     appContainer.addEventListener('touchstart', (e) => {
@@ -10582,6 +10586,7 @@ window.saveActivityVisibility = async function() {
         if (touchStartX <= EDGE_THRESHOLD || touchStartX >= viewportWidth - EDGE_THRESHOLD) {
             isEdgeSwipe = true;
             isSwiping = false;
+            console.log('👆 Edge touch at x=' + touchStartX + ', viewport=' + viewportWidth);
         } else {
             isEdgeSwipe = false;
         }
@@ -10623,6 +10628,8 @@ window.saveActivityVisibility = async function() {
         const deltaY = touchCurrentY - touchStartY;
         const activePage = document.querySelector('.page.active');
 
+        console.log('👆 Touch end - deltaX=' + deltaX + ', deltaY=' + deltaY + ', isSwiping=' + isSwiping);
+
         // Reset visual feedback
         if (activePage) {
             activePage.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
@@ -10634,6 +10641,8 @@ window.saveActivityVisibility = async function() {
         if (isSwiping && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
             const currentPageId = localStorage.getItem('friendle_current_page') || 'circles';
             const currentIndex = pageOrder.indexOf(currentPageId);
+
+            console.log('🔄 Navigating from page ' + currentPageId + ' (index ' + currentIndex + ')');
 
             let targetIndex;
             if (deltaX > 0) {
@@ -10647,8 +10656,13 @@ window.saveActivityVisibility = async function() {
             // Navigate if target page exists
             if (targetIndex >= 0 && targetIndex < pageOrder.length) {
                 const targetPage = pageOrder[targetIndex];
+                console.log('➡️ Navigating to: ' + targetPage);
                 showPage(targetPage);
+            } else {
+                console.log('⚠️ No page at index ' + targetIndex);
             }
+        } else {
+            console.log('⚠️ Swipe not triggered - deltaX=' + Math.abs(deltaX) + ', threshold=' + SWIPE_THRESHOLD);
         }
 
         isEdgeSwipe = false;
@@ -10671,6 +10685,7 @@ window.saveActivityVisibility = async function() {
         if (mouseStartX <= EDGE_THRESHOLD || mouseStartX >= viewportWidth - EDGE_THRESHOLD) {
             isMouseDragging = true;
             isEdgeSwipe = true;
+            console.log('🖱️ Edge mouse down at x=' + mouseStartX + ', viewport=' + viewportWidth);
         }
     });
 
@@ -10698,6 +10713,8 @@ window.saveActivityVisibility = async function() {
         const deltaX = mouseCurrentX - mouseStartX;
         const activePage = document.querySelector('.page.active');
 
+        console.log('🖱️ Mouse up - deltaX=' + deltaX);
+
         if (activePage) {
             activePage.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
             activePage.style.transform = '';
@@ -10708,6 +10725,8 @@ window.saveActivityVisibility = async function() {
             const currentPageId = localStorage.getItem('friendle_current_page') || 'circles';
             const currentIndex = pageOrder.indexOf(currentPageId);
 
+            console.log('🔄 Mouse navigating from: ' + currentPageId);
+
             let targetIndex;
             if (deltaX > 0) {
                 targetIndex = currentIndex - 1;
@@ -10717,8 +10736,11 @@ window.saveActivityVisibility = async function() {
 
             if (targetIndex >= 0 && targetIndex < pageOrder.length) {
                 const targetPage = pageOrder[targetIndex];
+                console.log('➡️ Mouse navigating to: ' + targetPage);
                 showPage(targetPage);
             }
+        } else {
+            console.log('⚠️ Mouse swipe too short - deltaX=' + Math.abs(deltaX));
         }
 
         isMouseDragging = false;
