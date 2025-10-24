@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate PWA icons for Friendle app with a modern design.
-Creates icons with a stylized 'F' and circular elements representing friendship.
+Creates icons with a stylized 'F' inside a circle with purple gradient.
 """
 
 from PIL import Image, ImageDraw, ImageFont
@@ -43,62 +43,50 @@ def draw_rounded_rectangle(draw, xy, radius, fill):
     draw.pieslice([x2 - radius * 2, y2 - radius * 2, x2, y2], 0, 90, fill=fill)
 
 def create_icon(size, maskable=False):
-    """Create a Friendle icon with F logo and circular elements"""
-    # Create base with gradient
-    start_rgb = hex_to_rgb(GRADIENT_START)
-    end_rgb = hex_to_rgb(GRADIENT_END)
-    img = create_gradient(size, size, start_rgb, end_rgb)
+    """Create a Friendle icon with F logo inside a circle"""
+    # Create transparent base
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img, 'RGBA')
 
     # Calculate safe zone for maskable icons
     # Android masks to a circle in the center 80% of the icon
-    safe_zone_padding = int(size * 0.1) if maskable else 0
+    safe_zone_padding = int(size * 0.1) if maskable else int(size * 0.05)
     effective_size = size - (2 * safe_zone_padding)
     offset = safe_zone_padding
 
     # Design parameters (scaled to effective size)
     scale = effective_size / 512
+    center_x = size / 2
+    center_y = size / 2
+    circle_radius = effective_size / 2
 
-    # Draw decorative circles (representing friends/connections)
-    # These are subtle background elements
-    circle_color = (255, 255, 255, 30)  # Semi-transparent white
+    # Create gradient circle background
+    # We'll draw the gradient onto the circle
+    start_rgb = hex_to_rgb(GRADIENT_START)
+    end_rgb = hex_to_rgb(GRADIENT_END)
 
-    # Top right circle
-    circle_radius = int(80 * scale)
-    draw.ellipse([
-        offset + effective_size - circle_radius * 2.5,
-        offset - circle_radius * 0.5,
-        offset + effective_size - circle_radius * 0.5,
-        offset + circle_radius * 1.5
-    ], fill=circle_color)
-
-    # Bottom left circle
-    draw.ellipse([
-        offset - circle_radius * 0.5,
-        offset + effective_size - circle_radius * 2,
-        offset + circle_radius * 1.5,
-        offset + effective_size + circle_radius * 0
-    ], fill=circle_color)
-
-    # Center decorative circle
-    draw.ellipse([
-        offset + effective_size * 0.6,
-        offset + effective_size * 0.15,
-        offset + effective_size * 0.85,
-        offset + effective_size * 0.4
-    ], fill=circle_color)
+    # Draw gradient circle
+    for r in range(int(circle_radius), 0, -1):
+        # Calculate gradient color based on radius
+        ratio = (circle_radius - r) / circle_radius
+        color = tuple(int(start_rgb[i] + (end_rgb[i] - start_rgb[i]) * ratio) for i in range(3))
+        draw.ellipse([
+            center_x - r,
+            center_y - r,
+            center_x + r,
+            center_y + r
+        ], fill=color)
 
     # Draw main "F" logo with modern styling
     # The F is constructed using rectangles to be clean and geometric
-
     white = (255, 255, 255, 255)
 
-    # F parameters
-    f_width = int(180 * scale)
-    f_height = int(320 * scale)
-    f_thickness = int(50 * scale)
-    f_x = offset + (effective_size - f_width) // 2
-    f_y = offset + (effective_size - f_height) // 2
+    # F parameters - slightly smaller to fit nicely in circle
+    f_width = int(160 * scale)
+    f_height = int(280 * scale)
+    f_thickness = int(45 * scale)
+    f_x = int(center_x - f_width / 2)
+    f_y = int(center_y - f_height / 2)
 
     # Vertical stem of F
     draw_rounded_rectangle(
@@ -117,7 +105,7 @@ def create_icon(size, maskable=False):
     )
 
     # Middle horizontal bar of F (shorter)
-    mid_bar_width = int(f_width * 0.7)
+    mid_bar_width = int(f_width * 0.75)
     mid_bar_y = f_y + int(f_height * 0.45)
     draw_rounded_rectangle(
         draw,
@@ -126,47 +114,11 @@ def create_icon(size, maskable=False):
         white
     )
 
-    # Add connecting circles on F to represent "friends"
-    # These circles connect to the F, creating a cohesive design
-    dot_radius = int(20 * scale)
-    dot_color = (255, 255, 255, 255)
-
-    # Top right dot
-    draw.ellipse([
-        f_x + f_width - dot_radius,
-        f_y + f_thickness - dot_radius,
-        f_x + f_width + dot_radius,
-        f_y + f_thickness + dot_radius
-    ], fill=dot_color)
-
-    # Middle right dot
-    draw.ellipse([
-        f_x + mid_bar_width - dot_radius,
-        mid_bar_y + f_thickness - dot_radius,
-        f_x + mid_bar_width + dot_radius,
-        mid_bar_y + f_thickness + dot_radius
-    ], fill=dot_color)
-
-    # Bottom left dot
-    draw.ellipse([
-        f_x + f_thickness // 2 - dot_radius,
-        f_y + f_height - dot_radius,
-        f_x + f_thickness // 2 + dot_radius,
-        f_y + f_height + dot_radius
-    ], fill=dot_color)
-
-    # Add a subtle border for better contrast on light backgrounds
-    if not maskable:
-        # Draw a very subtle outer border
-        border_color = (0, 0, 0, 20)
-        border_width = max(2, int(size * 0.004))
-        draw.rectangle([0, 0, size-1, size-1], outline=border_color, width=border_width)
-
     return img
 
 def main():
     """Generate all required icon sizes"""
-    print("Generating Friendle PWA icons...")
+    print("Generating Friendle PWA icons with F in circle design...")
 
     # Generate standard icons
     print("Creating 512x512 icon...")
