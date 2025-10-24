@@ -43,14 +43,14 @@ ORDER BY tablename;
 
 ```sql
 -- First, get your user ID (replace with actual user email)
-SELECT id, email, name FROM auth.users WHERE email = 'your-email@example.com';
+SELECT id, email, created_at FROM auth.users WHERE email = 'your-email@example.com';
 
 -- Copy the user ID, then run this as that user:
 -- This simulates being authenticated as a specific user
 SET LOCAL auth.uid TO 'paste-user-id-here';
 
 -- Try to read all profiles
-SELECT id, name, email FROM profiles;
+SELECT id, name, avatar FROM profiles;
 
 -- Expected: Should only return:
 -- 1. Your own profile
