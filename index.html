@@ -1642,7 +1642,6 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
 <div id="grid-view-container" style="display: none;">
     <div id="frequent-section"><div class="section-title">⭐ Frequently Used</div><div class="frequent-grid" id="frequent-grid"></div></div>
     <div class="section-title">All Activities</div>
-    <div class="bulk-controls"><h4>Quick Select</h4><div class="bulk-btn" onclick="selectBulk('food')">Food & Drinks</div><div class="bulk-btn" onclick="selectBulk('active')">Active</div><div class="bulk-btn" onclick="selectBulk('entertainment')">Entertainment</div><div class="bulk-btn" onclick="selectBulk('relax')">Relax & Creative</div><div class="bulk-btn" onclick="selectBulk('clear')">Clear All</div></div>
     <div class="activities-grid" id="activities-grid"></div>
 </div>
                 <button id="grid-save-button" class="btn sticky-save" onclick="saveActivities()" style="display: none;">Save Preferences</button>
@@ -1884,17 +1883,7 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
     <!-- Step 2: Activities -->
     <div id="circle-step-2" style="display: none;">
         <div class="modal-header">What activities interest this group?</div>
-        
-        <!-- Quick select buttons -->
-        <div class="bulk-controls">
-            <h4>Quick Select</h4>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('food')">☕ Food & Drinks</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('active')">🏃 Active</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('entertainment')">🎬 Entertainment</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('relax')">🧘 Relax & Creative</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('all')">✨ Select All</div>
-        </div>
-        
+
         <!-- Activity grid -->
         <div class="activities-grid" id="circle-creation-activities-grid" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
         
@@ -3715,29 +3704,7 @@ function updateCircleSelectedCount() {
     }
 }
 
-window.selectCircleActivityCategory = function(category) {
-    const grid = document.getElementById('circle-creation-activities-grid');
-    const allCards = grid.querySelectorAll('.activity-card');
-    
-    // Clear all first
-    allCards.forEach(card => card.classList.remove('selected'));
-    
-    if (category === 'all') {
-        // Select all
-        allCards.forEach(card => card.classList.add('selected'));
-    } else {
-        // Select by category
-        defaultActivities.forEach(activity => {
-            if (activity.category === category) {
-                const card = grid.querySelector(`[data-activity-id="${activity.id}"]`);
-                if (card) card.classList.add('selected');
-            }
-        });
-    }
-    
-    updateCircleSelectedCount();
-}
-        window.finalizeCircleCreation = async function() {
+window.finalizeCircleCreation = async function() {
     const name = document.getElementById('circle-name').value.trim();
     
     if (!name) {
@@ -5149,12 +5116,6 @@ window.setActivityMode = async function(activityId, isToday) {
         filterSwipeActivities(searchTerm);
     }
 }
-        window.selectBulk = function(type) {
-            lastActivitiesState = [...activities];
-            const all = [...defaultActivities, ...(selectedCircle.customActivities || [])];
-            activities = type === 'clear' ? [] : all.filter(a => a.category === type);
-            renderActivities();
-        }
         window.saveActivities = async function() {
     if (!selectedCircle) return showNotification('Please select a circle first', 'error');
     
