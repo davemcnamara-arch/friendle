@@ -1832,10 +1832,29 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
             </div>
         </label>
     </div>
-    
+
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
-    <button class="btn btn-secondary" onclick="exportData()">Export My Data</button>
-    <button class="btn btn-secondary" onclick="resetApp()" style="background: #dc3545; color: white;">Reset App</button>
+
+    <!-- Advanced Settings Section -->
+    <div style="margin: 30px 0 20px 0; padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+        <h3 style="margin: 0 0 15px 0; font-size: 1.1em; color: var(--text-primary);">⚙️ Advanced Settings</h3>
+
+        <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #0066cc;">
+            <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: var(--text-primary);">📥 Export My Data</h4>
+            <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                Download all your personal data including circles, activities, matches, and preferences as a JSON file. Required for GDPR compliance.
+            </p>
+            <button class="btn btn-secondary" onclick="exportData()" style="width: 100%;">Export My Data</button>
+        </div>
+
+        <div style="margin-bottom: 0; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #dc3545;">
+            <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: #dc3545;">⚠️ Delete All My Data</h4>
+            <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                Permanently delete all your data including circles, activities, matches, preferences, and profile. This action cannot be undone. Consider exporting your data first.
+            </p>
+            <button class="btn btn-secondary" onclick="resetApp()" style="width: 100%; background: #dc3545; color: white; font-weight: 600;">Delete All My Data</button>
+        </div>
+    </div>
 </div>
         </div>
         
@@ -9852,7 +9871,84 @@ if (pageId === 'matches') {
     await loadMatches();
 }
 }
-        window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
+        // Export user data for GDPR compliance
+        window.exportData = async function() {
+            try {
+                const user = supabase.auth.getUser ? await supabase.auth.getUser() : null;
+                const userId = user?.data?.user?.id;
+
+                // Gather all user data
+                const exportData = {
+                    exportDate: new Date().toISOString(),
+                    user: JSON.parse(localStorage.getItem('friendle_user') || 'null'),
+                    preferences: {
+                        lastCircle: localStorage.getItem('friendle_last_circle'),
+                        activityCounts: JSON.parse(localStorage.getItem('friendle_activity_counts') || '{}'),
+                        matches: JSON.parse(localStorage.getItem('friendle_matches') || '[]')
+                    }
+                };
+
+                // Fetch user's circles and activities from Supabase if logged in
+                if (userId) {
+                    const { data: circles } = await supabase
+                        .from('circles')
+                        .select('*')
+                        .eq('user_id', userId);
+
+                    const { data: activities } = await supabase
+                        .from('activities')
+                        .select('*')
+                        .eq('user_id', userId);
+
+                    exportData.circles = circles || [];
+                    exportData.activities = activities || [];
+                }
+
+                // Create and download JSON file
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `friendle-data-export-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                alert('Your data has been exported successfully!');
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export data. Please try again.');
+            }
+        };
+
+        // Delete all local data
+        window.resetApp = () => {
+            const confirmed = confirm(
+                'DELETE ALL YOUR DATA?\n\n' +
+                'This will permanently delete:\n' +
+                '• All your circles and groups\n' +
+                '• All your activities and matches\n' +
+                '• All your preferences and settings\n' +
+                '• Your profile information\n\n' +
+                'This action CANNOT be undone!\n\n' +
+                'Are you absolutely sure you want to continue?'
+            );
+
+            if (confirmed) {
+                const doubleCheck = confirm(
+                    'FINAL WARNING!\n\n' +
+                    'You are about to delete everything. This is your last chance to cancel.\n\n' +
+                    'Click OK to delete all data, or Cancel to keep your data.'
+                );
+
+                if (doubleCheck) {
+                    localStorage.clear();
+                    alert('All data has been deleted. The app will now reload.');
+                    location.reload();
+                }
+            }
+        };
         
         // Invite System
         window.showInviteModal = function(circleId) {
