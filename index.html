@@ -10545,6 +10545,179 @@ window.saveActivityVisibility = async function() {
         showNotification('Error saving changes', 'error');
     }
 }
+
+// Edge-based swipe navigation between pages
+(function initEdgeSwipeNavigation() {
+    const pageOrder = ['circles', 'activities', 'matches', 'settings'];
+    const EDGE_THRESHOLD = 20; // pixels from edge to initiate swipe
+    const SWIPE_THRESHOLD = 100; // minimum swipe distance to trigger navigation
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchCurrentX = 0;
+    let isEdgeSwipe = false;
+    let swipeDirection = null; // 'left' or 'right'
+
+    const appContainer = document.querySelector('.app-container');
+
+    appContainer.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchCurrentX = touchStartX;
+
+        // Check if touch started at screen edge
+        const screenWidth = window.innerWidth;
+        const containerWidth = appContainer.offsetWidth;
+        const leftEdge = (screenWidth - containerWidth) / 2;
+        const rightEdge = leftEdge + containerWidth;
+
+        // Touch must start within edge threshold
+        if (touchStartX <= leftEdge + EDGE_THRESHOLD || touchStartX >= rightEdge - EDGE_THRESHOLD) {
+            isEdgeSwipe = true;
+            swipeDirection = touchStartX <= leftEdge + EDGE_THRESHOLD ? 'right' : 'left';
+        } else {
+            isEdgeSwipe = false;
+        }
+    });
+
+    appContainer.addEventListener('touchmove', (e) => {
+        if (!isEdgeSwipe) return;
+
+        touchCurrentX = e.touches[0].clientX;
+        const touchCurrentY = e.touches[0].clientY;
+        const deltaX = touchCurrentX - touchStartX;
+        const deltaY = touchCurrentY - touchStartY;
+
+        // Only apply visual feedback if swipe is mostly horizontal
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+            // Prevent default scrolling during horizontal swipe
+            e.preventDefault();
+
+            // Apply subtle visual feedback - slide the current page slightly
+            const activePage = document.querySelector('.page.active');
+            if (activePage) {
+                // Limit the visual feedback to 1/3 of the swipe distance for subtle effect
+                const visualFeedback = Math.min(Math.abs(deltaX) / 3, 50);
+                const direction = deltaX > 0 ? 1 : -1;
+                activePage.style.transform = `translateX(${direction * visualFeedback}px)`;
+                activePage.style.transition = 'none';
+                activePage.style.opacity = 1 - (visualFeedback / 150);
+            }
+        }
+    });
+
+    appContainer.addEventListener('touchend', (e) => {
+        if (!isEdgeSwipe) return;
+
+        const deltaX = touchCurrentX - touchStartX;
+        const activePage = document.querySelector('.page.active');
+
+        // Reset visual feedback
+        if (activePage) {
+            activePage.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+            activePage.style.transform = '';
+            activePage.style.opacity = '';
+        }
+
+        // Check if swipe was significant enough
+        if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+            const currentPageId = localStorage.getItem('friendle_current_page') || 'circles';
+            const currentIndex = pageOrder.indexOf(currentPageId);
+
+            let targetIndex;
+            if (deltaX > 0) {
+                // Swiped right - go to previous page
+                targetIndex = currentIndex - 1;
+            } else {
+                // Swiped left - go to next page
+                targetIndex = currentIndex + 1;
+            }
+
+            // Navigate if target page exists
+            if (targetIndex >= 0 && targetIndex < pageOrder.length) {
+                const targetPage = pageOrder[targetIndex];
+                showPage(targetPage);
+            }
+        }
+
+        isEdgeSwipe = false;
+        swipeDirection = null;
+    });
+
+    // Also handle mouse events for desktop testing
+    let isMouseDragging = false;
+    let mouseStartX = 0;
+    let mouseCurrentX = 0;
+
+    appContainer.addEventListener('mousedown', (e) => {
+        mouseStartX = e.clientX;
+        mouseCurrentX = mouseStartX;
+
+        const screenWidth = window.innerWidth;
+        const containerWidth = appContainer.offsetWidth;
+        const leftEdge = (screenWidth - containerWidth) / 2;
+        const rightEdge = leftEdge + containerWidth;
+
+        if (mouseStartX <= leftEdge + EDGE_THRESHOLD || mouseStartX >= rightEdge - EDGE_THRESHOLD) {
+            isMouseDragging = true;
+            isEdgeSwipe = true;
+        }
+    });
+
+    appContainer.addEventListener('mousemove', (e) => {
+        if (!isMouseDragging) return;
+
+        mouseCurrentX = e.clientX;
+        const deltaX = mouseCurrentX - mouseStartX;
+
+        if (Math.abs(deltaX) > 10) {
+            e.preventDefault();
+
+            const activePage = document.querySelector('.page.active');
+            if (activePage) {
+                const visualFeedback = Math.min(Math.abs(deltaX) / 3, 50);
+                const direction = deltaX > 0 ? 1 : -1;
+                activePage.style.transform = `translateX(${direction * visualFeedback}px)`;
+                activePage.style.transition = 'none';
+                activePage.style.opacity = 1 - (visualFeedback / 150);
+            }
+        }
+    });
+
+    appContainer.addEventListener('mouseup', (e) => {
+        if (!isMouseDragging) return;
+
+        const deltaX = mouseCurrentX - mouseStartX;
+        const activePage = document.querySelector('.page.active');
+
+        if (activePage) {
+            activePage.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+            activePage.style.transform = '';
+            activePage.style.opacity = '';
+        }
+
+        if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+            const currentPageId = localStorage.getItem('friendle_current_page') || 'circles';
+            const currentIndex = pageOrder.indexOf(currentPageId);
+
+            let targetIndex;
+            if (deltaX > 0) {
+                targetIndex = currentIndex - 1;
+            } else {
+                targetIndex = currentIndex + 1;
+            }
+
+            if (targetIndex >= 0 && targetIndex < pageOrder.length) {
+                const targetPage = pageOrder[targetIndex];
+                showPage(targetPage);
+            }
+        }
+
+        isMouseDragging = false;
+        isEdgeSwipe = false;
+    });
+})();
+
   initApp(); // start the app
 });   // ✅ closes document.addEventListener("DOMContentLoaded", ...)
 
