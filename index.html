@@ -3264,21 +3264,66 @@ window.uploadProfilePicture = async function(event) {
         return;
     }
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-        return showNotification('Please select an image file', 'error');
+    // SECURITY: Comprehensive file upload validation
+
+    // 1. Validate file extension (whitelist only safe formats)
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    const fileExt = file.name.split('.').pop().toLowerCase();
+
+    if (!allowedExtensions.includes(fileExt)) {
+        return showNotification(`Only ${allowedExtensions.join(', ').toUpperCase()} images are allowed`, 'error');
     }
 
-    // Validate file size (max 5MB)
+    // 2. Validate MIME type matches extension
+    const expectedMimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp'
+    };
+
+    const expectedMime = expectedMimeTypes[fileExt];
+    if (!file.type || file.type !== expectedMime) {
+        return showNotification('File type does not match extension. Please select a valid image.', 'error');
+    }
+
+    // 3. Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
         return showNotification('Image must be less than 5MB', 'error');
     }
 
-    try {
-        showLoader('Uploading profile picture...');
+    // 4. Validate image dimensions (max 4096x4096)
+    // Create a promise to load and validate the image
+    const validateImageDimensions = new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
 
-        // Get file extension
-        const fileExt = file.name.split('.').pop();
+        img.onload = function() {
+            URL.revokeObjectURL(url); // Clean up
+
+            if (this.width > 4096 || this.height > 4096) {
+                reject(new Error('Image dimensions must not exceed 4096x4096 pixels'));
+            } else if (this.width < 10 || this.height < 10) {
+                reject(new Error('Image is too small. Minimum size is 10x10 pixels'));
+            } else {
+                resolve({ width: this.width, height: this.height });
+            }
+        };
+
+        img.onerror = function() {
+            URL.revokeObjectURL(url);
+            reject(new Error('Invalid image file. File may be corrupted.'));
+        };
+
+        img.src = url;
+    });
+
+    try {
+        // Wait for dimension validation to complete
+        showLoader('Validating image...');
+        await validateImageDimensions;
+
+        showLoader('Uploading profile picture...');
         const fileName = `${currentUser.id}/avatar.${fileExt}`;
 
         // Delete old avatar if exists
@@ -3330,7 +3375,9 @@ window.uploadProfilePicture = async function(event) {
     } catch (error) {
         console.error('Error uploading profile picture:', error);
         hideLoader();
-        showNotification('Error uploading profile picture', 'error');
+        // Show specific error message if validation failed, otherwise generic error
+        const errorMessage = error.message || 'Error uploading profile picture';
+        showNotification(errorMessage, 'error');
     }
 }
 
