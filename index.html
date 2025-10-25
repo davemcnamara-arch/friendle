@@ -1063,6 +1063,9 @@
 
         .nav-item.active {
             color: var(--primary-color);
+            background: rgba(91, 79, 199, 0.1);
+            border-radius: 12px;
+            margin: 0 4px;
         }
 
         .nav-item .nav-icon {
@@ -1638,7 +1641,6 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
 <div id="grid-view-container" style="display: none;">
     <div id="frequent-section"><div class="section-title">⭐ Frequently Used</div><div class="frequent-grid" id="frequent-grid"></div></div>
     <div class="section-title">All Activities</div>
-    <div class="bulk-controls"><h4>Quick Select</h4><div class="bulk-btn" onclick="selectBulk('food')">Food & Drinks</div><div class="bulk-btn" onclick="selectBulk('active')">Active</div><div class="bulk-btn" onclick="selectBulk('entertainment')">Entertainment</div><div class="bulk-btn" onclick="selectBulk('relax')">Relax & Creative</div><div class="bulk-btn" onclick="selectBulk('clear')">Clear All</div></div>
     <div class="activities-grid" id="activities-grid"></div>
 </div>
                 <button id="grid-save-button" class="btn sticky-save" onclick="saveActivities()" style="display: none;">Save Preferences</button>
@@ -1803,17 +1805,6 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         </div>
     </div>
 
-    <div class="form-group">
-        <label for="min-group-size">Minimum Group Size</label>
-        <select id="min-group-size" onchange="saveMinimumGroupSize()">
-            <option value="2">Any size (including 1-on-1)</option>
-            <option value="3">At least 3 people</option>
-            <option value="4">At least 4 people</option>
-            <option value="5">At least 5 people</option>
-        </select>
-        <div style="font-size: 0.85em; color: #666; margin-top: 5px;">Only show matches with at least this many total participants</div>
-    </div>
-
     <div class="toggle-container">
         <label class="toggle-label" for="dark-mode-toggle">
             <div class="toggle-text">
@@ -1826,10 +1817,36 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
             </div>
         </label>
     </div>
-    
+
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
-    <button class="btn btn-secondary" onclick="exportData()">Export My Data</button>
-    <button class="btn btn-secondary" onclick="resetApp()" style="background: #dc3545; color: white;">Reset App</button>
+
+    <!-- Advanced Settings Section (Collapsible) -->
+    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div onclick="toggleAdvancedSettings()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">⚙️ Advanced Settings</h3>
+            <span id="advanced-settings-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
+        </div>
+
+        <div id="advanced-settings-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+            <div style="padding: 0 20px 20px 20px;">
+                <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #0066cc;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: var(--text-primary);">📥 Export My Data</h4>
+                    <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                        Download all your personal data including circles, activities, matches, and preferences as a JSON file. Required for GDPR compliance.
+                    </p>
+                    <button class="btn btn-secondary" onclick="exportData()" style="width: 100%;">Export My Data</button>
+                </div>
+
+                <div style="margin-bottom: 0; padding: 15px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #dc3545;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 0.95em; color: #dc3545;">⚠️ Delete All My Data</h4>
+                    <p style="margin: 0 0 12px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                        Permanently delete all your data including circles, activities, matches, preferences, and profile. This action cannot be undone. Consider exporting your data first.
+                    </p>
+                    <button class="btn btn-secondary" onclick="resetApp()" style="width: 100%; background: #dc3545; color: white; font-weight: 600;">Delete All My Data</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
         </div>
         
@@ -1880,17 +1897,7 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
     <!-- Step 2: Activities -->
     <div id="circle-step-2" style="display: none;">
         <div class="modal-header">What activities interest this group?</div>
-        
-        <!-- Quick select buttons -->
-        <div class="bulk-controls">
-            <h4>Quick Select</h4>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('food')">☕ Food & Drinks</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('active')">🏃 Active</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('entertainment')">🎬 Entertainment</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('relax')">🧘 Relax & Creative</div>
-            <div class="bulk-btn" onclick="selectCircleActivityCategory('all')">✨ Select All</div>
-        </div>
-        
+
         <!-- Activity grid -->
         <div class="activities-grid" id="circle-creation-activities-grid" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
         
@@ -3283,11 +3290,6 @@ function closeNotificationPrompt() {
 async function loadMinimumGroupSize() {
     if (!currentUser) return;
 
-    const select = document.getElementById('min-group-size');
-    if (select) {
-        select.value = currentUser.minimum_group_size || 2;
-    }
-
     // Load all notification preferences
     const reminderToggle = document.getElementById('event-reminders-toggle');
     if (reminderToggle) {
@@ -3329,35 +3331,6 @@ async function loadMinimumGroupSize() {
         if (isDarkMode) {
             document.body.classList.add('dark-mode');
         }
-    }
-}
-
-window.saveMinimumGroupSize = async function() {
-    const select = document.getElementById('min-group-size');
-    const newValue = parseInt(select.value);
-    
-    try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ minimum_group_size: newValue })
-            .eq('id', currentUser.id);
-        
-        if (error) throw error;
-        
-        currentUser.minimum_group_size = newValue;
-        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
-  SecureStorage.setUserId(currentUser.id);
-  SecureStorage.setSessionData(currentUser);
-        
-        showNotification('Group size preference updated!');
-        
-        // Just reload matches (don't call checkForMatches which re-adds you to everything)
-        if (selectedCircle) {
-            await loadMatches();
-        }
-    } catch (error) {
-        console.error('Error saving minimum group size:', error);
-        showNotification('Error saving preference', 'error');
     }
 }
 
@@ -3897,29 +3870,7 @@ function updateCircleSelectedCount() {
     }
 }
 
-window.selectCircleActivityCategory = function(category) {
-    const grid = document.getElementById('circle-creation-activities-grid');
-    const allCards = grid.querySelectorAll('.activity-card');
-    
-    // Clear all first
-    allCards.forEach(card => card.classList.remove('selected'));
-    
-    if (category === 'all') {
-        // Select all
-        allCards.forEach(card => card.classList.add('selected'));
-    } else {
-        // Select by category
-        defaultActivities.forEach(activity => {
-            if (activity.category === category) {
-                const card = grid.querySelector(`[data-activity-id="${activity.id}"]`);
-                if (card) card.classList.add('selected');
-            }
-        });
-    }
-    
-    updateCircleSelectedCount();
-}
-        window.finalizeCircleCreation = async function() {
+window.finalizeCircleCreation = async function() {
     const name = document.getElementById('circle-name').value.trim();
     
     if (!name) {
@@ -4406,7 +4357,13 @@ window.viewCircleMembers = async function(circleId) {
         }
 
         const membersList = members
-            .map(m => `${m.profiles.avatar} ${m.profiles.name}`)
+            .map(m => {
+                // Only show emoji avatars, not URLs
+                const avatar = m.profiles.avatar && !m.profiles.avatar.startsWith('http')
+                    ? `${m.profiles.avatar} `
+                    : '';
+                return `${avatar}${m.profiles.name}`;
+            })
             .join('\n');
 
         alert(`Members of ${circle.name}:\n\n${membersList}`);
@@ -4461,7 +4418,7 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
         } else {
 
         }
-        
+
         showNotification('Preferences saved!');
     } catch (error) {
         console.error('Error saving preferences:', error);
@@ -5331,12 +5288,6 @@ window.setActivityMode = async function(activityId, isToday) {
         filterSwipeActivities(searchTerm);
     }
 }
-        window.selectBulk = function(type) {
-            lastActivitiesState = [...activities];
-            const all = [...defaultActivities, ...(selectedCircle.customActivities || [])];
-            activities = type === 'clear' ? [] : all.filter(a => a.category === type);
-            renderActivities();
-        }
         window.saveActivities = async function() {
     if (!selectedCircle) return showNotification('Please select a circle first', 'error');
 
@@ -5592,25 +5543,25 @@ async function joinMatchChat(matchId) {
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id)
             .maybeSingle();
-        
+
         if (existing) {
             console.log('Already in chat');
             return true;
         }
-        
+
         // Add to match_participants
         const { error } = await supabase
             .from('match_participants')
-            .insert([{ 
-                match_id: matchId, 
-                profile_id: currentUser.id 
+            .insert([{
+                match_id: matchId,
+                profile_id: currentUser.id
             }]);
-        
+
         if (error) throw error;
-        
+
         console.log('✓ Joined match chat');
         return true;
-        
+
     } catch (error) {
         console.error('Error joining match chat:', error);
         return false;
@@ -6862,7 +6813,7 @@ async function sendNewMatchNotification(match) {
 async function sendEventJoinNotification(event) {
     try {
         console.log('📢 Sending event join notification for:', event.id);
-        
+
         const activity = event.activities;
         
         // Get existing participants (exclude current user who just joined)
@@ -7204,12 +7155,9 @@ if (!showPastEvents) {
     });
 }
 
-    // Filter by minimum group size preference
-    const minimumGroupSize = currentUser?.minimum_group_size || 2;
-    matchesWithEvents = matchesWithEvents.filter(({ match }) => {
-        const interestedCount = match.interestedCount || 0;
-        return interestedCount >= minimumGroupSize;
-    });
+    // Note: We no longer filter out matches based on minimum group size
+    // Users should see all matches, even if waiting for more people
+    // The UI will show a "waiting" state for matches below their minimum
 
     // Pre-load any missing activities
     const missingActivityIds = new Set();
@@ -7240,7 +7188,7 @@ if (!showPastEvents) {
 
         // Check for inactivity warning
         const hasWarning = warningsMap.has(match.id);
-        
+
         // Get interested users display
         const interestedCount = match.interestedCount || 0;
         const interestedNames = match.interestedUsers?.slice(0, 2).map(u => u.name).join(', ') || '';
@@ -10111,8 +10059,118 @@ if (pageId === 'activities') {
 if (pageId === 'matches') {
     await loadMatches();
 }
+if (pageId === 'settings') {
+    initAdvancedSettings();
 }
-        window.resetApp = () => { if (confirm('Are you sure?')) { localStorage.clear(); location.reload(); } };
+}
+        // Export user data for GDPR compliance
+        window.exportData = async function() {
+            try {
+                const user = supabase.auth.getUser ? await supabase.auth.getUser() : null;
+                const userId = user?.data?.user?.id;
+
+                // Gather all user data
+                const exportData = {
+                    exportDate: new Date().toISOString(),
+                    user: JSON.parse(localStorage.getItem('friendle_user') || 'null'),
+                    preferences: {
+                        lastCircle: localStorage.getItem('friendle_last_circle'),
+                        activityCounts: JSON.parse(localStorage.getItem('friendle_activity_counts') || '{}'),
+                        matches: JSON.parse(localStorage.getItem('friendle_matches') || '[]')
+                    }
+                };
+
+                // Fetch user's circles and activities from Supabase if logged in
+                if (userId) {
+                    const { data: circles } = await supabase
+                        .from('circles')
+                        .select('*')
+                        .eq('user_id', userId);
+
+                    const { data: activities } = await supabase
+                        .from('activities')
+                        .select('*')
+                        .eq('user_id', userId);
+
+                    exportData.circles = circles || [];
+                    exportData.activities = activities || [];
+                }
+
+                // Create and download JSON file
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `friendle-data-export-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                alert('Your data has been exported successfully!');
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export data. Please try again.');
+            }
+        };
+
+        // Delete all local data
+        window.resetApp = () => {
+            const confirmed = confirm(
+                'DELETE ALL YOUR DATA?\n\n' +
+                'This will permanently delete:\n' +
+                '• All your circles and groups\n' +
+                '• All your activities and matches\n' +
+                '• All your preferences and settings\n' +
+                '• Your profile information\n\n' +
+                'This action CANNOT be undone!\n\n' +
+                'Are you absolutely sure you want to continue?'
+            );
+
+            if (confirmed) {
+                const doubleCheck = confirm(
+                    'FINAL WARNING!\n\n' +
+                    'You are about to delete everything. This is your last chance to cancel.\n\n' +
+                    'Click OK to delete all data, or Cancel to keep your data.'
+                );
+
+                if (doubleCheck) {
+                    localStorage.clear();
+                    alert('All data has been deleted. The app will now reload.');
+                    location.reload();
+                }
+            }
+        };
+
+        // Toggle Advanced Settings section
+        window.toggleAdvancedSettings = function() {
+            const content = document.getElementById('advanced-settings-content');
+            const arrow = document.getElementById('advanced-settings-arrow');
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+
+            if (isExpanded) {
+                // Collapse
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+                localStorage.setItem('advanced_settings_expanded', 'false');
+            } else {
+                // Expand - set to scrollHeight to animate smoothly
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+                localStorage.setItem('advanced_settings_expanded', 'true');
+            }
+        };
+
+        // Initialize Advanced Settings state on page load
+        window.initAdvancedSettings = function() {
+            const isExpanded = localStorage.getItem('advanced_settings_expanded') === 'true';
+            if (isExpanded) {
+                const content = document.getElementById('advanced-settings-content');
+                const arrow = document.getElementById('advanced-settings-arrow');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+            }
+        };
         
         // Invite System
         window.showInviteModal = function(circleId) {
@@ -10810,7 +10868,207 @@ window.saveActivityVisibility = async function() {
         console.error('Error saving activity visibility:', error);
         showNotification('Error saving changes', 'error');
     }
-}
+};
+
+// Edge-based swipe navigation between pages
+(function initEdgeSwipeNavigation() {
+    const pageOrder = ['circles', 'activities', 'matches', 'settings'];
+    const EDGE_THRESHOLD = 50; // pixels from edge to initiate swipe
+    const SWIPE_THRESHOLD = 80; // minimum swipe distance to trigger navigation
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchCurrentX = 0;
+    let touchCurrentY = 0;
+    let isEdgeSwipe = false;
+    let isSwiping = false;
+
+    const appContainer = document.querySelector('.app-container');
+
+    if (!appContainer) {
+        console.error('🚫 Edge swipe: app-container not found');
+        return;
+    }
+
+    console.log('✅ Edge swipe navigation initialized');
+    console.log('   Edge threshold:', EDGE_THRESHOLD + 'px');
+    console.log('   Swipe threshold:', SWIPE_THRESHOLD + 'px');
+
+    // Touch events
+    appContainer.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchCurrentX = touchStartX;
+        touchCurrentY = touchStartY;
+
+        // Simple edge detection - check if touch is within threshold of viewport edges
+        const viewportWidth = window.innerWidth;
+
+        if (touchStartX <= EDGE_THRESHOLD || touchStartX >= viewportWidth - EDGE_THRESHOLD) {
+            isEdgeSwipe = true;
+            isSwiping = false;
+            console.log('👆 Edge touch at x=' + touchStartX + ', viewport=' + viewportWidth);
+        } else {
+            isEdgeSwipe = false;
+        }
+    }, { passive: true });
+
+    appContainer.addEventListener('touchmove', (e) => {
+        if (!isEdgeSwipe) return;
+
+        touchCurrentX = e.touches[0].clientX;
+        touchCurrentY = e.touches[0].clientY;
+        const deltaX = touchCurrentX - touchStartX;
+        const deltaY = touchCurrentY - touchStartY;
+
+        // Only process if swipe is mostly horizontal
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+            if (!isSwiping) {
+                isSwiping = true;
+            }
+
+            // Prevent scrolling during horizontal swipe
+            e.preventDefault();
+
+            // Apply visual feedback
+            const activePage = document.querySelector('.page.active');
+            if (activePage) {
+                const visualFeedback = Math.min(Math.abs(deltaX) / 3, 60);
+                const direction = deltaX > 0 ? 1 : -1;
+                activePage.style.transform = `translateX(${direction * visualFeedback}px)`;
+                activePage.style.transition = 'none';
+                activePage.style.opacity = Math.max(0.7, 1 - (visualFeedback / 200));
+            }
+        }
+    }, { passive: false });
+
+    appContainer.addEventListener('touchend', (e) => {
+        if (!isEdgeSwipe) return;
+
+        const deltaX = touchCurrentX - touchStartX;
+        const deltaY = touchCurrentY - touchStartY;
+        const activePage = document.querySelector('.page.active');
+
+        console.log('👆 Touch end - deltaX=' + deltaX + ', deltaY=' + deltaY + ', isSwiping=' + isSwiping);
+
+        // Reset visual feedback
+        if (activePage) {
+            activePage.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+            activePage.style.transform = '';
+            activePage.style.opacity = '';
+        }
+
+        // Navigate if swipe was horizontal enough and exceeded threshold
+        if (isSwiping && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
+            const currentPageId = localStorage.getItem('friendle_current_page') || 'circles';
+            const currentIndex = pageOrder.indexOf(currentPageId);
+
+            console.log('🔄 Navigating from page ' + currentPageId + ' (index ' + currentIndex + ')');
+
+            let targetIndex;
+            if (deltaX > 0) {
+                // Swiped right - go to previous page
+                targetIndex = currentIndex - 1;
+            } else {
+                // Swiped left - go to next page
+                targetIndex = currentIndex + 1;
+            }
+
+            // Navigate if target page exists
+            if (targetIndex >= 0 && targetIndex < pageOrder.length) {
+                const targetPage = pageOrder[targetIndex];
+                console.log('➡️ Navigating to: ' + targetPage);
+                showPage(targetPage);
+            } else {
+                console.log('⚠️ No page at index ' + targetIndex);
+            }
+        } else {
+            console.log('⚠️ Swipe not triggered - deltaX=' + Math.abs(deltaX) + ', threshold=' + SWIPE_THRESHOLD);
+        }
+
+        isEdgeSwipe = false;
+        isSwiping = false;
+    }, { passive: true });
+
+    // Mouse events for desktop testing
+    let isMouseDragging = false;
+    let mouseStartX = 0;
+    let mouseStartY = 0;
+    let mouseCurrentX = 0;
+
+    appContainer.addEventListener('mousedown', (e) => {
+        mouseStartX = e.clientX;
+        mouseStartY = e.clientY;
+        mouseCurrentX = mouseStartX;
+
+        const viewportWidth = window.innerWidth;
+
+        if (mouseStartX <= EDGE_THRESHOLD || mouseStartX >= viewportWidth - EDGE_THRESHOLD) {
+            isMouseDragging = true;
+            isEdgeSwipe = true;
+            console.log('🖱️ Edge mouse down at x=' + mouseStartX + ', viewport=' + viewportWidth);
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isMouseDragging) return;
+
+        mouseCurrentX = e.clientX;
+        const deltaX = mouseCurrentX - mouseStartX;
+
+        if (Math.abs(deltaX) > 10) {
+            const activePage = document.querySelector('.page.active');
+            if (activePage) {
+                const visualFeedback = Math.min(Math.abs(deltaX) / 3, 60);
+                const direction = deltaX > 0 ? 1 : -1;
+                activePage.style.transform = `translateX(${direction * visualFeedback}px)`;
+                activePage.style.transition = 'none';
+                activePage.style.opacity = Math.max(0.7, 1 - (visualFeedback / 200));
+            }
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (!isMouseDragging) return;
+
+        const deltaX = mouseCurrentX - mouseStartX;
+        const activePage = document.querySelector('.page.active');
+
+        console.log('🖱️ Mouse up - deltaX=' + deltaX);
+
+        if (activePage) {
+            activePage.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+            activePage.style.transform = '';
+            activePage.style.opacity = '';
+        }
+
+        if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+            const currentPageId = localStorage.getItem('friendle_current_page') || 'circles';
+            const currentIndex = pageOrder.indexOf(currentPageId);
+
+            console.log('🔄 Mouse navigating from: ' + currentPageId);
+
+            let targetIndex;
+            if (deltaX > 0) {
+                targetIndex = currentIndex - 1;
+            } else {
+                targetIndex = currentIndex + 1;
+            }
+
+            if (targetIndex >= 0 && targetIndex < pageOrder.length) {
+                const targetPage = pageOrder[targetIndex];
+                console.log('➡️ Mouse navigating to: ' + targetPage);
+                showPage(targetPage);
+            }
+        } else {
+            console.log('⚠️ Mouse swipe too short - deltaX=' + Math.abs(deltaX));
+        }
+
+        isMouseDragging = false;
+        isEdgeSwipe = false;
+    });
+})();
+
   initApp(); // start the app
 });   // ✅ closes document.addEventListener("DOMContentLoaded", ...)
 
