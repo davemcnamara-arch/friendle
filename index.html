@@ -816,8 +816,8 @@
     position: absolute;
     bottom: 25px;
     right: 0;
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     display: none;
@@ -833,10 +833,20 @@
     border: none;
     text-align: left;
     cursor: pointer;
+    color: var(--text-primary);
 }
 
 .message-actions-menu button:hover {
-    background: #f8f9fa;
+    background: var(--border-hover);
+}
+
+/* Delete button in menu - red color with good contrast */
+.message-actions-menu button.delete-btn {
+    color: #ef4444;
+}
+
+.message-actions-menu button.delete-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
 }
 
         .message.own {
@@ -5955,8 +5965,13 @@ function createEventCard(event, matchId, isPast = false) {
     return eventCard;
 }
 
-async function loadAndDisplayGeneralMessages(matchId) {
+async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, savedScrollPosition = null) {
     try {
+        const messagesContainer = document.getElementById('chat-messages');
+
+        // Save scroll position if preserving
+        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
+
         // Load general messages from match_messages table
         const { data: messages, error } = await supabase
             .from('match_messages')
@@ -5968,8 +5983,6 @@ async function loadAndDisplayGeneralMessages(matchId) {
             .order('created_at', { ascending: true });
 
         if (error) throw error;
-
-        const messagesContainer = document.getElementById('chat-messages');
 
         // Clear messages but preserve the header
         const header = messagesContainer.querySelector('h4');
@@ -5996,9 +6009,14 @@ async function loadAndDisplayGeneralMessages(matchId) {
             appendMessage(message);
         });
 
-        // Scroll to bottom after loading
+        // Scroll handling - preserve position or scroll to bottom
         setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            if (preserveScroll && scrollPos !== null) {
+                messagesContainer.scrollTop = scrollPos;
+                console.log('📜 Restored scroll position to:', scrollPos);
+            } else {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
         }, 50);
 
     } catch (error) {
@@ -6160,8 +6178,13 @@ async function renderCircleChat(circleId) {
     }, 100);
 }
 
-async function loadAndDisplayCircleMessages(circleId) {
+async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, savedScrollPosition = null) {
     try {
+        const messagesContainer = document.getElementById('chat-messages');
+
+        // Save scroll position if preserving
+        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
+
         const { data: messages, error } = await supabase
             .from('circle_messages')
             .select(`
@@ -6172,8 +6195,6 @@ async function loadAndDisplayCircleMessages(circleId) {
             .order('created_at', { ascending: true });
 
         if (error) throw error;
-
-        const messagesContainer = document.getElementById('chat-messages');
 
         // Clear messages but preserve the header
         const header = messagesContainer.querySelector('h4');
@@ -6200,9 +6221,14 @@ async function loadAndDisplayCircleMessages(circleId) {
             appendMessage(message);
         });
 
-        // Scroll to bottom after loading
+        // Scroll handling - preserve position or scroll to bottom
         setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            if (preserveScroll && scrollPos !== null) {
+                messagesContainer.scrollTop = scrollPos;
+                console.log('📜 Restored scroll position to:', scrollPos);
+            } else {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
         }, 50);
 
     } catch (error) {
@@ -7774,12 +7800,16 @@ window.editEventMessage = async function(msgId, currentContent) {
     }
     
     const newContent = prompt('Edit your message:', currentContent);
-    
+
     if (!newContent || newContent.trim() === currentContent.trim()) return;
-    
+
     const context = getCurrentChatContext();
     console.log('✏️ Editing message in context:', context.type);
-    
+
+    // Save scroll position before reload
+    const messagesContainer = document.getElementById('chat-messages');
+    const scrollPos = messagesContainer ? messagesContainer.scrollTop : 0;
+
     try {
         if (context.type === 'event') {
             const { error } = await supabase
@@ -7787,18 +7817,18 @@ window.editEventMessage = async function(msgId, currentContent) {
                 .update({ content: newContent.trim() })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
-            
+
             if (error) throw error;
-            
+
             const channel = supabase.channel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_edited',
                 payload: { id: msgId, content: newContent.trim() }
             });
-            
-            await loadEventMessages(context.id, context.data.created_at);
-            
+
+            await loadEventMessages(context.id, context.data.created_at, true, scrollPos);
+
         } else if (context.type === 'match') {
             const { error } = await supabase
                 .from('match_messages')
@@ -7815,7 +7845,7 @@ window.editEventMessage = async function(msgId, currentContent) {
                 payload: { id: msgId, content: newContent.trim() }
             });
 
-            await loadMatchMessages(context.id);
+            await loadMatchMessages(context.id, true, scrollPos);
 
         } else if (context.type === 'circle') {
             const { error } = await supabase
@@ -7833,11 +7863,11 @@ window.editEventMessage = async function(msgId, currentContent) {
                 payload: { id: msgId, content: newContent.trim() }
             });
 
-            await loadAndDisplayCircleMessages(context.id);
+            await loadAndDisplayCircleMessages(context.id, true, scrollPos);
         }
 
         showNotification('Message updated');
-        
+
     } catch (error) {
         console.error('Error editing message:', error);
         showNotification('Failed to edit message', 'error');
@@ -7852,6 +7882,10 @@ window.deleteEventMessage = async function(msgId) {
 
     const context = getCurrentChatContext();
     console.log('🗑️ Soft-deleting message in context:', context.type);
+
+    // Save scroll position before reload
+    const messagesContainer = document.getElementById('chat-messages');
+    const scrollPos = messagesContainer ? messagesContainer.scrollTop : 0;
 
     try {
         // SECURITY: Use soft delete instead of hard delete to preserve message history
@@ -7875,7 +7909,7 @@ window.deleteEventMessage = async function(msgId) {
             });
 
             // Stay in event chat - just reload the event messages
-            await loadEventMessages(context.id, context.data.created_at);
+            await loadEventMessages(context.id, context.data.created_at, true, scrollPos);
 
         } else if (context.type === 'match') {
             const { error } = await supabase
@@ -7897,7 +7931,7 @@ window.deleteEventMessage = async function(msgId) {
             });
 
             // Reload the general chat messages (not the full threaded view)
-            await loadAndDisplayGeneralMessages(context.id);
+            await loadAndDisplayGeneralMessages(context.id, true, scrollPos);
 
         } else if (context.type === 'circle') {
             const { error } = await supabase
@@ -7918,7 +7952,7 @@ window.deleteEventMessage = async function(msgId) {
                 payload: { id: msgId }
             });
 
-            await loadAndDisplayCircleMessages(context.id);
+            await loadAndDisplayCircleMessages(context.id, true, scrollPos);
         }
 
         showNotification('Message deleted');
@@ -8603,8 +8637,13 @@ window.openGeneralChatFromEvent = function() {
 }
 
 // Load messages for current event
-async function loadEventMessages(eventId, eventCreatedAt) {
+async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false, savedScrollPosition = null) {
     try {
+        const messagesContainer = document.getElementById('chat-messages');
+
+        // Save scroll position if preserving
+        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
+
         const { data: messages, error } = await supabase
     .from('event_messages')
     .select(`
@@ -8613,17 +8652,16 @@ async function loadEventMessages(eventId, eventCreatedAt) {
     `)
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });
-        
+
         if (error) throw error;
-        
-        const messagesContainer = document.getElementById('chat-messages');
+
         messagesContainer.innerHTML = '';
-        
+
         // Split messages into archived (before event) and current (after event)
         const eventCreatedDate = new Date(eventCreatedAt);
         const archivedMessages = messages.filter(m => new Date(m.created_at) < eventCreatedDate);
         const currentMessages = messages.filter(m => new Date(m.created_at) >= eventCreatedDate);
-        
+
         // Show archived messages toggle if any exist
         if (archivedMessages.length > 0) {
             const archiveToggle = document.createElement('div');
@@ -8643,7 +8681,7 @@ async function loadEventMessages(eventId, eventCreatedAt) {
             `;
             archiveToggle.onclick = () => toggleArchivedMessages(eventId, eventCreatedAt);
             messagesContainer.appendChild(archiveToggle);
-            
+
             // Container for archived messages (hidden by default)
             const archivedContainer = document.createElement('div');
             archivedContainer.id = 'archived-messages';
@@ -8655,12 +8693,12 @@ async function loadEventMessages(eventId, eventCreatedAt) {
                 opacity: 0.7;
             `;
             messagesContainer.appendChild(archivedContainer);
-            
+
             // Add archived messages to container
             archivedMessages.forEach(message => {
                 appendMessageToContainer(message, archivedContainer);
             });
-            
+
             // Divider
             const divider = document.createElement('div');
             divider.style.cssText = `
@@ -8674,7 +8712,7 @@ async function loadEventMessages(eventId, eventCreatedAt) {
             divider.innerHTML = '📅 Event Created';
             archivedContainer.appendChild(divider);
         }
-        
+
         // Show current messages
         if (currentMessages.length === 0 && archivedMessages.length === 0) {
             messagesContainer.innerHTML += '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start the conversation!</p>';
@@ -8686,13 +8724,18 @@ async function loadEventMessages(eventId, eventCreatedAt) {
         } else {
             currentMessages.forEach(message => appendMessage(message));
         }
-        
-        // Scroll to bottom after a delay to let images load
+
+        // Scroll handling - preserve position or scroll to bottom
         setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            console.log('📜 Scrolled to bottom');
+            if (preserveScroll && scrollPos !== null) {
+                messagesContainer.scrollTop = scrollPos;
+                console.log('📜 Restored scroll position to:', scrollPos);
+            } else {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                console.log('📜 Scrolled to bottom');
+            }
         }, 500);
-        
+
     } catch (error) {
         console.error('Error loading messages:', error);
     }
@@ -8922,9 +8965,9 @@ function appendMessage(message) {
             ${isOwnMessage && !message.is_deleted ? `
     <div class="message-actions" style="position: relative;">
         <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
-        <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: var(--card-bg, white); border: 1px solid var(--border-color, #ddd); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
-            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer; color: var(--text-color, black);" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Edit</button>` : ''}
-            <button onclick="deleteEventMessage('${message.id}')" style="display: block; width: 100%; padding: 10px; background: none; border: none; text-align: left; cursor: pointer; color: var(--text-color, black);" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='none'">Delete</button>
+        <div id="event-menu-${message.id}" class="message-actions-menu">
+            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
+            <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
         </div>
     </div>
 ` : ''}
@@ -9216,18 +9259,23 @@ async function deleteEmptyEvent(eventId) {
     }
 }
 
-async function loadMatchMessages(matchId) {
+async function loadMatchMessages(matchId, preserveScroll = false, savedScrollPosition = null) {
     try {
         // Make sure currentMatchId is set
         if (!currentMatchId) {
             currentMatchId = matchId;
         }
-        
+
         // Make sure currentMatchChat is set
         if (!currentMatchChat) {
             currentMatchChat = matches.find(m => m.id === matchId);
         }
-        
+
+        const messagesContainer = document.getElementById('chat-messages');
+
+        // Save scroll position if preserving
+        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
+
         const { data: messages, error } = await supabase
     .from('match_messages')
     .select(`
@@ -9237,20 +9285,25 @@ async function loadMatchMessages(matchId) {
     .eq('match_id', matchId)
     .order('created_at', { ascending: true })
 .limit(50);
-        
+
         if (error) throw error;
-        
-        const messagesContainer = document.getElementById('chat-messages');
+
         messagesContainer.innerHTML = '';
-        
+
         if (messages.length === 0) {
             messagesContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start planning your activity!</p>';
         } else {
             messages.forEach(message => appendMessage(message));
         }
-        
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
+
+        // Scroll handling - preserve position or scroll to bottom
+        if (preserveScroll && scrollPos !== null) {
+            messagesContainer.scrollTop = scrollPos;
+            console.log('📜 Restored scroll position to:', scrollPos);
+        } else {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
     } catch (error) {
         console.error('Error loading match messages:', error);
     }
