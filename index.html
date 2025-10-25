@@ -7823,36 +7823,43 @@ window.editEventMessage = async function(msgId, currentContent) {
 window.deleteEventMessage = async function(msgId) {
     const menu = document.getElementById(`event-menu-${msgId}`);
     if (menu) menu.style.display = 'none';
-    
+
     if (!confirm('Delete this message?')) return;
-    
+
     const context = getCurrentChatContext();
-    console.log('🗑️ Deleting message in context:', context.type);
-    
+    console.log('🗑️ Soft-deleting message in context:', context.type);
+
     try {
+        // SECURITY: Use soft delete instead of hard delete to preserve message history
         if (context.type === 'event') {
             const { error } = await supabase
                 .from('event_messages')
-                .delete()
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString()
+                })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
-            
+
             if (error) throw error;
-            
+
             const channel = supabase.channel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_deleted',
                 payload: { id: msgId }
             });
-            
+
             // Stay in event chat - just reload the event messages
             await loadEventMessages(context.id, context.data.created_at);
-            
+
         } else if (context.type === 'match') {
             const { error } = await supabase
                 .from('match_messages')
-                .delete()
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString()
+                })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
 
@@ -7871,7 +7878,10 @@ window.deleteEventMessage = async function(msgId) {
         } else if (context.type === 'circle') {
             const { error } = await supabase
                 .from('circle_messages')
-                .delete()
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString()
+                })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
 
@@ -7888,7 +7898,7 @@ window.deleteEventMessage = async function(msgId) {
         }
 
         showNotification('Message deleted');
-        
+
     } catch (error) {
         console.error('CAUGHT ERROR in deleteEventMessage:', error);
         console.error('Error details:', error.message, error.code);
@@ -8770,7 +8780,10 @@ function appendMessageToContainer(message, container) {
     `;
 
     let onClick = '';
-    let content = sanitizeHTML(message.content); // SECURITY: Sanitize to prevent XSS
+    // SECURITY: Check if message is soft-deleted
+    let content = message.is_deleted
+        ? '<span style="color: #999; font-style: italic;">[Deleted]</span>'
+        : sanitizeHTML(message.content); // SECURITY: Sanitize to prevent XSS
     let senderName = sanitizeHTML(message.sender.name); // SECURITY: Sanitize sender name
 
     messageDiv.innerHTML = `
@@ -8851,8 +8864,10 @@ function appendMessage(message) {
     const context = getCurrentChatContext();
     const messageType = context.type;
 
-    // SECURITY: Sanitize user input to prevent XSS
-    const sanitizedContent = sanitizeHTML(message.content);
+    // SECURITY: Sanitize user input to prevent XSS and handle soft-deleted messages
+    const sanitizedContent = message.is_deleted
+        ? '<span style="color: #999; font-style: italic;">[Deleted]</span>'
+        : sanitizeHTML(message.content);
     const sanitizedSenderName = sanitizeHTML(message.sender.name);
     const escapedContentForEdit = message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/'/g, "\\'");
 
@@ -8880,7 +8895,7 @@ function appendMessage(message) {
             <div style="background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'}; color: ${isOwnMessage ? 'white' : 'black'}; padding: 10px 14px; border-radius: 12px; max-width: 280px; word-wrap: break-word; overflow-wrap: break-word;">
     ${sanitizedContent}
 </div>
-            ${isOwnMessage ? `
+            ${isOwnMessage && !message.is_deleted ? `
     <div class="message-actions" style="position: relative;">
         <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
         <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: var(--card-bg, white); border: 1px solid var(--border-color, #ddd); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
