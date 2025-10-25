@@ -1809,17 +1809,6 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         </div>
     </div>
 
-    <div class="form-group">
-        <label for="min-group-size">Minimum Group Size</label>
-        <select id="min-group-size" onchange="saveMinimumGroupSize()">
-            <option value="2">Any size (including 1-on-1)</option>
-            <option value="3">At least 3 people</option>
-            <option value="4">At least 4 people</option>
-            <option value="5">At least 5 people</option>
-        </select>
-        <div style="font-size: 0.85em; color: #666; margin-top: 5px;">Only show matches with at least this many total participants</div>
-    </div>
-
     <div class="toggle-container">
         <label class="toggle-label" for="dark-mode-toggle">
             <div class="toggle-text">
@@ -3195,11 +3184,6 @@ function closeNotificationPrompt() {
 async function loadMinimumGroupSize() {
     if (!currentUser) return;
 
-    const select = document.getElementById('min-group-size');
-    if (select) {
-        select.value = currentUser.minimum_group_size || 2;
-    }
-
     // Load all notification preferences
     const reminderToggle = document.getElementById('event-reminders-toggle');
     if (reminderToggle) {
@@ -3241,33 +3225,6 @@ async function loadMinimumGroupSize() {
         if (isDarkMode) {
             document.body.classList.add('dark-mode');
         }
-    }
-}
-
-window.saveMinimumGroupSize = async function() {
-    const select = document.getElementById('min-group-size');
-    const newValue = parseInt(select.value);
-    
-    try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ minimum_group_size: newValue })
-            .eq('id', currentUser.id);
-        
-        if (error) throw error;
-        
-        currentUser.minimum_group_size = newValue;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
-        
-        showNotification('Group size preference updated!');
-        
-        // Just reload matches (don't call checkForMatches which re-adds you to everything)
-        if (selectedCircle) {
-            await loadMatches();
-        }
-    } catch (error) {
-        console.error('Error saving minimum group size:', error);
-        showNotification('Error saving preference', 'error');
     }
 }
 
