@@ -1475,26 +1475,22 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
     // Save Player ID to database when user is logged in
     OneSignal.User.PushSubscription.addEventListener('change', async function(event) {
       const playerId = event.current.id;
-      
-      // Get current user from your app
-      const storedUser = localStorage.getItem('friendle_user');
-      if (storedUser && playerId) {
-        const user = JSON.parse(storedUser);
-        
+
+      // SECURITY: Use in-memory currentUser instead of localStorage
+      if (window.currentUser && playerId) {
         // Update database
         try {
           const { error } = await supabase
             .from('profiles')
             .update({ onesignal_player_id: playerId })
-            .eq('id', user.id);
-          
+            .eq('id', window.currentUser.id);
+
           if (error) throw error;
-          
+
           console.log('✅ OneSignal Player ID saved:', playerId);
-          
-          // Update local storage
-          user.onesignal_player_id = playerId;
-          localStorage.setItem('friendle_user', JSON.stringify(user));
+
+          // Update in-memory user object
+          window.currentUser.onesignal_player_id = playerId;
         } catch (error) {
           console.error('Error saving Player ID:', error);
         }
@@ -2072,6 +2068,43 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
             timestamp: Date.now()
         };
 
+        // SECURITY: Secure Storage Helper
+        // Minimizes sensitive data in localStorage to reduce XSS attack surface
+        // Only stores user ID persistently; uses sessionStorage for non-critical data
+        const SecureStorage = {
+            // Only store user ID persistently (needed for auto-login check)
+            setUserId(userId) {
+                if (userId) {
+                    localStorage.setItem('friendle_user_id', userId);
+                }
+            },
+
+            getUserId() {
+                return localStorage.getItem('friendle_user_id');
+            },
+
+            // Store minimal UI data in sessionStorage (clears on tab close)
+            setSessionData(data) {
+                if (!data) return;
+                sessionStorage.setItem('friendle_session', JSON.stringify({
+                    name: data.name || '',
+                    avatar: data.avatar || ''
+                }));
+            },
+
+            getSessionData() {
+                const data = sessionStorage.getItem('friendle_session');
+                return data ? JSON.parse(data) : null;
+            },
+
+            // Clear all stored data on logout
+            clearAll() {
+                localStorage.removeItem('friendle_user_id');
+                localStorage.removeItem('friendle_user'); // Legacy - clean up old storage
+                sessionStorage.removeItem('friendle_session');
+            }
+        };
+
         /**
          * Waits for the app to be fully initialized and data to be loaded
          * Critical for iOS devices where notification clicks may happen during app load
@@ -2265,7 +2298,9 @@ async function submitPasswordReset() {
             if (profileError) throw profileError;
 
             currentUser = profileData;
-            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+            // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+            SecureStorage.setUserId(currentUser.id);
+            SecureStorage.setSessionData(currentUser);
 
             // Clear form fields
             document.getElementById('new-reset-password').value = '';
@@ -2429,8 +2464,10 @@ window.signUp = async function() {
                 console.error('Error setting up OneSignal:', error);
             }
         }
-        
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
 
         showNotification('Account created successfully!');
 
@@ -2510,8 +2547,10 @@ window.signIn = async function() {
                 console.error('Error setting up OneSignal:', error);
             }
         }
-        
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
 
         showNotification('Signed in successfully!');
 
@@ -2556,7 +2595,8 @@ window.signOut = async function() {
         
         await supabase.auth.signOut();
         currentUser = null;
-        localStorage.removeItem('friendle_user');
+        // SECURITY: Clear all stored user data (localStorage + sessionStorage)
+        SecureStorage.clearAll();
         showPage('welcome');
         showNotification('Signed out successfully');
     } catch (error) {
@@ -3144,7 +3184,9 @@ function closeNotificationPrompt() {
   }
 
   currentUser = data; // store the profile from DB
-  localStorage.setItem('friendle_user', JSON.stringify(currentUser)); // keep local copy for session
+  // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser); // keep local copy for session
   showPage('circles');
   updateProfile();
   processInvite();
@@ -3239,7 +3281,9 @@ window.saveMinimumGroupSize = async function() {
         if (error) throw error;
         
         currentUser.minimum_group_size = newValue;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
         
         showNotification('Group size preference updated!');
         
@@ -3269,7 +3313,9 @@ window.changeUsername = async function() {
         if (error) throw error;
 
         currentUser.name = newName;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         updateProfile();
         document.getElementById('new-username').value = '';
@@ -3391,7 +3437,9 @@ window.uploadProfilePicture = async function(event) {
 
         // Update current user and UI
         currentUser.avatar = avatarUrl;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         updateProfile();
         hideLoader();
@@ -3442,7 +3490,9 @@ window.removeProfilePicture = async function() {
 
         // Update current user and UI
         currentUser.avatar = defaultAvatar;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         updateProfile();
         hideLoader();
@@ -3470,7 +3520,9 @@ window.toggleEventReminders = async function() {
         if (error) throw error;
 
         currentUser.event_reminders_enabled = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         hideLoader();
         showNotification(isEnabled ? '🔔 Event reminders enabled!' : '🔕 Event reminders disabled');
@@ -3499,7 +3551,9 @@ window.updateTimezone = async function() {
         if (error) throw error;
 
         currentUser.timezone = timezone;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         hideLoader();
         showNotification('Timezone updated!');
@@ -3524,7 +3578,9 @@ window.toggleNewMatches = async function() {
         if (error) throw error;
 
         currentUser.notify_new_matches = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 New match notifications enabled!' : '🔕 New match notifications disabled');
 
@@ -3548,7 +3604,9 @@ window.toggleEventJoins = async function() {
         if (error) throw error;
 
         currentUser.notify_event_joins = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 Event join notifications enabled!' : '🔕 Event join notifications disabled');
 
@@ -3572,7 +3630,9 @@ window.toggleInactivityWarnings = async function() {
         if (error) throw error;
 
         currentUser.notify_inactivity_warnings = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 Inactivity warnings enabled!' : '🔕 Inactivity warnings disabled');
 
@@ -3596,7 +3656,9 @@ window.toggleChatMessages = async function() {
         if (error) throw error;
 
         currentUser.notify_chat_messages = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 Chat notifications enabled!' : '🔕 Chat notifications disabled');
 
@@ -3627,7 +3689,9 @@ window.toggleDarkMode = async function() {
         if (error) throw error;
 
         currentUser.dark_mode_enabled = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🌙 Dark mode enabled!' : '☀️ Light mode enabled');
 
@@ -10035,7 +10099,9 @@ if (pageId === 'matches') {
     showNotificationPrompt();
 }
             
-            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+            // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
             await renderCircles();
             window.appState.circlesLoaded = true;
@@ -10147,7 +10213,8 @@ if (pageId === 'matches') {
     } else {
         // No authenticated session
         currentUser = null;
-        localStorage.removeItem('friendle_user');
+        // SECURITY: Clear all stored user data
+        SecureStorage.clearAll();
 
         // Check if there are chat parameters from notification click
         const openChatId = urlParams.get('openChat');
