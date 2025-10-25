@@ -1,6 +1,6 @@
 // Edge Function: Send Notification
 // Sends push notifications via OneSignal while respecting user preferences
-// Supports: new_match, event_join, chat_message notifications
+// Supports: new_match, event_join, chat_message, minimum_reached notifications
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -18,7 +18,8 @@ const corsHeaders = {
 const NOTIFICATION_PREFERENCE_MAP: Record<string, string> = {
   'new_match': 'notify_new_matches',
   'event_join': 'notify_event_joins',
-  'chat_message': 'notify_chat_messages'
+  'chat_message': 'notify_chat_messages',
+  'minimum_reached': 'notify_new_matches' // Use same preference as new_match
 }
 
 interface NotificationRequest {
@@ -28,7 +29,7 @@ interface NotificationRequest {
   activityName?: string
   chatType?: 'match' | 'event' | 'circle'
   chatId?: string
-  notificationType: 'new_match' | 'event_join' | 'chat_message'
+  notificationType: 'new_match' | 'event_join' | 'chat_message' | 'minimum_reached'
 }
 
 serve(async (req) => {
@@ -62,7 +63,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Invalid notification type: ${notificationType}. Must be one of: new_match, event_join, chat_message`
+          error: `Invalid notification type: ${notificationType}. Must be one of: new_match, event_join, chat_message, minimum_reached`
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -216,6 +217,13 @@ serve(async (req) => {
         notificationData.chatType = chatType  // Use camelCase for consistency with client code
         notificationData.chatId = chatId
         notificationData.message = message
+        break
+
+      case 'minimum_reached':
+        heading = `${activityName || 'Match'} Ready!`
+        content = message
+        notificationData.chatType = chatType  // Use camelCase for consistency with client code
+        notificationData.chatId = chatId
         break
     }
 
