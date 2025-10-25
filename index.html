@@ -4281,7 +4281,7 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
         } else {
 
         }
-        
+
         showNotification('Preferences saved!');
     } catch (error) {
         console.error('Error saving preferences:', error);
@@ -5401,25 +5401,25 @@ async function joinMatchChat(matchId) {
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id)
             .maybeSingle();
-        
+
         if (existing) {
             console.log('Already in chat');
             return true;
         }
-        
+
         // Add to match_participants
         const { error } = await supabase
             .from('match_participants')
-            .insert([{ 
-                match_id: matchId, 
-                profile_id: currentUser.id 
+            .insert([{
+                match_id: matchId,
+                profile_id: currentUser.id
             }]);
-        
+
         if (error) throw error;
-        
+
         console.log('✓ Joined match chat');
         return true;
-        
+
     } catch (error) {
         console.error('Error joining match chat:', error);
         return false;
@@ -6671,7 +6671,7 @@ async function sendNewMatchNotification(match) {
 async function sendEventJoinNotification(event) {
     try {
         console.log('📢 Sending event join notification for:', event.id);
-        
+
         const activity = event.activities;
         
         // Get existing participants (exclude current user who just joined)
@@ -7013,12 +7013,9 @@ if (!showPastEvents) {
     });
 }
 
-    // Filter by minimum group size preference
-    const minimumGroupSize = currentUser?.minimum_group_size || 2;
-    matchesWithEvents = matchesWithEvents.filter(({ match }) => {
-        const interestedCount = match.interestedCount || 0;
-        return interestedCount >= minimumGroupSize;
-    });
+    // Note: We no longer filter out matches based on minimum group size
+    // Users should see all matches, even if waiting for more people
+    // The UI will show a "waiting" state for matches below their minimum
 
     // Pre-load any missing activities
     const missingActivityIds = new Set();
@@ -7049,7 +7046,7 @@ if (!showPastEvents) {
 
         // Check for inactivity warning
         const hasWarning = warningsMap.has(match.id);
-        
+
         // Get interested users display
         const interestedCount = match.interestedCount || 0;
         const interestedNames = match.interestedUsers?.slice(0, 2).map(u => u.name).join(', ') || '';
