@@ -2105,6 +2105,70 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
             }
         };
 
+        // SECURITY: Rate Limiter
+        // Prevents abuse by limiting actions per time window
+        // Uses sliding window algorithm for accurate rate limiting
+        const RateLimiter = {
+            limits: new Map(), // operation -> array of timestamps
+
+            /**
+             * Check if an operation is allowed based on rate limit
+             * @param {string} operation - Name of the operation (e.g., 'file_upload', 'send_message')
+             * @param {number} maxRequests - Maximum requests allowed
+             * @param {number} windowMs - Time window in milliseconds
+             * @returns {boolean} - True if allowed, false if rate limited
+             */
+            checkLimit(operation, maxRequests, windowMs) {
+                const now = Date.now();
+                const operationKey = `${operation}_${currentUser?.id || 'anonymous'}`;
+
+                // Get existing timestamps for this operation
+                if (!this.limits.has(operationKey)) {
+                    this.limits.set(operationKey, []);
+                }
+
+                const timestamps = this.limits.get(operationKey);
+
+                // Remove timestamps outside the current window
+                const validTimestamps = timestamps.filter(ts => now - ts < windowMs);
+                this.limits.set(operationKey, validTimestamps);
+
+                // Check if under limit
+                if (validTimestamps.length >= maxRequests) {
+                    const oldestTimestamp = Math.min(...validTimestamps);
+                    const waitTimeMs = windowMs - (now - oldestTimestamp);
+                    const waitTimeSec = Math.ceil(waitTimeMs / 1000);
+                    console.warn(`Rate limit exceeded for ${operation}. Wait ${waitTimeSec}s`);
+                    return false;
+                }
+
+                // Add current timestamp
+                validTimestamps.push(now);
+                this.limits.set(operationKey, validTimestamps);
+                return true;
+            },
+
+            /**
+             * Get remaining requests for an operation
+             * @param {string} operation - Name of the operation
+             * @param {number} maxRequests - Maximum requests allowed
+             * @param {number} windowMs - Time window in milliseconds
+             * @returns {number} - Number of requests remaining
+             */
+            getRemaining(operation, maxRequests, windowMs) {
+                const now = Date.now();
+                const operationKey = `${operation}_${currentUser?.id || 'anonymous'}`;
+
+                if (!this.limits.has(operationKey)) {
+                    return maxRequests;
+                }
+
+                const timestamps = this.limits.get(operationKey);
+                const validTimestamps = timestamps.filter(ts => now - ts < windowMs);
+                return Math.max(0, maxRequests - validTimestamps.length);
+            }
+        };
+
         /**
          * Waits for the app to be fully initialized and data to be loaded
          * Critical for iOS devices where notification clicks may happen during app load
@@ -3333,6 +3397,13 @@ window.uploadProfilePicture = async function(event) {
 
     if (!file) {
         return;
+    }
+
+    // SECURITY: Rate limiting - max 3 uploads per minute
+    if (!RateLimiter.checkLimit('file_upload', 3, 60000)) {
+        const remaining = RateLimiter.getRemaining('file_upload', 3, 60000);
+        const waitTime = remaining === 0 ? '1 minute' : `${60 - remaining * 20} seconds`;
+        return showNotification(`Too many uploads. Please wait ${waitTime} before trying again.`, 'error');
     }
 
     // SECURITY: Comprehensive file upload validation
@@ -5268,9 +5339,14 @@ window.setActivityMode = async function(activityId, isToday) {
         }
         window.saveActivities = async function() {
     if (!selectedCircle) return showNotification('Please select a circle first', 'error');
-    
+
+    // SECURITY: Rate limiting - max 10 preference updates per minute
+    if (!RateLimiter.checkLimit('save_activities', 10, 60000)) {
+        return showNotification('Please wait before saving again.', 'error');
+    }
+
     showLoader('Saving preferences...');
-    
+
     try {
         const selectedActivityIds = activities.map(activity => activity.id);
         
@@ -8941,12 +9017,17 @@ function appendMessage(message) {
 // Send message
 async function sendEventMessage(e) {
     e.preventDefault();
-    
+
     const input = document.getElementById('message-input');
     const content = input.value.trim();
-    
+
     if (!content) return;
-    
+
+    // SECURITY: Rate limiting - max 20 messages per minute
+    if (!RateLimiter.checkLimit('send_message', 20, 60000)) {
+        return showNotification('Slow down! You\'re sending messages too quickly.', 'error');
+    }
+
     try {
         // Check if we're in match chat or event chat
         if (currentMatchChat) {
