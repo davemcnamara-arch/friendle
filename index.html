@@ -4282,23 +4282,6 @@ async function saveUserPreferences(circleId, selectedActivityIds) {
 
         }
 
-        // Check if any user's minimum group size is now met for the selected activities
-        // and send notifications to those who can now join
-        for (const activityId of selectedActivityIds) {
-            // Get or create the match for this activity/circle combo
-            const { data: existingMatch } = await supabase
-                .from('matches')
-                .select('id')
-                .eq('circle_id', circleId)
-                .eq('activity_id', activityId)
-                .maybeSingle();
-
-            if (existingMatch) {
-                // Send notifications to users whose minimum is now met
-                await sendMinimumReachedNotification(existingMatch.id, circleId, activityId);
-            }
-        }
-
         showNotification('Preferences saved!');
     } catch (error) {
         console.error('Error saving preferences:', error);
@@ -5408,50 +5391,6 @@ async function findMatches(circleId) {
     }
 }
 
-// Helper function to check if minimum group size is met for a user
-async function checkMinimumGroupSize(matchId, userId = null) {
-    try {
-        const userToCheck = userId || currentUser.id;
-
-        // Get the user's minimum group size preference
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('minimum_group_size')
-            .eq('id', userToCheck)
-            .single();
-
-        const minimumGroupSize = profile?.minimum_group_size || 2;
-
-        // Get the match details to find circle and activity
-        const { data: match } = await supabase
-            .from('matches')
-            .select('circle_id, activity_id')
-            .eq('id', matchId)
-            .single();
-
-        if (!match) return { met: false, current: 0, needed: minimumGroupSize };
-
-        // Count interested users (those with preferences for this activity in this circle)
-        const { data: interested, count } = await supabase
-            .from('preferences')
-            .select('profile_id', { count: 'exact' })
-            .eq('circle_id', match.circle_id)
-            .eq('activity_id', match.activity_id);
-
-        const interestedCount = count || 0;
-
-        return {
-            met: interestedCount >= minimumGroupSize,
-            current: interestedCount,
-            needed: minimumGroupSize,
-            remaining: Math.max(0, minimumGroupSize - interestedCount)
-        };
-    } catch (error) {
-        console.error('Error checking minimum group size:', error);
-        return { met: false, current: 0, needed: 2, remaining: 2 };
-    }
-}
-
 // Helper function to join match chat
 async function joinMatchChat(matchId) {
     try {
@@ -5466,13 +5405,6 @@ async function joinMatchChat(matchId) {
         if (existing) {
             console.log('Already in chat');
             return true;
-        }
-
-        // Check if minimum group size is met
-        const minCheck = await checkMinimumGroupSize(matchId);
-        if (!minCheck.met) {
-            showNotification(`Waiting for ${minCheck.remaining} more ${minCheck.remaining === 1 ? 'person' : 'people'} to be interested before you can join`, 'info');
-            return false;
         }
 
         // Add to match_participants
@@ -6736,91 +6668,6 @@ async function sendNewMatchNotification(match) {
     }
 }
 
-// Send notification when minimum group size is reached for a user
-async function sendMinimumReachedNotification(matchId, circleId, activityId) {
-    try {
-        console.log('📢 Checking who can now join (minimum reached)...');
-
-        // Get all interested users for this activity
-        const { data: interestedUsers, error } = await supabase
-            .from('preferences')
-            .select('profile_id, profiles(id, name, onesignal_player_id, minimum_group_size, notify_new_matches)')
-            .eq('circle_id', circleId)
-            .eq('activity_id', activityId);
-
-        if (error) throw error;
-
-        if (!interestedUsers || interestedUsers.length === 0) {
-            console.log('No interested users found');
-            return;
-        }
-
-        const totalInterested = interestedUsers.length;
-
-        // Check which users now have their minimum met
-        const usersToNotify = interestedUsers.filter(user => {
-            const userMinimum = user.profiles.minimum_group_size || 2;
-            return totalInterested >= userMinimum;
-        });
-
-        // Get users who are NOT yet in the chat
-        const { data: chatParticipants } = await supabase
-            .from('match_participants')
-            .select('profile_id')
-            .eq('match_id', matchId);
-
-        const chatParticipantIds = new Set(chatParticipants?.map(p => p.profile_id) || []);
-
-        // Filter to only users not in chat and have notifications enabled
-        const recipientsToNotify = usersToNotify.filter(user =>
-            !chatParticipantIds.has(user.profile_id) &&
-            user.profiles.onesignal_player_id &&
-            user.profiles.notify_new_matches !== false
-        );
-
-        if (recipientsToNotify.length === 0) {
-            console.log('No users need to be notified (all either in chat or minimum not met)');
-            return;
-        }
-
-        console.log(`📬 Notifying ${recipientsToNotify.length} user(s) that minimum is reached`);
-
-        // Get activity details
-        const { data: activity } = await supabase
-            .from('activities')
-            .select('name, emoji')
-            .eq('id', activityId)
-            .single();
-
-        const activityName = activity ? `${activity.emoji} ${activity.name}` : 'activity';
-        const message = `Your ${activityName} match now has enough people! Tap to join.`;
-
-        // Send notification to each user
-        const recipientIds = recipientsToNotify.map(u => u.profile_id);
-
-        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
-            body: {
-                senderId: currentUser.id,
-                recipientIds: recipientIds,
-                message: message,
-                activityName: activityName,
-                chatType: 'match',
-                chatId: matchId,
-                notificationType: 'minimum_reached'
-            }
-        });
-
-        if (notifError) {
-            console.error('Error sending minimum reached notification:', notifError);
-        } else {
-            console.log('Minimum reached notifications sent successfully:', data);
-        }
-
-    } catch (error) {
-        console.error('Error in sendMinimumReachedNotification:', error);
-    }
-}
-
 async function sendEventJoinNotification(event) {
     try {
         console.log('📢 Sending event join notification for:', event.id);
@@ -7200,13 +7047,8 @@ if (!showPastEvents) {
         // Check for inactivity warning
         const hasWarning = warningsMap.has(match.id);
 
-        // Check if minimum group size is met for current user
-        const userMinimum = currentUser?.minimum_group_size || 2;
-        const interestedCount = match.interestedCount || 0;
-        const minimumMet = interestedCount >= userMinimum;
-        const peopleNeeded = Math.max(0, userMinimum - interestedCount);
-
         // Get interested users display
+        const interestedCount = match.interestedCount || 0;
         const interestedNames = match.interestedUsers?.slice(0, 2).map(u => u.name).join(', ') || '';
         const moreCount = interestedCount > 2 ? interestedCount - 2 : 0;
         
@@ -7260,20 +7102,13 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         ${circles.find(c => c.id === match.circle_id)?.name || 'Circle'}
     </span>
     ${isFirst ? `
-        ${minimumMet ? `
-            <div class="match-info-box">
-                <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500;">🎉 You're first!</p>
-                <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;">Want to put it out there? Others will see and can join.</p>
-                <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0; width: 100%;">
-                    Join Chat & Coordinate
-                </button>
-            </div>
-        ` : `
-            <div class="match-info-box" style="background: #fff3cd; border-color: #ffc107;">
-                <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500;">⏳ Waiting for more people</p>
-                <p style="margin: 0 0 0 0; font-size: 12px; line-height: 1.4;">Need ${peopleNeeded} more ${peopleNeeded === 1 ? 'person' : 'people'} to reach your minimum of ${userMinimum}.</p>
-            </div>
-        `}
+        <div class="match-info-box">
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500;">🎉 You're first!</p>
+            <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;">Want to put it out there? Others will see and can join.</p>
+            <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0; width: 100%;">
+                Join Chat & Coordinate
+            </button>
+        </div>
     ` : match.userInChat ? `
         ${hasWarning ? `
             <div class="match-info-box warning" style="margin-bottom: 10px;">
@@ -7290,16 +7125,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         <button onclick="openCreateEventModal('${match.id}')" class="btn btn-secondary" style="font-size: 13px; padding: 8px 16px; width: 100%; margin: 0;">
             + Create Event
         </button>
-    ` : minimumMet ? `
+    ` : `
         <button onclick="joinMatchChatNormal('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0; background: #4CAF50;">
             Join Chat
         </button>
         <p style="font-size: 11px; color: #666; margin: 0; text-align: center; line-height: 1.3;">${match.inChatCount} ${match.inChatCount === 1 ? 'person' : 'people'} already chatting</p>
-    ` : `
-        <div class="match-info-box" style="background: #fff3cd; border-color: #ffc107;">
-            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500;">⏳ Waiting for ${peopleNeeded} more</p>
-            <p style="margin: 0 0 0 0; font-size: 12px; line-height: 1.4;">You'll be notified when ${peopleNeeded} more ${peopleNeeded === 1 ? 'person is' : 'people are'} interested (minimum: ${userMinimum}).</p>
-        </div>
     `}
 </div>
     </div>
