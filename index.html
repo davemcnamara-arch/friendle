@@ -1478,26 +1478,22 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
     // Save Player ID to database when user is logged in
     OneSignal.User.PushSubscription.addEventListener('change', async function(event) {
       const playerId = event.current.id;
-      
-      // Get current user from your app
-      const storedUser = localStorage.getItem('friendle_user');
-      if (storedUser && playerId) {
-        const user = JSON.parse(storedUser);
-        
+
+      // SECURITY: Use in-memory currentUser instead of localStorage
+      if (window.currentUser && playerId) {
         // Update database
         try {
           const { error } = await supabase
             .from('profiles')
             .update({ onesignal_player_id: playerId })
-            .eq('id', user.id);
-          
+            .eq('id', window.currentUser.id);
+
           if (error) throw error;
-          
+
           console.log('✅ OneSignal Player ID saved:', playerId);
-          
-          // Update local storage
-          user.onesignal_player_id = playerId;
-          localStorage.setItem('friendle_user', JSON.stringify(user));
+
+          // Update in-memory user object
+          window.currentUser.onesignal_player_id = playerId;
         } catch (error) {
           console.error('Error saving Player ID:', error);
         }
@@ -2079,6 +2075,107 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
             timestamp: Date.now()
         };
 
+        // SECURITY: Secure Storage Helper
+        // Minimizes sensitive data in localStorage to reduce XSS attack surface
+        // Only stores user ID persistently; uses sessionStorage for non-critical data
+        const SecureStorage = {
+            // Only store user ID persistently (needed for auto-login check)
+            setUserId(userId) {
+                if (userId) {
+                    localStorage.setItem('friendle_user_id', userId);
+                }
+            },
+
+            getUserId() {
+                return localStorage.getItem('friendle_user_id');
+            },
+
+            // Store minimal UI data in sessionStorage (clears on tab close)
+            setSessionData(data) {
+                if (!data) return;
+                sessionStorage.setItem('friendle_session', JSON.stringify({
+                    name: data.name || '',
+                    avatar: data.avatar || ''
+                }));
+            },
+
+            getSessionData() {
+                const data = sessionStorage.getItem('friendle_session');
+                return data ? JSON.parse(data) : null;
+            },
+
+            // Clear all stored data on logout
+            clearAll() {
+                localStorage.removeItem('friendle_user_id');
+                localStorage.removeItem('friendle_user'); // Legacy - clean up old storage
+                sessionStorage.removeItem('friendle_session');
+            }
+        };
+
+        // SECURITY: Rate Limiter
+        // Prevents abuse by limiting actions per time window
+        // Uses sliding window algorithm for accurate rate limiting
+        const RateLimiter = {
+            limits: new Map(), // operation -> array of timestamps
+
+            /**
+             * Check if an operation is allowed based on rate limit
+             * @param {string} operation - Name of the operation (e.g., 'file_upload', 'send_message')
+             * @param {number} maxRequests - Maximum requests allowed
+             * @param {number} windowMs - Time window in milliseconds
+             * @returns {boolean} - True if allowed, false if rate limited
+             */
+            checkLimit(operation, maxRequests, windowMs) {
+                const now = Date.now();
+                const operationKey = `${operation}_${currentUser?.id || 'anonymous'}`;
+
+                // Get existing timestamps for this operation
+                if (!this.limits.has(operationKey)) {
+                    this.limits.set(operationKey, []);
+                }
+
+                const timestamps = this.limits.get(operationKey);
+
+                // Remove timestamps outside the current window
+                const validTimestamps = timestamps.filter(ts => now - ts < windowMs);
+                this.limits.set(operationKey, validTimestamps);
+
+                // Check if under limit
+                if (validTimestamps.length >= maxRequests) {
+                    const oldestTimestamp = Math.min(...validTimestamps);
+                    const waitTimeMs = windowMs - (now - oldestTimestamp);
+                    const waitTimeSec = Math.ceil(waitTimeMs / 1000);
+                    console.warn(`Rate limit exceeded for ${operation}. Wait ${waitTimeSec}s`);
+                    return false;
+                }
+
+                // Add current timestamp
+                validTimestamps.push(now);
+                this.limits.set(operationKey, validTimestamps);
+                return true;
+            },
+
+            /**
+             * Get remaining requests for an operation
+             * @param {string} operation - Name of the operation
+             * @param {number} maxRequests - Maximum requests allowed
+             * @param {number} windowMs - Time window in milliseconds
+             * @returns {number} - Number of requests remaining
+             */
+            getRemaining(operation, maxRequests, windowMs) {
+                const now = Date.now();
+                const operationKey = `${operation}_${currentUser?.id || 'anonymous'}`;
+
+                if (!this.limits.has(operationKey)) {
+                    return maxRequests;
+                }
+
+                const timestamps = this.limits.get(operationKey);
+                const validTimestamps = timestamps.filter(ts => now - ts < windowMs);
+                return Math.max(0, maxRequests - validTimestamps.length);
+            }
+        };
+
         /**
          * Waits for the app to be fully initialized and data to be loaded
          * Critical for iOS devices where notification clicks may happen during app load
@@ -2272,7 +2369,9 @@ async function submitPasswordReset() {
             if (profileError) throw profileError;
 
             currentUser = profileData;
-            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+            // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+            SecureStorage.setUserId(currentUser.id);
+            SecureStorage.setSessionData(currentUser);
 
             // Clear form fields
             document.getElementById('new-reset-password').value = '';
@@ -2436,8 +2535,10 @@ window.signUp = async function() {
                 console.error('Error setting up OneSignal:', error);
             }
         }
-        
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
 
         showNotification('Account created successfully!');
 
@@ -2517,8 +2618,10 @@ window.signIn = async function() {
                 console.error('Error setting up OneSignal:', error);
             }
         }
-        
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
 
         showNotification('Signed in successfully!');
 
@@ -2563,7 +2666,8 @@ window.signOut = async function() {
         
         await supabase.auth.signOut();
         currentUser = null;
-        localStorage.removeItem('friendle_user');
+        // SECURITY: Clear all stored user data (localStorage + sessionStorage)
+        SecureStorage.clearAll();
         showPage('welcome');
         showNotification('Signed out successfully');
     } catch (error) {
@@ -3151,7 +3255,9 @@ function closeNotificationPrompt() {
   }
 
   currentUser = data; // store the profile from DB
-  localStorage.setItem('friendle_user', JSON.stringify(currentUser)); // keep local copy for session
+  // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser); // keep local copy for session
   showPage('circles');
   updateProfile();
   processInvite();
@@ -3244,7 +3350,9 @@ window.changeUsername = async function() {
         if (error) throw error;
 
         currentUser.name = newName;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         updateProfile();
         document.getElementById('new-username').value = '';
@@ -3262,6 +3370,13 @@ window.uploadProfilePicture = async function(event) {
 
     if (!file) {
         return;
+    }
+
+    // SECURITY: Rate limiting - max 3 uploads per minute
+    if (!RateLimiter.checkLimit('file_upload', 3, 60000)) {
+        const remaining = RateLimiter.getRemaining('file_upload', 3, 60000);
+        const waitTime = remaining === 0 ? '1 minute' : `${60 - remaining * 20} seconds`;
+        return showNotification(`Too many uploads. Please wait ${waitTime} before trying again.`, 'error');
     }
 
     // SECURITY: Comprehensive file upload validation
@@ -3366,7 +3481,9 @@ window.uploadProfilePicture = async function(event) {
 
         // Update current user and UI
         currentUser.avatar = avatarUrl;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         updateProfile();
         hideLoader();
@@ -3417,7 +3534,9 @@ window.removeProfilePicture = async function() {
 
         // Update current user and UI
         currentUser.avatar = defaultAvatar;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         updateProfile();
         hideLoader();
@@ -3445,7 +3564,9 @@ window.toggleEventReminders = async function() {
         if (error) throw error;
 
         currentUser.event_reminders_enabled = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         hideLoader();
         showNotification(isEnabled ? '🔔 Event reminders enabled!' : '🔕 Event reminders disabled');
@@ -3474,7 +3595,9 @@ window.updateTimezone = async function() {
         if (error) throw error;
 
         currentUser.timezone = timezone;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         hideLoader();
         showNotification('Timezone updated!');
@@ -3499,7 +3622,9 @@ window.toggleNewMatches = async function() {
         if (error) throw error;
 
         currentUser.notify_new_matches = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 New match notifications enabled!' : '🔕 New match notifications disabled');
 
@@ -3523,7 +3648,9 @@ window.toggleEventJoins = async function() {
         if (error) throw error;
 
         currentUser.notify_event_joins = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 Event join notifications enabled!' : '🔕 Event join notifications disabled');
 
@@ -3547,7 +3674,9 @@ window.toggleInactivityWarnings = async function() {
         if (error) throw error;
 
         currentUser.notify_inactivity_warnings = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 Inactivity warnings enabled!' : '🔕 Inactivity warnings disabled');
 
@@ -3571,7 +3700,9 @@ window.toggleChatMessages = async function() {
         if (error) throw error;
 
         currentUser.notify_chat_messages = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🔔 Chat notifications enabled!' : '🔕 Chat notifications disabled');
 
@@ -3602,7 +3733,9 @@ window.toggleDarkMode = async function() {
         if (error) throw error;
 
         currentUser.dark_mode_enabled = isEnabled;
-        localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
         showNotification(isEnabled ? '🌙 Dark mode enabled!' : '☀️ Light mode enabled');
 
@@ -5157,9 +5290,14 @@ window.setActivityMode = async function(activityId, isToday) {
 }
         window.saveActivities = async function() {
     if (!selectedCircle) return showNotification('Please select a circle first', 'error');
-    
+
+    // SECURITY: Rate limiting - max 10 preference updates per minute
+    if (!RateLimiter.checkLimit('save_activities', 10, 60000)) {
+        return showNotification('Please wait before saving again.', 'error');
+    }
+
     showLoader('Saving preferences...');
-    
+
     try {
         const selectedActivityIds = activities.map(activity => activity.id);
         
@@ -7709,36 +7847,43 @@ window.editEventMessage = async function(msgId, currentContent) {
 window.deleteEventMessage = async function(msgId) {
     const menu = document.getElementById(`event-menu-${msgId}`);
     if (menu) menu.style.display = 'none';
-    
+
     if (!confirm('Delete this message?')) return;
-    
+
     const context = getCurrentChatContext();
-    console.log('🗑️ Deleting message in context:', context.type);
-    
+    console.log('🗑️ Soft-deleting message in context:', context.type);
+
     try {
+        // SECURITY: Use soft delete instead of hard delete to preserve message history
         if (context.type === 'event') {
             const { error } = await supabase
                 .from('event_messages')
-                .delete()
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString()
+                })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
-            
+
             if (error) throw error;
-            
+
             const channel = supabase.channel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_deleted',
                 payload: { id: msgId }
             });
-            
+
             // Stay in event chat - just reload the event messages
             await loadEventMessages(context.id, context.data.created_at);
-            
+
         } else if (context.type === 'match') {
             const { error } = await supabase
                 .from('match_messages')
-                .delete()
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString()
+                })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
 
@@ -7757,7 +7902,10 @@ window.deleteEventMessage = async function(msgId) {
         } else if (context.type === 'circle') {
             const { error } = await supabase
                 .from('circle_messages')
-                .delete()
+                .update({
+                    is_deleted: true,
+                    deleted_at: new Date().toISOString()
+                })
                 .eq('id', msgId)
                 .eq('sender_id', currentUser.id);
 
@@ -7774,7 +7922,7 @@ window.deleteEventMessage = async function(msgId) {
         }
 
         showNotification('Message deleted');
-        
+
     } catch (error) {
         console.error('CAUGHT ERROR in deleteEventMessage:', error);
         console.error('Error details:', error.message, error.code);
@@ -8656,7 +8804,10 @@ function appendMessageToContainer(message, container) {
     `;
 
     let onClick = '';
-    let content = sanitizeHTML(message.content); // SECURITY: Sanitize to prevent XSS
+    // SECURITY: Check if message is soft-deleted
+    let content = message.is_deleted
+        ? '<span style="color: #999; font-style: italic;">[Deleted]</span>'
+        : sanitizeHTML(message.content); // SECURITY: Sanitize to prevent XSS
     let senderName = sanitizeHTML(message.sender.name); // SECURITY: Sanitize sender name
 
     messageDiv.innerHTML = `
@@ -8737,8 +8888,10 @@ function appendMessage(message) {
     const context = getCurrentChatContext();
     const messageType = context.type;
 
-    // SECURITY: Sanitize user input to prevent XSS
-    const sanitizedContent = sanitizeHTML(message.content);
+    // SECURITY: Sanitize user input to prevent XSS and handle soft-deleted messages
+    const sanitizedContent = message.is_deleted
+        ? '<span style="color: #999; font-style: italic;">[Deleted]</span>'
+        : sanitizeHTML(message.content);
     const sanitizedSenderName = sanitizeHTML(message.sender.name);
     const escapedContentForEdit = message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/'/g, "\\'");
 
@@ -8766,7 +8919,7 @@ function appendMessage(message) {
             <div style="background: ${isOwnMessage ? '#4CAF50' : '#f0f0f0'}; color: ${isOwnMessage ? 'white' : 'black'}; padding: 10px 14px; border-radius: 12px; max-width: 280px; word-wrap: break-word; overflow-wrap: break-word;">
     ${sanitizedContent}
 </div>
-            ${isOwnMessage ? `
+            ${isOwnMessage && !message.is_deleted ? `
     <div class="message-actions" style="position: relative;">
         <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
         <div id="event-menu-${message.id}" class="message-actions-menu" style="position: absolute; bottom: 25px; right: 0; background: var(--card-bg, white); border: 1px solid var(--border-color, #ddd); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; width: 100px; z-index: 10;">
@@ -8812,12 +8965,17 @@ function appendMessage(message) {
 // Send message
 async function sendEventMessage(e) {
     e.preventDefault();
-    
+
     const input = document.getElementById('message-input');
     const content = input.value.trim();
-    
+
     if (!content) return;
-    
+
+    // SECURITY: Rate limiting - max 20 messages per minute
+    if (!RateLimiter.checkLimit('send_message', 20, 60000)) {
+        return showNotification('Slow down! You\'re sending messages too quickly.', 'error');
+    }
+
     try {
         // Check if we're in match chat or event chat
         if (currentMatchChat) {
@@ -10095,7 +10253,9 @@ if (pageId === 'settings') {
     showNotificationPrompt();
 }
             
-            localStorage.setItem('friendle_user', JSON.stringify(currentUser));
+            // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+  SecureStorage.setUserId(currentUser.id);
+  SecureStorage.setSessionData(currentUser);
 
             await renderCircles();
             window.appState.circlesLoaded = true;
@@ -10207,7 +10367,8 @@ if (pageId === 'settings') {
     } else {
         // No authenticated session
         currentUser = null;
-        localStorage.removeItem('friendle_user');
+        // SECURITY: Clear all stored user data
+        SecureStorage.clearAll();
 
         // Check if there are chat parameters from notification click
         const openChatId = urlParams.get('openChat');
