@@ -8616,10 +8616,27 @@ function toggleArchivedMessages(eventId, eventCreatedAt) {
     }
 }
 
-// SECURITY: Sanitize HTML to prevent XSS attacks
-// This function escapes all HTML special characters to prevent script injection
+// SECURITY: Sanitize HTML to prevent XSS attacks while allowing legitimate content
+// This function escapes dangerous HTML but allows:
+// - Images from Supabase storage
+// - Links to Google Maps/Search (app-generated)
 function sanitizeHTML(str) {
     if (!str) return '';
+
+    // Pattern 1: Images from Supabase storage
+    const supabaseImagePattern = /^<img src="https:\/\/kxsewkjbhxtfqbytftbu\.supabase\.co\/storage\/v1\/object\/public\/chat-photos\/[^"]*"[^>]*>$/;
+
+    // Pattern 2: Links with emojis (📍 for maps, 🔍 for search) - app-generated
+    const trustedLinkPattern = /^(📍|🔍)\s*<a href="https:\/\/(www\.google\.com\/maps|www\.google\.com\/search)[^"]*" target="_blank" rel="noopener noreferrer"[^>]*>[^<]*<\/a>$/;
+
+    const trimmed = str.trim();
+
+    if (supabaseImagePattern.test(trimmed) || trustedLinkPattern.test(trimmed)) {
+        // This is trusted content from our app - allow it
+        return str;
+    }
+
+    // For everything else, escape all HTML to prevent XSS
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
