@@ -1571,12 +1571,11 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         <div class="form-group">
             <label>Profile Picture</label>
             <div style="text-align: center; margin: 20px 0;">
-                <div id="register-profile-preview" style="width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 15px; border: 3px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 50px; background: var(--card-bg); overflow: hidden;">
-                    <span id="register-avatar-display">😊</span>
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px;">
-                    <button type="button" class="btn btn-secondary" onclick="openRegisterCamera()" style="flex: 1; max-width: 150px; font-size: 0.9em; padding: 8px 12px;">📷 Take Photo</button>
-                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('register-photo-input').click()" style="flex: 1; max-width: 150px; font-size: 0.9em; padding: 8px 12px;">📁 Upload</button>
+                <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 15px;">
+                    <div id="register-profile-preview" style="width: 100%; height: 100%; border-radius: 50%; border: 3px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 50px; background: var(--card-bg); overflow: hidden; cursor: pointer;" onclick="showRegisterPhotoMenu(event)">
+                        <span id="register-avatar-display">😊</span>
+                    </div>
+                    <div style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--primary-color); display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--card-bg);" onclick="showRegisterPhotoMenu(event)" title="Change photo">📷</div>
                 </div>
                 <input type="file" id="register-photo-input" accept="image/*" style="display: none;" onchange="handleRegisterPhotoUpload(event)">
             </div>
@@ -1721,7 +1720,7 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
             <div id="settings" class="page">
             <div class="header"><div class="logo">⚙️ Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;">
-        <div class="profile-picture-container" onclick="document.getElementById('profile-picture-input').click()">
+        <div class="profile-picture-container" onclick="showSettingsPhotoMenu(event)">
             <div class="profile-picture">
                 <div id="profile-avatar" class="avatar-display emoji">😊</div>
             </div>
@@ -1729,11 +1728,6 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         </div>
         <input type="file" id="profile-picture-input" accept="image/*" style="display: none;" onchange="uploadProfilePicture(event)">
         <h2 id="profile-name" style="color: var(--text-primary);">Your Name</h2>
-        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
-            <button class="btn btn-secondary" onclick="openSettingsCamera()" style="font-size: 0.9em; padding: 8px 16px;">📷 Take Photo</button>
-            <button class="btn btn-secondary" onclick="document.getElementById('profile-picture-input').click()" style="font-size: 0.9em; padding: 8px 16px;">📁 Upload Photo</button>
-        </div>
-        <button class="btn btn-secondary" onclick="removeProfilePicture()" id="remove-picture-btn" style="display: none; margin-top: 10px; font-size: 0.9em; padding: 8px 16px;">Remove Picture</button>
     </div>
 
     <div class="form-group">
@@ -3804,6 +3798,165 @@ async function handleSettingsPhotoCapture(file) {
     };
 
     await uploadProfilePicture(fakeEvent);
+}
+
+// Photo menu functionality
+let photoMenuContext = 'settings'; // 'settings' or 'register'
+
+window.showSettingsPhotoMenu = function(event) {
+    event.stopPropagation();
+    photoMenuContext = 'settings';
+
+    // Show remove option if user has a photo
+    const hasPhoto = currentUser && currentUser.avatar && currentUser.avatar.includes('supabase');
+    const removeOption = document.getElementById('photo-menu-remove');
+    if (removeOption) {
+        removeOption.style.display = hasPhoto ? 'block' : 'none';
+    }
+
+    showPhotoMenuAtPosition(event.clientX, event.clientY);
+}
+
+window.showRegisterPhotoMenu = function(event) {
+    event.stopPropagation();
+    photoMenuContext = 'register';
+
+    // Hide remove option for registration
+    const removeOption = document.getElementById('photo-menu-remove');
+    if (removeOption) {
+        removeOption.style.display = 'none';
+    }
+
+    showPhotoMenuAtPosition(event.clientX, event.clientY);
+}
+
+function showPhotoMenuAtPosition(x, y) {
+    const menu = document.getElementById('photo-menu');
+    menu.style.display = 'block';
+
+    // Position the menu
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    // Adjust if menu goes off screen
+    setTimeout(() => {
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+        }
+    }, 0);
+
+    // Close menu when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', closePhotoMenu, { once: true });
+    }, 0);
+}
+
+function closePhotoMenu() {
+    const menu = document.getElementById('photo-menu');
+    menu.style.display = 'none';
+}
+
+window.handlePhotoMenuAction = async function(action) {
+    closePhotoMenu();
+
+    if (action === 'camera') {
+        if (photoMenuContext === 'settings') {
+            await openSettingsCamera();
+        } else {
+            await openRegisterCamera();
+        }
+    } else if (action === 'upload') {
+        if (photoMenuContext === 'settings') {
+            document.getElementById('profile-picture-input').click();
+        } else {
+            document.getElementById('register-photo-input').click();
+        }
+    } else if (action === 'remove') {
+        // Show avatar selection modal
+        showAvatarSelectionModal();
+    }
+}
+
+// Avatar selection modal
+window.showAvatarSelectionModal = function() {
+    const modal = document.getElementById('avatar-selection-modal');
+    modal.style.display = 'flex';
+
+    // Set up click handlers for avatar options in the modal
+    const avatars = modal.querySelectorAll('.avatar-option');
+    avatars.forEach(option => {
+        option.addEventListener('click', function() {
+            avatars.forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+}
+
+window.closeAvatarSelectionModal = function() {
+    const modal = document.getElementById('avatar-selection-modal');
+    modal.style.display = 'none';
+
+    // Clear selections
+    const avatars = modal.querySelectorAll('.avatar-option');
+    avatars.forEach(o => o.classList.remove('selected'));
+}
+
+window.confirmAvatarSelection = async function() {
+    const modal = document.getElementById('avatar-selection-modal');
+    const selectedAvatar = modal.querySelector('.avatar-option.selected');
+
+    if (!selectedAvatar) {
+        showNotification('Please select an avatar', 'error');
+        return;
+    }
+
+    const avatarEmoji = selectedAvatar.dataset.avatar;
+
+    try {
+        showLoader('Updating profile picture...');
+
+        // Delete avatar from storage if it exists
+        if (currentUser.avatar && currentUser.avatar.includes('supabase')) {
+            const { data: existingFiles } = await supabase.storage
+                .from('avatars')
+                .list(currentUser.id);
+
+            if (existingFiles && existingFiles.length > 0) {
+                for (const file of existingFiles) {
+                    await supabase.storage
+                        .from('avatars')
+                        .remove([`${currentUser.id}/${file.name}`]);
+                }
+            }
+        }
+
+        // Update profile with selected avatar
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ avatar: avatarEmoji })
+            .eq('id', currentUser.id);
+
+        if (updateError) throw updateError;
+
+        // Update current user and UI
+        currentUser.avatar = avatarEmoji;
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
+
+        updateProfile();
+        hideLoader();
+        closeAvatarSelectionModal();
+        showNotification('Avatar updated successfully!');
+
+    } catch (error) {
+        console.error('Error updating avatar:', error);
+        hideLoader();
+        showNotification('Error updating avatar', 'error');
+    }
 }
 
 window.toggleEventReminders = async function() {
@@ -11737,6 +11890,43 @@ window.saveActivityVisibility = async function() {
             <div style="margin-top: 20px; display: flex; gap: 15px;">
                 <button class="btn" onclick="capturePhoto()" style="padding: 12px 24px; font-size: 1em;">📸 Capture</button>
                 <button class="btn btn-secondary" onclick="closeCameraModal()" style="padding: 12px 24px; font-size: 1em;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Photo Menu Popup -->
+    <div id="photo-menu" style="display: none; position: fixed; z-index: 9999; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); overflow: hidden; min-width: 180px;">
+        <div onclick="handlePhotoMenuAction('camera')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='transparent'">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2em;">📷</span>
+                <span style="color: var(--text-primary);">Take Photo</span>
+            </div>
+        </div>
+        <div onclick="handlePhotoMenuAction('upload')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='transparent'">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2em;">📁</span>
+                <span style="color: var(--text-primary);">Upload Photo</span>
+            </div>
+        </div>
+        <div id="photo-menu-remove" onclick="handlePhotoMenuAction('remove')" style="padding: 12px 16px; cursor: pointer; transition: background 0.2s; display: none;" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='transparent'">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2em;">🗑️</span>
+                <span style="color: var(--text-primary);">Remove Photo</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avatar Selection Modal -->
+    <div id="avatar-selection-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; justify-content: center; align-items: center;" onclick="closeAvatarSelectionModal()">
+        <div style="background: var(--card-bg); border-radius: 12px; padding: 30px; max-width: 400px; width: 90%;" onclick="event.stopPropagation()">
+            <h3 style="margin: 0 0 20px 0; text-align: center; color: var(--text-primary);">Choose an Avatar</h3>
+            <div class="avatar-grid" id="avatar-selection-grid" style="margin-bottom: 20px;">
+                <div class="avatar-option" data-avatar="😊">😊</div><div class="avatar-option" data-avatar="🌟">🌟</div><div class="avatar-option" data-avatar="🦄">🦄</div><div class="avatar-option" data-avatar="🐨">🐨</div>
+                <div class="avatar-option" data-avatar="🎮">🎮</div><div class="avatar-option" data-avatar="🎨">🎨</div><div class="avatar-option" data-avatar="⚡">⚡</div><div class="avatar-option" data-avatar="🌙">🌙</div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" onclick="confirmAvatarSelection()" style="flex: 1;">Confirm</button>
+                <button class="btn btn-secondary" onclick="closeAvatarSelectionModal()" style="flex: 1;">Cancel</button>
             </div>
         </div>
     </div>
