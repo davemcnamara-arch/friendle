@@ -2591,12 +2591,16 @@ window.signUp = async function() {
         window.registerPhotoFile = null;
 
         currentUser = profileData;
-        
+
+        // Load default activities now that user is authenticated
+        // This is critical for new users who will create circles
+        await loadDefaultActivities();
+
         // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
             await Notification.requestPermission();
         }
-        
+
         // Save OneSignal Player ID to profile
         if (window.OneSignalDeferred) {
             try {
@@ -2607,7 +2611,7 @@ window.signUp = async function() {
                             .from('profiles')
                             .update({ onesignal_player_id: userId })
                             .eq('id', currentUser.id);
-                        
+
                         console.log('✅ OneSignal Player ID saved:', userId);
                     }
                 });
@@ -2681,7 +2685,10 @@ window.signIn = async function() {
         if (profileError) throw profileError;
         
         currentUser = profileData;
-        
+
+        // Load default activities now that user is authenticated
+        await loadDefaultActivities();
+
         // Save OneSignal Player ID to profile
         if (window.OneSignalDeferred) {
             try {
@@ -2692,7 +2699,7 @@ window.signIn = async function() {
                             .from('profiles')
                             .update({ onesignal_player_id: userId })
                             .eq('id', currentUser.id);
-                        
+
                         console.log('✅ OneSignal Player ID saved:', userId);
                         currentUser.onesignal_player_id = userId;
                     }
@@ -11116,7 +11123,6 @@ if (pageId === 'settings') {
     // Show loader immediately while checking auth
     showLoader('Loading...');
 
-    await loadDefaultActivities();
     const urlParams = new URLSearchParams(window.location.search);
     const inviteCode = urlParams.get('invite_code');
 
@@ -11128,7 +11134,7 @@ if (pageId === 'settings') {
 
     // Check for existing Supabase auth session
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (session) {
         // User is authenticated, load their profile
         try {
@@ -11137,10 +11143,14 @@ if (pageId === 'settings') {
                 .select('*')
                 .eq('id', session.user.id)
                 .single();
-            
+
             if (error) throw error;
-            
+
             currentUser = profileData;
+
+            // Load default activities AFTER authentication is confirmed
+            // This ensures RLS policies allow the query to succeed
+            await loadDefaultActivities();
             
             if ('Notification' in window && Notification.permission === 'default') {
     // Show friendly custom prompt before browser prompt
