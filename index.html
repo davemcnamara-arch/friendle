@@ -1439,6 +1439,27 @@
         serviceWorkerPath: '/OneSignalSDKWorker.js'
       });
       console.log('✅ OneSignal initialized successfully');
+
+      // Save player ID immediately if user is logged in
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const playerId = OneSignal.User.PushSubscription.id;
+
+        if (session?.user?.id && playerId) {
+          console.log('💾 Saving initial OneSignal player ID:', playerId);
+
+          const { error } = await supabase
+            .from('profiles')
+            .update({ onesignal_player_id: playerId })
+            .eq('id', session.user.id);
+
+          if (error) throw error;
+
+          console.log('✅ Initial OneSignal Player ID saved successfully');
+        }
+      } catch (error) {
+        console.error('❌ Error saving initial Player ID:', error);
+      }
     } catch (error) {
       console.error('❌ OneSignal initialization error:', error);
     }
@@ -1499,24 +1520,40 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
     OneSignal.User.PushSubscription.addEventListener('change', async function(event) {
       const playerId = event.current.id;
 
-      // SECURITY: Use in-memory currentUser instead of localStorage
-      if (window.currentUser && playerId) {
-        // Update database
-        try {
-          const { error } = await supabase
-            .from('profiles')
-            .update({ onesignal_player_id: playerId })
-            .eq('id', window.currentUser.id);
+      if (!playerId) {
+        console.log('⚠️ No player ID in subscription change event');
+        return;
+      }
 
-          if (error) throw error;
+      console.log('🔔 OneSignal subscription changed, player ID:', playerId);
 
-          console.log('✅ OneSignal Player ID saved:', playerId);
+      try {
+        // Get current session from Supabase
+        const { data: { session } } = await supabase.auth.getSession();
 
-          // Update in-memory user object
-          window.currentUser.onesignal_player_id = playerId;
-        } catch (error) {
-          console.error('Error saving Player ID:', error);
+        if (!session?.user?.id) {
+          console.log('⚠️ No active session, cannot save player ID');
+          return;
         }
+
+        console.log('💾 Saving OneSignal player ID to database for user:', session.user.id);
+
+        // Update database with player ID
+        const { error } = await supabase
+          .from('profiles')
+          .update({ onesignal_player_id: playerId })
+          .eq('id', session.user.id);
+
+        if (error) throw error;
+
+        console.log('✅ OneSignal Player ID saved successfully:', playerId);
+
+        // Update in-memory user object if it exists
+        if (window.currentUser) {
+          window.currentUser.onesignal_player_id = playerId;
+        }
+      } catch (error) {
+        console.error('❌ Error saving Player ID:', error);
       }
     });
   });
