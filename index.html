@@ -6374,14 +6374,28 @@ async function renderThreadedChat(matchId, events) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    const upcomingEvents = events.filter(e => 
+    const upcomingEvents = events.filter(e =>
         (!e.scheduled_date || new Date(e.scheduled_date) >= today) && e.status === 'scheduled'
     );
-    const pastEvents = events.filter(e => 
+    const pastEvents = events.filter(e =>
         e.scheduled_date && new Date(e.scheduled_date) < today || e.status !== 'scheduled'
     );
-    
-    // PAST EVENTS FIRST (at top, collapsed)
+
+    // UPCOMING EVENTS FIRST (pinned at top)
+    if (upcomingEvents.length > 0) {
+        const upcomingSection = document.createElement('div');
+        upcomingSection.style.cssText = 'margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px;';
+        upcomingSection.innerHTML = '<h4 style="margin: 0 0 12px 0; font-size: 14px; color: #666; font-weight: 600;">📌 UPCOMING EVENTS</h4>';
+
+        upcomingEvents.forEach(event => {
+            const eventCard = createEventCard(event, matchId);
+            upcomingSection.appendChild(eventCard);
+        });
+
+        messagesContainer.appendChild(upcomingSection);
+    }
+
+    // PAST EVENTS SECOND (collapsed)
     if (pastEvents.length > 0) {
         const pastSection = document.createElement('details');
         pastSection.style.cssText = 'margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 10px;';
@@ -6390,31 +6404,17 @@ async function renderThreadedChat(matchId, events) {
                 📂 Past Events (${pastEvents.length})
             </summary>
         `;
-        
+
         const pastContainer = document.createElement('div');
         pastContainer.style.marginTop = '10px';
-        
+
         pastEvents.forEach(event => {
             const eventCard = createEventCard(event, matchId, true);
             pastContainer.appendChild(eventCard);
         });
-        
+
         pastSection.appendChild(pastContainer);
         messagesContainer.appendChild(pastSection);
-    }
-    
-    // UPCOMING EVENTS SECOND
-    if (upcomingEvents.length > 0) {
-        const upcomingSection = document.createElement('div');
-        upcomingSection.style.cssText = 'margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px;';
-        upcomingSection.innerHTML = '<h4 style="margin: 0 0 12px 0; font-size: 14px; color: #666; font-weight: 600;">📌 UPCOMING EVENTS</h4>';
-        
-        upcomingEvents.forEach(event => {
-            const eventCard = createEventCard(event, matchId);
-            upcomingSection.appendChild(eventCard);
-        });
-        
-        messagesContainer.appendChild(upcomingSection);
     }
     
     // Create event button
