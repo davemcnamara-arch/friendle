@@ -118,7 +118,7 @@ UNION ALL SELECT 'auth.sessions', COUNT(*) FROM auth.sessions
 ORDER BY table_name;
 
 -- Verify global activities are preserved (should show your defaults)
-SELECT id, name, created_by FROM activities WHERE circle_id IS NULL ORDER BY name;
+SELECT id, name FROM activities WHERE circle_id IS NULL ORDER BY name;
 
 -- Verify RLS policies are intact (should show 30+ policies)
 SELECT COUNT(*) as total_rls_policies FROM pg_policies WHERE schemaname = 'public';

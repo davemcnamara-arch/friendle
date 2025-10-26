@@ -209,12 +209,12 @@ After reset, test the complete user flow:
 
 ```sql
 -- Restore default global activities
-INSERT INTO activities (id, name, circle_id, created_by) VALUES
-  (gen_random_uuid(), 'Basketball', NULL, NULL),
-  (gen_random_uuid(), 'Soccer', NULL, NULL),
-  (gen_random_uuid(), 'Tennis', NULL, NULL),
-  (gen_random_uuid(), 'Hiking', NULL, NULL),
-  (gen_random_uuid(), 'Board Games', NULL, NULL);
+INSERT INTO activities (id, name, circle_id) VALUES
+  (gen_random_uuid(), 'Basketball', NULL),
+  (gen_random_uuid(), 'Soccer', NULL),
+  (gen_random_uuid(), 'Tennis', NULL),
+  (gen_random_uuid(), 'Hiking', NULL),
+  (gen_random_uuid(), 'Board Games', NULL);
 ```
 
 ### Issue: Storage bucket shows "access denied"
