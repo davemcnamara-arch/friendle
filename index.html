@@ -2077,6 +2077,14 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         // App State
         let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, currentCircleChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null;
 
+        // Message Pagination State
+        const MESSAGE_PAGE_SIZE = 50;
+        let messagePagination = {
+            match: { loadedCount: 0, hasMore: true, loading: false },
+            event: { loadedCount: 0, hasMore: true, loading: false },
+            circle: { loadedCount: 0, hasMore: true, loading: false }
+        };
+
         // App Initialization State Tracker (for iOS notification handling)
         window.appState = {
             initialized: false,
@@ -5966,6 +5974,260 @@ function createEventCard(event, matchId, isPast = false) {
     return eventCard;
 }
 
+// Message Pagination Helper Functions
+function createLoadOlderButton(chatType) {
+    const messagesContainer = document.getElementById('chat-messages');
+    const existingButton = document.getElementById('load-older-messages-btn');
+
+    // Remove existing button if present
+    if (existingButton) {
+        existingButton.remove();
+    }
+
+    // Check if we have more messages to load
+    if (!messagePagination[chatType].hasMore) {
+        return;
+    }
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.id = 'load-older-messages-btn';
+    buttonContainer.style.cssText = `
+        padding: 12px;
+        text-align: center;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+    `;
+
+    const loadButton = document.createElement('button');
+    loadButton.style.cssText = `
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+        max-width: 200px;
+    `;
+    loadButton.textContent = messagePagination[chatType].loading ? 'Loading...' : 'Load older messages';
+    loadButton.disabled = messagePagination[chatType].loading;
+    loadButton.onclick = () => loadOlderMessages(chatType);
+
+    loadButton.onmouseover = function() {
+        if (!this.disabled) this.style.background = 'var(--primary-hover)';
+    };
+    loadButton.onmouseout = function() {
+        this.style.background = 'var(--primary-color)';
+    };
+
+    buttonContainer.appendChild(loadButton);
+
+    // Insert at the beginning of messages container
+    messagesContainer.insertBefore(buttonContainer, messagesContainer.firstChild);
+}
+
+async function loadOlderMessages(chatType) {
+    if (messagePagination[chatType].loading || !messagePagination[chatType].hasMore) {
+        return;
+    }
+
+    const messagesContainer = document.getElementById('chat-messages');
+    const scrollHeightBefore = messagesContainer.scrollHeight;
+    const scrollTopBefore = messagesContainer.scrollTop;
+
+    messagePagination[chatType].loading = true;
+
+    // Update button to show loading state
+    const button = document.querySelector('#load-older-messages-btn button');
+    if (button) {
+        button.textContent = 'Loading...';
+        button.disabled = true;
+    }
+
+    try {
+        let messages, error;
+        const offset = messagePagination[chatType].loadedCount;
+
+        if (chatType === 'match') {
+            const matchId = currentMatchChat?.id || currentMatchId;
+            const result = await supabase
+                .from('match_messages')
+                .select('*, sender:profiles(id, name, avatar)')
+                .eq('match_id', matchId)
+                .order('created_at', { ascending: false })
+                .range(offset, offset + MESSAGE_PAGE_SIZE - 1);
+
+            messages = result.data;
+            error = result.error;
+
+        } else if (chatType === 'event') {
+            const context = getCurrentChatContext();
+            const result = await supabase
+                .from('event_messages')
+                .select('*, sender:profiles(id, name, avatar)')
+                .eq('event_id', context.id)
+                .order('created_at', { ascending: false })
+                .range(offset, offset + MESSAGE_PAGE_SIZE - 1);
+
+            messages = result.data;
+            error = result.error;
+
+        } else if (chatType === 'circle') {
+            const circleId = currentCircleChat?.id;
+            const result = await supabase
+                .from('circle_messages')
+                .select('*, sender:profiles(id, name, avatar)')
+                .eq('circle_id', circleId)
+                .order('created_at', { ascending: false })
+                .range(offset, offset + MESSAGE_PAGE_SIZE - 1);
+
+            messages = result.data;
+            error = result.error;
+        }
+
+        if (error) throw error;
+
+        // Reverse to show oldest first (since we queried descending)
+        if (messages) {
+            messages.reverse();
+        }
+
+        // Update pagination state
+        messagePagination[chatType].loadedCount += messages.length;
+        messagePagination[chatType].hasMore = messages.length === MESSAGE_PAGE_SIZE;
+        messagePagination[chatType].loading = false;
+
+        // Remove the load button temporarily
+        const loadButton = document.getElementById('load-older-messages-btn');
+        if (loadButton) loadButton.remove();
+
+        // Get reference to first message for scroll position calculation
+        const firstMessageBefore = messagesContainer.querySelector('[data-message-id]');
+
+        // Prepend older messages
+        if (messages && messages.length > 0) {
+            // Create a document fragment to batch DOM operations
+            const fragment = document.createDocumentFragment();
+            const tempContainer = document.createElement('div');
+
+            messages.forEach(message => {
+                const isOwnMessage = message.sender_id === currentUser.id;
+                const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+
+                const context = getCurrentChatContext();
+                const messageType = context.type;
+
+                const sanitizedContent = message.is_deleted
+                    ? '<span style="font-style: italic;">[Deleted]</span>'
+                    : sanitizeHTML(message.content);
+                const sanitizedSenderName = sanitizeHTML(message.sender.name);
+                const escapedContentForEdit = message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/'/g, "\\'");
+
+                const messageDiv = document.createElement('div');
+                messageDiv.setAttribute('data-message-id', message.id);
+                messageDiv.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: ${isOwnMessage ? 'flex-end' : 'flex-start'};
+                    margin-bottom: 15px;
+                    width: 100%;
+                `;
+
+                messageDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}">
+                        ${renderAvatar(message.sender.avatar, 32)}
+                        <span style="font-size: 13px; color: #666; font-weight: 500;">
+                            ${isOwnMessage ? 'You' : sanitizedSenderName}
+                        </span>
+                        <span style="font-size: 11px; color: #999;">
+                            ${messageTime}
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: flex-start; ${isOwnMessage ? 'flex-direction: row-reverse;' : ''}; max-width: 100%;">
+                        <div style="background: ${message.is_deleted ? 'var(--bg-secondary)' : (isOwnMessage ? '#4CAF50' : '#f0f0f0')}; color: ${message.is_deleted ? 'var(--text-secondary)' : (isOwnMessage ? 'white' : 'black')}; padding: 10px 14px; border-radius: 12px; max-width: 280px; word-wrap: break-word; overflow-wrap: break-word;">
+                            ${sanitizedContent}
+                        </div>
+                        ${isOwnMessage && !message.is_deleted ? `
+                            <div class="message-actions" style="position: relative;">
+                                <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
+                                <div id="event-menu-${message.id}" class="message-actions-menu">
+                                    ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
+                                    <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="message-reactions-wrapper" style="margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <button
+                            onclick="showReactionPicker('${message.id}', '${messageType}', event)"
+                            style="
+                                background: none;
+                                border: 1px solid var(--border-color);
+                                border-radius: 12px;
+                                padding: 4px 8px;
+                                font-size: 16px;
+                                cursor: pointer;
+                                color: var(--text-secondary);
+                                transition: all 0.2s;
+                            "
+                            onmouseover="this.style.background='var(--bg-secondary)'"
+                            onmouseout="this.style.background='none'"
+                            title="Add reaction"
+                        >
+                            +
+                        </button>
+                    </div>
+                `;
+
+                tempContainer.appendChild(messageDiv);
+
+                // Fetch reactions
+                if (messageType !== 'none') {
+                    fetchMessageReactions(message.id, messageType).then(() => {
+                        updateReactionDisplay(message.id, messageType);
+                    });
+                }
+            });
+
+            // Insert all messages before the first existing message
+            if (firstMessageBefore) {
+                messagesContainer.insertBefore(tempContainer, firstMessageBefore);
+            } else {
+                messagesContainer.appendChild(tempContainer);
+            }
+        }
+
+        // Recreate load button if there are more messages
+        if (messagePagination[chatType].hasMore) {
+            createLoadOlderButton(chatType);
+        }
+
+        // Maintain scroll position - user should stay looking at the same message
+        requestAnimationFrame(() => {
+            const scrollHeightAfter = messagesContainer.scrollHeight;
+            const scrollDiff = scrollHeightAfter - scrollHeightBefore;
+            messagesContainer.scrollTop = scrollTopBefore + scrollDiff;
+        });
+
+    } catch (error) {
+        console.error('Error loading older messages:', error);
+        messagePagination[chatType].loading = false;
+        showNotification('Failed to load older messages', 'error');
+
+        // Re-enable button
+        if (button) {
+            button.textContent = 'Load older messages';
+            button.disabled = false;
+        }
+    }
+}
+
 async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, savedScrollPosition = null) {
     try {
         const messagesContainer = document.getElementById('chat-messages');
@@ -5973,7 +6235,12 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
         // Save scroll position if preserving
         const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
 
-        // Load general messages from match_messages table
+        // Reset pagination state for initial load
+        if (!preserveScroll) {
+            messagePagination.match = { loadedCount: 0, hasMore: true, loading: false };
+        }
+
+        // Load most recent messages (descending order, then reverse)
         const { data: messages, error } = await supabase
             .from('match_messages')
             .select(`
@@ -5981,9 +6248,19 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
                 sender:profiles(id, name, avatar)
             `)
             .eq('match_id', matchId)
-            .order('created_at', { ascending: true });
+            .order('created_at', { ascending: false })
+            .limit(MESSAGE_PAGE_SIZE);
 
         if (error) throw error;
+
+        // Reverse to show oldest-to-newest
+        if (messages) {
+            messages.reverse();
+        }
+
+        // Update pagination state
+        messagePagination.match.loadedCount = messages?.length || 0;
+        messagePagination.match.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
 
         // Clear messages but preserve the header
         const header = messagesContainer.querySelector('h4');
@@ -6002,6 +6279,7 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
             placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px; font-size: 14px;';
             placeholder.textContent = 'No messages yet. Start the conversation!';
             messagesContainer.appendChild(placeholder);
+            messagePagination.match.hasMore = false;
             return;
         }
 
@@ -6009,6 +6287,11 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
         messages.forEach(message => {
             appendMessage(message);
         });
+
+        // Add "Load older messages" button if there are more messages
+        if (messagePagination.match.hasMore) {
+            createLoadOlderButton('match');
+        }
 
         // Scroll handling - preserve position or scroll to bottom
         setTimeout(() => {
@@ -6186,6 +6469,12 @@ async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, sa
         // Save scroll position if preserving
         const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
 
+        // Reset pagination state for initial load
+        if (!preserveScroll) {
+            messagePagination.circle = { loadedCount: 0, hasMore: true, loading: false };
+        }
+
+        // Load most recent messages (descending order, then reverse)
         const { data: messages, error } = await supabase
             .from('circle_messages')
             .select(`
@@ -6193,9 +6482,19 @@ async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, sa
                 sender:profiles(id, name, avatar)
             `)
             .eq('circle_id', circleId)
-            .order('created_at', { ascending: true });
+            .order('created_at', { ascending: false })
+            .limit(MESSAGE_PAGE_SIZE);
 
         if (error) throw error;
+
+        // Reverse to show oldest-to-newest
+        if (messages) {
+            messages.reverse();
+        }
+
+        // Update pagination state
+        messagePagination.circle.loadedCount = messages?.length || 0;
+        messagePagination.circle.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
 
         // Clear messages but preserve the header
         const header = messagesContainer.querySelector('h4');
@@ -6214,6 +6513,7 @@ async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, sa
             placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px; font-size: 14px;';
             placeholder.textContent = 'No messages yet. Start the conversation!';
             messagesContainer.appendChild(placeholder);
+            messagePagination.circle.hasMore = false;
             return;
         }
 
@@ -6221,6 +6521,11 @@ async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, sa
         messages.forEach(message => {
             appendMessage(message);
         });
+
+        // Add "Load older messages" button if there are more messages
+        if (messagePagination.circle.hasMore) {
+            createLoadOlderButton('circle');
+        }
 
         // Scroll handling - preserve position or scroll to bottom
         setTimeout(() => {
@@ -8645,6 +8950,12 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
         // Save scroll position if preserving
         const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
 
+        // Reset pagination state for initial load
+        if (!preserveScroll) {
+            messagePagination.event = { loadedCount: 0, hasMore: true, loading: false };
+        }
+
+        // Load most recent messages (descending order, then reverse)
         const { data: messages, error } = await supabase
     .from('event_messages')
     .select(`
@@ -8652,9 +8963,15 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
         sender:profiles(id, name, avatar)
     `)
     .eq('event_id', eventId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(MESSAGE_PAGE_SIZE);
 
         if (error) throw error;
+
+        // Reverse to show oldest-to-newest
+        if (messages) {
+            messages.reverse();
+        }
 
         messagesContainer.innerHTML = '';
 
@@ -8662,6 +8979,10 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
         const eventCreatedDate = new Date(eventCreatedAt);
         const archivedMessages = messages.filter(m => new Date(m.created_at) < eventCreatedDate);
         const currentMessages = messages.filter(m => new Date(m.created_at) >= eventCreatedDate);
+
+        // Update pagination state based on current messages
+        messagePagination.event.loadedCount = currentMessages?.length || 0;
+        messagePagination.event.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
 
         // Show archived messages toggle if any exist
         if (archivedMessages.length > 0) {
@@ -8717,13 +9038,20 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
         // Show current messages
         if (currentMessages.length === 0 && archivedMessages.length === 0) {
             messagesContainer.innerHTML += '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start the conversation!</p>';
+            messagePagination.event.hasMore = false;
         } else if (currentMessages.length === 0) {
             const placeholder = document.createElement('p');
             placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px;';
             placeholder.textContent = 'No messages since event was created. Say something!';
             messagesContainer.appendChild(placeholder);
+            messagePagination.event.hasMore = false;
         } else {
             currentMessages.forEach(message => appendMessage(message));
+        }
+
+        // Add "Load older messages" button if there are more messages
+        if (messagePagination.event.hasMore) {
+            createLoadOlderButton('event');
         }
 
         // Scroll handling - preserve position or scroll to bottom
@@ -9277,6 +9605,12 @@ async function loadMatchMessages(matchId, preserveScroll = false, savedScrollPos
         // Save scroll position if preserving
         const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
 
+        // Reset pagination state for initial load
+        if (!preserveScroll) {
+            messagePagination.match = { loadedCount: 0, hasMore: true, loading: false };
+        }
+
+        // Load most recent messages (descending order, then reverse)
         const { data: messages, error } = await supabase
     .from('match_messages')
     .select(`
@@ -9284,17 +9618,32 @@ async function loadMatchMessages(matchId, preserveScroll = false, savedScrollPos
         sender:profiles(id, name, avatar)
     `)
     .eq('match_id', matchId)
-    .order('created_at', { ascending: true })
-.limit(50);
+    .order('created_at', { ascending: false })
+    .limit(MESSAGE_PAGE_SIZE);
 
         if (error) throw error;
+
+        // Reverse to show oldest-to-newest
+        if (messages) {
+            messages.reverse();
+        }
+
+        // Update pagination state
+        messagePagination.match.loadedCount = messages?.length || 0;
+        messagePagination.match.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
 
         messagesContainer.innerHTML = '';
 
         if (messages.length === 0) {
             messagesContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start planning your activity!</p>';
+            messagePagination.match.hasMore = false;
         } else {
             messages.forEach(message => appendMessage(message));
+        }
+
+        // Add "Load older messages" button if there are more messages
+        if (messagePagination.match.hasMore) {
+            createLoadOlderButton('match');
         }
 
         // Scroll handling - preserve position or scroll to bottom
