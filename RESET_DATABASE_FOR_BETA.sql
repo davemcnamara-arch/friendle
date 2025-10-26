@@ -127,7 +127,16 @@ DELETE FROM circle_members;
 
 
 -- ============================================================================
--- STEP 12: DELETE CIRCLES
+-- STEP 12: DELETE HIDDEN ACTIVITIES
+-- ============================================================================
+
+DELETE FROM hidden_activities;
+-- Expected: Removes all user-hidden activity preferences
+-- Note: This table references circles, so must be deleted before circles
+
+
+-- ============================================================================
+-- STEP 13: DELETE CIRCLES
 -- ============================================================================
 
 DELETE FROM circles;
@@ -135,7 +144,7 @@ DELETE FROM circles;
 
 
 -- ============================================================================
--- STEP 13: DELETE PROFILES
+-- STEP 14: DELETE PROFILES
 -- ============================================================================
 
 DELETE FROM profiles;
@@ -145,7 +154,7 @@ DELETE FROM profiles;
 
 
 -- ============================================================================
--- STEP 14: CLEAR STORAGE (Profile Avatars)
+-- STEP 15: CLEAR STORAGE (Profile Avatars)
 -- ============================================================================
 
 DELETE FROM storage.objects WHERE bucket_id = 'avatars';
@@ -153,7 +162,7 @@ DELETE FROM storage.objects WHERE bucket_id = 'avatars';
 
 
 -- ============================================================================
--- STEP 15: RESET SEQUENCES (if any exist)
+-- STEP 16: RESET SEQUENCES (if any exist)
 -- ============================================================================
 
 -- Note: Friendle uses UUIDs for primary keys, so there are no sequences to reset.
@@ -190,6 +199,8 @@ UNION ALL
 SELECT 'circles', COUNT(*) FROM circles
 UNION ALL
 SELECT 'circle_members', COUNT(*) FROM circle_members
+UNION ALL
+SELECT 'hidden_activities', COUNT(*) FROM hidden_activities
 
 UNION ALL
 -- Check activity tables
@@ -229,6 +240,7 @@ ORDER BY table_name;
 SELECT
   (SELECT COUNT(*) FROM profiles) as profiles_count,
   (SELECT COUNT(*) FROM circles) as circles_count,
+  (SELECT COUNT(*) FROM hidden_activities) as hidden_activities_count,
   (SELECT COUNT(*) FROM matches) as matches_count,
   (SELECT COUNT(*) FROM events) as events_count,
   (SELECT COUNT(*) FROM match_messages) as match_messages_count,

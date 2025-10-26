@@ -55,6 +55,9 @@ DELETE FROM preferences;
 -- Circle membership
 DELETE FROM circle_members;
 
+-- Hidden activities (must delete before circles due to FK)
+DELETE FROM hidden_activities;
+
 -- Circles
 DELETE FROM circles;
 
@@ -84,6 +87,7 @@ COMMIT;
 SELECT
   (SELECT COUNT(*) FROM profiles) as profiles,
   (SELECT COUNT(*) FROM circles) as circles,
+  (SELECT COUNT(*) FROM hidden_activities) as hidden_activities,
   (SELECT COUNT(*) FROM matches) as matches,
   (SELECT COUNT(*) FROM events) as events,
   (SELECT COUNT(*) FROM match_messages) as match_msgs,
@@ -93,6 +97,7 @@ SELECT
 SELECT 'profiles' as table_name, COUNT(*) as rows FROM profiles
 UNION ALL SELECT 'circles', COUNT(*) FROM circles
 UNION ALL SELECT 'circle_members', COUNT(*) FROM circle_members
+UNION ALL SELECT 'hidden_activities', COUNT(*) FROM hidden_activities
 UNION ALL SELECT 'matches', COUNT(*) FROM matches
 UNION ALL SELECT 'match_participants', COUNT(*) FROM match_participants
 UNION ALL SELECT 'events', COUNT(*) FROM events
@@ -113,7 +118,7 @@ UNION ALL SELECT 'auth.sessions', COUNT(*) FROM auth.sessions
 ORDER BY table_name;
 
 -- Verify global activities are preserved (should show your defaults)
-SELECT id, name, created_by FROM activities WHERE circle_id IS NULL ORDER BY name;
+SELECT id, name FROM activities WHERE circle_id IS NULL ORDER BY name;
 
 -- Verify RLS policies are intact (should show 30+ policies)
 SELECT COUNT(*) as total_rls_policies FROM pg_policies WHERE schemaname = 'public';
