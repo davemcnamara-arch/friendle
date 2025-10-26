@@ -1464,13 +1464,10 @@
       console.error('❌ OneSignal initialization error:', error);
     }
 
-    // Handle notifications when app is in foreground
-    // By NOT calling event.preventDefault(), the notification should display
-    OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event) => {
-      console.log('🔔 Notification received in foreground:', event.notification);
-      // Don't call preventDefault() - let it display naturally
-      // Note: display() method doesn't exist in Web SDK v16
-    });
+    // NOTE: We do NOT add a foregroundWillDisplay listener because:
+    // 1. It intercepts notifications but Web SDK v16 has no display() method
+    // 2. The service worker handles all notification display automatically
+    // 3. Having this listener prevents notifications from showing
 
     // Handle notification clicks - mostly handled by service worker
     // This fires when app is in foreground
