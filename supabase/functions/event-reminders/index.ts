@@ -242,10 +242,10 @@ serve(async (req) => {
         profile_id,
         events!inner(
           id,
-          name,
           scheduled_date,
           match_id,
-          status
+          status,
+          activities(name)
         )
       `)
       .in('profile_id', userIds)
@@ -275,7 +275,7 @@ serve(async (req) => {
     console.log('Events found:', userEvents.map(ep => ({
       user_id: ep.profile_id,
       event_id: ep.events.id,
-      event_name: ep.events.name,
+      activity_name: ep.events.activities?.name || 'Unknown Activity',
       scheduled_date: ep.events.scheduled_date,
       status: ep.events.status
     })))
@@ -304,7 +304,9 @@ serve(async (req) => {
       const todayInUserTz = dateFormatter.format(now)
       const eventDateInUserTz = dateFormatter.format(new Date(event.scheduled_date))
 
-      console.log(`\nEvent: "${event.name}" (${event.id})`)
+      const activityName = event.activities?.name || 'Unknown Activity'
+
+      console.log(`\nEvent: "${activityName}" (${event.id})`)
       console.log(`  User: ${user.name} (${userTimezone})`)
       console.log(`  Event scheduled_date (UTC): ${event.scheduled_date}`)
       console.log(`  Event date in user TZ: ${eventDateInUserTz}`)
@@ -331,7 +333,7 @@ serve(async (req) => {
         console.log(`  ✓ Will send reminder`)
         remindersToSend.push({
           event_id: event.id,
-          event_name: event.name,
+          event_name: activityName,
           event_scheduled_date: event.scheduled_date,
           profile_id: user.id,
           profile_name: user.name,
