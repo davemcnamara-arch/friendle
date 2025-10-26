@@ -1465,56 +1465,61 @@
     }
 
     // Handle notifications when app is in foreground (tab is open and focused)
-    // This prevents the "message channel closed" error
+    // Must not be async to avoid "message channel closed" error
     OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event) => {
       console.log('🔔 Page: Notification will display in foreground', event);
       console.log('🔔 Page: Notification data:', event.notification);
-      // Don't call event.preventDefault() - let it display
-      // The notification will show even when app is in foreground
+      // Allow the notification to display - don't call event.preventDefault()
+      // Return void to ensure no async promise is implied
     });
 
     // Handle notification clicks - mostly handled by service worker
     // This fires when app is in foreground
-OneSignal.Notifications.addEventListener('click', async (event) => {
-  console.log('🔔 Page: Notification clicked (foreground handler)', event);
-  console.log('📦 Page: Notification data:', event.notification);
-  console.log('📦 Page: Additional data:', event.notification.additionalData);
+    // Must not be async to avoid blocking OneSignal's internal message passing
+    OneSignal.Notifications.addEventListener('click', (event) => {
+      console.log('🔔 Page: Notification clicked (foreground handler)', event);
+      console.log('📦 Page: Notification data:', event.notification);
+      console.log('📦 Page: Additional data:', event.notification.additionalData);
 
-  const data = event.notification.additionalData || event.notification.data || {};
-  console.log('📦 Page: Extracted data:', data);
+      const data = event.notification.additionalData || event.notification.data || {};
+      console.log('📦 Page: Extracted data:', data);
 
-  // When app is in foreground, navigate directly in-app
-  if (window.currentUser && data && data.chatType && data.chatId) {
-    console.log('✅ Page: User authenticated, navigating in-app to:', data.chatType, data.chatId);
+      // Handle navigation asynchronously without blocking the event handler
+      // This prevents "message channel closed" errors in OneSignal's internal messaging
+      (async () => {
+        // When app is in foreground, navigate directly in-app
+        if (window.currentUser && data && data.chatType && data.chatId) {
+          console.log('✅ Page: User authenticated, navigating in-app to:', data.chatType, data.chatId);
 
-    try {
-      // Wait for app to be ready before navigating (critical for iOS)
-      console.log('⏳ Page: Waiting for app to be ready before navigation...');
-      await window.waitForAppReady(15000); // 15 second timeout
-      console.log('✅ Page: App is ready, proceeding with navigation');
+          try {
+            // Wait for app to be ready before navigating (critical for iOS)
+            console.log('⏳ Page: Waiting for app to be ready before navigation...');
+            await window.waitForAppReady(15000); // 15 second timeout
+            console.log('✅ Page: App is ready, proceeding with navigation');
 
-      // Navigate directly to the chat
-      if (data.chatType === 'match') {
-        await openMatchChatThreaded(data.chatId);
-      } else if (data.chatType === 'event') {
-        await openEventChat(data.chatId);
-      } else if (data.chatType === 'circle') {
-        await openCircleChat(data.chatId);
-      }
-      console.log('✅ Page: Successfully navigated to chat in-app');
-    } catch (error) {
-      console.error('❌ Page: Error navigating to chat:', error);
-      console.error('❌ Page: Error stack:', error.stack);
-      console.error('❌ Page: App state at error:', window.appState);
-      // Fallback to showing matches page
-      showPage('matches');
-      showNotification('Unable to open chat. Please try again.', 'error');
-    }
-  } else {
-    console.log('⚠️ Page: User not authenticated or no chat data, service worker will handle');
-    // Service worker will handle the navigation via URL parameters
-  }
-});
+            // Navigate directly to the chat
+            if (data.chatType === 'match') {
+              await openMatchChatThreaded(data.chatId);
+            } else if (data.chatType === 'event') {
+              await openEventChat(data.chatId);
+            } else if (data.chatType === 'circle') {
+              await openCircleChat(data.chatId);
+            }
+            console.log('✅ Page: Successfully navigated to chat in-app');
+          } catch (error) {
+            console.error('❌ Page: Error navigating to chat:', error);
+            console.error('❌ Page: Error stack:', error.stack);
+            console.error('❌ Page: App state at error:', window.appState);
+            // Fallback to showing matches page
+            showPage('matches');
+            showNotification('Unable to open chat. Please try again.', 'error');
+          }
+        } else {
+          console.log('⚠️ Page: User not authenticated or no chat data, service worker will handle');
+          // Service worker will handle the navigation via URL parameters
+        }
+      })();
+    });
     
     // Save Player ID to database when user is logged in
     OneSignal.User.PushSubscription.addEventListener('change', async function(event) {
