@@ -1568,10 +1568,24 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         <div class="form-group"><label for="register-email">Email</label><input type="email" id="register-email" placeholder="Enter your email" autocomplete="email" inputmode="email"></div>
         <div class="form-group"><label for="register-name">Your Name</label><input type="text" id="register-name" placeholder="Enter your name" autocomplete="given-name"></div>
         <div class="form-group"><label for="register-password">Password</label><input type="password" id="register-password" placeholder="Create a password (6+ characters)" autocomplete="new-password"></div>
-        <div class="form-group"><label>Choose Your Avatar</label><div class="avatar-grid">
-            <div class="avatar-option" data-avatar="😊">😊</div><div class="avatar-option" data-avatar="🌟">🌟</div><div class="avatar-option" data-avatar="🦄">🦄</div><div class="avatar-option" data-avatar="🐨">🐨</div>
-            <div class="avatar-option" data-avatar="🎮">🎮</div><div class="avatar-option" data-avatar="🎨">🎨</div><div class="avatar-option" data-avatar="⚡">⚡</div><div class="avatar-option" data-avatar="🌙">🌙</div>
-        </div></div>
+        <div class="form-group">
+            <label>Profile Picture</label>
+            <div style="text-align: center; margin: 20px 0;">
+                <div id="register-profile-preview" style="width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 15px; border: 3px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 50px; background: var(--card-bg); overflow: hidden;">
+                    <span id="register-avatar-display">😊</span>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px;">
+                    <button type="button" class="btn btn-secondary" onclick="openRegisterCamera()" style="flex: 1; max-width: 150px; font-size: 0.9em; padding: 8px 12px;">📷 Take Photo</button>
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('register-photo-input').click()" style="flex: 1; max-width: 150px; font-size: 0.9em; padding: 8px 12px;">📁 Upload</button>
+                </div>
+                <input type="file" id="register-photo-input" accept="image/*" style="display: none;" onchange="handleRegisterPhotoUpload(event)">
+            </div>
+            <div style="text-align: center; margin-bottom: 10px; color: var(--text-secondary); font-size: 0.9em;">or choose an emoji avatar:</div>
+            <div class="avatar-grid">
+                <div class="avatar-option" data-avatar="😊">😊</div><div class="avatar-option" data-avatar="🌟">🌟</div><div class="avatar-option" data-avatar="🦄">🦄</div><div class="avatar-option" data-avatar="🐨">🐨</div>
+                <div class="avatar-option" data-avatar="🎮">🎮</div><div class="avatar-option" data-avatar="🎨">🎨</div><div class="avatar-option" data-avatar="⚡">⚡</div><div class="avatar-option" data-avatar="🌙">🌙</div>
+            </div>
+        </div>
         <button type="submit" class="btn">Create Account</button>
         <div style="text-align: center; margin-top: 20px; margin-bottom: -10px; color: #666; font-size: 0.9em;">
     Already have an account?
@@ -1715,6 +1729,10 @@ OneSignal.Notifications.addEventListener('click', async (event) => {
         </div>
         <input type="file" id="profile-picture-input" accept="image/*" style="display: none;" onchange="uploadProfilePicture(event)">
         <h2 id="profile-name" style="color: var(--text-primary);">Your Name</h2>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+            <button class="btn btn-secondary" onclick="openSettingsCamera()" style="font-size: 0.9em; padding: 8px 16px;">📷 Take Photo</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('profile-picture-input').click()" style="font-size: 0.9em; padding: 8px 16px;">📁 Upload Photo</button>
+        </div>
         <button class="btn btn-secondary" onclick="removeProfilePicture()" id="remove-picture-btn" style="display: none; margin-top: 10px; font-size: 0.9em; padding: 8px 16px;">Remove Picture</button>
     </div>
 
@@ -2483,38 +2501,73 @@ window.signUp = async function() {
     const password = document.getElementById('register-password').value;
     const name = document.getElementById('register-name').value.trim();
     const selectedAvatar = document.querySelector('#register-form .avatar-option.selected');
+    const photoFile = window.registerPhotoFile;
 
     // Debug logging (password length only for security)
     console.log('Sign up attempt:', {
         email,
         name,
         passwordLength: password.length,
-        hasAvatar: !!selectedAvatar
+        hasAvatar: !!selectedAvatar,
+        hasPhoto: !!photoFile
     });
 
-    if (!email || !password || !name || !selectedAvatar) {
+    if (!email || !password || !name) {
         console.error('Validation failed: missing required fields');
-        return showNotification('Please fill in all fields and select an avatar', 'error');
+        return showNotification('Please fill in all fields', 'error');
+    }
+
+    if (!selectedAvatar && !photoFile) {
+        return showNotification('Please select an avatar or upload a photo', 'error');
     }
 
     if (password.length < 6) {
         return showNotification('Password must be at least 6 characters', 'error');
     }
-    
+
     try {
+        showLoader('Creating your account...');
+
         // Sign up with Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: email,
             password: password
         });
-        
+
         if (authError) throw authError;
-        
+
+        let avatarValue = selectedAvatar ? selectedAvatar.dataset.avatar : '😊';
+
+        // If user uploaded a photo, upload it to storage
+        if (photoFile) {
+            showLoader('Uploading profile picture...');
+
+            const fileExt = photoFile.name.split('.').pop().toLowerCase();
+            const fileName = `${authData.user.id}/avatar.${fileExt}`;
+
+            // Upload photo
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, photoFile, {
+                    cacheControl: '3600',
+                    upsert: true
+                });
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            avatarValue = urlData.publicUrl;
+        }
+
         // Create profile with authenticated user ID
         const profileDataToInsert = {
             id: authData.user.id, // Use Supabase Auth user ID
             name: name,
-            avatar: selectedAvatar.dataset.avatar
+            avatar: avatarValue
         };
 
         console.log('Creating profile with data:', profileDataToInsert);
@@ -2528,6 +2581,9 @@ window.signUp = async function() {
         if (profileError) throw profileError;
 
         console.log('Profile created successfully:', { id: profileData.id, name: profileData.name, avatar: profileData.avatar });
+
+        // Clear the photo file after successful registration
+        window.registerPhotoFile = null;
 
         currentUser = profileData;
         
@@ -2583,8 +2639,11 @@ window.signUp = async function() {
         updateProfile();
         await processInviteCode();
         await processPendingChat();
-        
+
+        hideLoader();
+
     } catch (error) {
+        hideLoader();
         console.error('Signup error:', error);
         showNotification(error.message || 'Error creating account', 'error');
     }
@@ -3566,6 +3625,185 @@ window.removeProfilePicture = async function() {
         hideLoader();
         showNotification('Error removing profile picture', 'error');
     }
+}
+
+// Camera functionality
+let cameraStream = null;
+let cameraContext = 'register'; // 'register' or 'settings'
+
+window.openRegisterCamera = async function() {
+    cameraContext = 'register';
+    await openCameraModal();
+}
+
+window.openSettingsCamera = async function() {
+    cameraContext = 'settings';
+    await openCameraModal();
+}
+
+async function openCameraModal() {
+    const modal = document.getElementById('camera-modal');
+    const video = document.getElementById('camera-video');
+
+    try {
+        // Request camera access
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'user',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
+
+        video.srcObject = cameraStream;
+        modal.style.display = 'flex';
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        if (error.name === 'NotAllowedError') {
+            showNotification('Camera access denied. Please enable camera permissions in your browser.', 'error');
+        } else if (error.name === 'NotFoundError') {
+            showNotification('No camera found on this device.', 'error');
+        } else {
+            showNotification('Error accessing camera: ' + error.message, 'error');
+        }
+    }
+}
+
+window.closeCameraModal = function() {
+    const modal = document.getElementById('camera-modal');
+    const video = document.getElementById('camera-video');
+
+    // Stop camera stream
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+
+    video.srcObject = null;
+    modal.style.display = 'none';
+}
+
+window.capturePhoto = function() {
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('camera-canvas');
+
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw video frame to canvas
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to blob
+    canvas.toBlob(async (blob) => {
+        if (!blob) {
+            showNotification('Error capturing photo', 'error');
+            return;
+        }
+
+        // Close camera modal
+        closeCameraModal();
+
+        // Create a file from the blob
+        const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
+
+        // Handle the captured photo based on context
+        if (cameraContext === 'register') {
+            await handleRegisterPhotoCapture(file);
+        } else {
+            await handleSettingsPhotoCapture(file);
+        }
+    }, 'image/jpeg', 0.9);
+}
+
+// Registration photo handling
+window.registerPhotoFile = null;
+
+window.handleRegisterPhotoUpload = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    await handleRegisterPhotoCapture(file);
+}
+
+async function handleRegisterPhotoCapture(file) {
+    // Validate file
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    const fileExt = file.name.split('.').pop().toLowerCase();
+
+    if (!allowedExtensions.includes(fileExt) && file.type === 'image/jpeg') {
+        // Allow camera captures which are always JPEG
+    } else if (!allowedExtensions.includes(fileExt)) {
+        return showNotification(`Only ${allowedExtensions.join(', ').toUpperCase()} images are allowed`, 'error');
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        return showNotification('Image must be less than 5MB', 'error');
+    }
+
+    // Validate image dimensions
+    const validateImageDimensions = new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+
+        img.onload = function() {
+            URL.revokeObjectURL(url);
+
+            if (this.width > 4096 || this.height > 4096) {
+                reject(new Error('Image dimensions must not exceed 4096x4096 pixels'));
+            } else if (this.width < 10 || this.height < 10) {
+                reject(new Error('Image is too small. Minimum size is 10x10 pixels'));
+            } else {
+                resolve({ width: this.width, height: this.height, url: URL.createObjectURL(file) });
+            }
+        };
+
+        img.onerror = function() {
+            URL.revokeObjectURL(url);
+            reject(new Error('Invalid image file. File may be corrupted.'));
+        };
+
+        img.src = url;
+    });
+
+    try {
+        const { url: previewUrl } = await validateImageDimensions;
+
+        // Store the file for upload during registration
+        window.registerPhotoFile = file;
+
+        // Update preview
+        const preview = document.getElementById('register-profile-preview');
+        const display = document.getElementById('register-avatar-display');
+
+        display.innerHTML = '';
+        display.style.fontSize = '0';
+        preview.style.backgroundImage = `url(${previewUrl})`;
+        preview.style.backgroundSize = 'cover';
+        preview.style.backgroundPosition = 'center';
+
+        // Deselect any emoji avatars
+        const avatars = document.querySelectorAll('#register-form .avatar-option');
+        avatars.forEach(a => a.classList.remove('selected'));
+
+        showNotification('Photo ready! Complete the form to create your account.');
+    } catch (error) {
+        console.error('Error validating image:', error);
+        showNotification(error.message || 'Error processing image', 'error');
+    }
+}
+
+async function handleSettingsPhotoCapture(file) {
+    // Create a fake event object for uploadProfilePicture
+    const fakeEvent = {
+        target: {
+            files: [file]
+        }
+    };
+
+    await uploadProfilePicture(fakeEvent);
 }
 
 window.toggleEventReminders = async function() {
@@ -11008,6 +11246,18 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Avatar clicked:", option.dataset.avatar);
       avatars.forEach(o => o.classList.remove("selected"));
       option.classList.add("selected");
+
+      // If this is in the registration form, clear any uploaded photo and reset preview
+      if (option.closest('#register-form')) {
+        window.registerPhotoFile = null;
+        const preview = document.getElementById('register-profile-preview');
+        const display = document.getElementById('register-avatar-display');
+        if (preview && display) {
+          preview.style.backgroundImage = '';
+          display.innerHTML = option.dataset.avatar;
+          display.style.fontSize = '50px';
+        }
+      }
     });
   });
 
@@ -11476,5 +11726,20 @@ window.saveActivityVisibility = async function() {
 });   // ✅ closes document.addEventListener("DOMContentLoaded", ...)
 
     </script>
+
+    <!-- Camera Modal -->
+    <div id="camera-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="position: relative; max-width: 90%; max-height: 90%; display: flex; flex-direction: column; align-items: center;">
+            <div style="position: relative; background: #000; border-radius: 12px; overflow: hidden;">
+                <video id="camera-video" autoplay playsinline style="max-width: 100%; max-height: 70vh; display: block;"></video>
+                <canvas id="camera-canvas" style="display: none;"></canvas>
+            </div>
+            <div style="margin-top: 20px; display: flex; gap: 15px;">
+                <button class="btn" onclick="capturePhoto()" style="padding: 12px 24px; font-size: 1em;">📸 Capture</button>
+                <button class="btn btn-secondary" onclick="closeCameraModal()" style="padding: 12px 24px; font-size: 1em;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
