@@ -4697,7 +4697,7 @@ window.copyCircleCode = function(code) {
 
 window.inviteByEmail = function(circleName, circleCode) {
     const subject = encodeURIComponent('Join my "' + circleName + '" circle on Friendle');
-    const appUrl = 'https://friendle-circles.vercel.app/';
+    const appUrl = 'https://friendlecircles.app/';
     const inviteUrl = appUrl + '?invite_code=' + circleCode;
     
     const body = encodeURIComponent(
