@@ -5717,6 +5717,10 @@ window.setActivityMode = async function(activityId, isToday) {
         return showNotification('Please wait before saving again.', 'error');
     }
 
+    // Hide the save button immediately to prevent visual shifting
+    const saveButton = document.getElementById('grid-save-button');
+    if (saveButton) saveButton.style.display = 'none';
+
     showLoader('Saving preferences...');
 
     try {
@@ -5771,6 +5775,9 @@ window.setActivityMode = async function(activityId, isToday) {
         
     } catch (error) {
         hideLoader();
+        // Restore the save button if there's an error
+        const saveButton = document.getElementById('grid-save-button');
+        if (saveButton) saveButton.style.display = '';
         console.error('Error saving activities:', error);
         showNotification('Error saving preferences', 'error');
     }
@@ -6055,6 +6062,56 @@ window.stayInterested = async function(matchId) {
         console.error('Error updating interaction:', error);
         hideLoader();
         showNotification('Failed to update. Please try again.', 'error');
+    }
+}
+
+// Mark as uninterested - remove from match
+window.markAsUninterested = async function(matchId, activityId, circleId) {
+    try {
+        // Confirm with user
+        if (!confirm('Are you sure you want to remove this activity from your preferences? You can always add it back later.')) {
+            return;
+        }
+
+        showLoader('Removing activity...');
+
+        // Check if user has any events for this match
+        const { data: userEvents } = await supabase
+            .from('event_participants')
+            .select('event_id, events!inner(match_id)')
+            .eq('profile_id', currentUser.id)
+            .eq('events.match_id', matchId);
+
+        // Remove user's preference for this activity
+        const { error: prefError } = await supabase
+            .from('preferences')
+            .delete()
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', circleId)
+            .eq('activity_id', activityId);
+
+        if (prefError) throw prefError;
+
+        // If no events, remove user from match participants
+        if (!userEvents || userEvents.length === 0) {
+            const { error: participantError } = await supabase
+                .from('match_participants')
+                .delete()
+                .eq('match_id', matchId)
+                .eq('profile_id', currentUser.id);
+
+            if (participantError) throw participantError;
+        }
+
+        hideLoader();
+        showNotification('Activity removed from your preferences');
+
+        // Reload matches to update UI
+        await loadMatches();
+    } catch (error) {
+        console.error('Error marking as uninterested:', error);
+        hideLoader();
+        showNotification('Failed to remove activity. Please try again.', 'error');
     }
 }
 
@@ -8007,6 +8064,9 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         </button>
         <p style="font-size: 11px; color: #666; margin: 0; text-align: center; line-height: 1.3;">${match.inChatCount} ${match.inChatCount === 1 ? 'person' : 'people'} already chatting</p>
     `}
+    <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; width: 100%; margin: 0; background: #6c757d; opacity: 0.7;">
+        🚫 No Longer Interested
+    </button>
 </div>
     </div>
                 
