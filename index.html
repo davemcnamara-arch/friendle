@@ -4506,6 +4506,10 @@ window.finalizeCircleCreation = async function() {
       const memberText = memberCount === 1 ? '1 member' : `${memberCount} members`;
       const unreadCount = unreadMap.get(circle.id) || 0;
 
+      // Escape single quotes in circle name and code for onclick handlers
+      const escapedName = circle.name.replace(/'/g, "\\'");
+      const escapedCode = circle.code.replace(/'/g, "\\'");
+
       return `
         <div class="circle-card${unreadCount > 0 ? ' unread' : ''}">
           <div class="main-content" onclick='selectCircle("${circle.id}")'>
@@ -4519,8 +4523,8 @@ window.finalizeCircleCreation = async function() {
     <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%; background: #667eea;">💬 Open Circle Chat</button>
     <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="width: 100%;">👥 View Members</button>
     <div style="display: flex; gap: 8px;">
-        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${circle.code}')" style="flex: 1;">Copy Code</button>
-        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${circle.name}', '${circle.code}')" style="flex: 1;">Invite</button>
+        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="flex: 1;">Copy Code</button>
+        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
     </div>
     <div style="display: flex; gap: 8px;">
         <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="flex: 1;">Rename</button>
