@@ -1442,7 +1442,15 @@
     } catch (error) {
       console.error('❌ OneSignal initialization error:', error);
     }
-    
+
+    // Handle notifications when app is in foreground (tab is open and focused)
+    // This prevents the "message channel closed" error
+    OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event) => {
+      console.log('🔔 Page: Notification received in foreground', event);
+      // Allow the notification to display even when app is in foreground
+      // event.preventDefault() would stop it from showing
+    });
+
     // Handle notification clicks - mostly handled by service worker
     // This fires when app is in foreground
 OneSignal.Notifications.addEventListener('click', async (event) => {
