@@ -1464,13 +1464,13 @@
       console.error('❌ OneSignal initialization error:', error);
     }
 
-    // Handle notifications when app is in foreground (tab is open and focused)
+    // Handle notifications when app is in foreground
+    // By default, OneSignal does NOT display notifications when app is in foreground
+    // We need to explicitly call display() to show them
     OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event) => {
-      console.log('🔔 FOREGROUND: Notification received!', event);
-      console.log('🔔 FOREGROUND: Title:', event.notification.title);
-      console.log('🔔 FOREGROUND: Body:', event.notification.body);
-      console.log('🔔 FOREGROUND: Data:', event.notification.additionalData);
-      // DO NOT call event.preventDefault() - let notification display!
+      console.log('🔔 Notification received in foreground:', event.notification);
+      // Display the notification even when app is in foreground
+      event.notification.display();
     });
 
     // Handle notification clicks - mostly handled by service worker
