@@ -4241,31 +4241,45 @@ window.goBackToCircleStep1 = function() {
 async function renderCircleCreationActivities(previousSelections = new Set(), autoSelectId = null) {
     const grid = document.getElementById('circle-creation-activities-grid');
     grid.innerHTML = '';
-    
+
+    // Show helpful message if no default activities are available
+    if (!defaultActivities || defaultActivities.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #666;">
+                <div style="font-size: 3em; margin-bottom: 20px;">🎯</div>
+                <h3 style="margin-bottom: 15px; color: #333;">No Default Activities Available</h3>
+                <p style="margin-bottom: 20px;">The database needs to be seeded with default activities.</p>
+                <p style="font-size: 0.9em; color: #999;">For now, you can create custom activities by clicking the "+ Custom Activity" button above.</p>
+            </div>
+        `;
+        updateCircleSelectedCount();
+        return;
+    }
+
     // Render all default activities
     defaultActivities.forEach(activity => {
         const card = document.createElement('div');
         card.className = 'activity-card';
         card.dataset.activityId = activity.id;
-        
+
         // Restore previous selections or auto-select new activity
         if (previousSelections.has(activity.id) || activity.id === autoSelectId) {
             card.classList.add('selected');
         }
-        
+
         card.innerHTML = `
-            <div class="activity-emoji">${activity.emoji}</div>
+            <div class="activity-emoji">${activity.emoji || '🎯'}</div>
             <div class="activity-name">${activity.name}</div>
         `;
-        
+
         card.onclick = () => {
             card.classList.toggle('selected');
             updateCircleSelectedCount();
         };
-        
+
         grid.appendChild(card);
     });
-    
+
     updateCircleSelectedCount();
 }
 
@@ -5531,28 +5545,39 @@ async function loadDefaultActivities() {
             .from('activities')
             .select('*')
             .is('circle_id', null);
-        
+
         if (error) throw error;
-        
-        defaultActivities = data;
-        
+
+        defaultActivities = data || [];
+
+        // Warn if no default activities found
+        if (!defaultActivities || defaultActivities.length === 0) {
+            console.warn('⚠️ No default activities found in database! Users will need to create custom activities.');
+            console.warn('To fix: Run MIGRATION_seed_default_activities.sql in your Supabase SQL editor.');
+            defaultActivities = [];
+        }
+
         // Split into core and extended based on a category or naming convention
         // For now, let's say activities with IDs < 200 are core (adjust as needed)
-        coreActivityIds = data.filter(a => {
+        coreActivityIds = defaultActivities.filter(a => {
             // Define which activities are "core" - adjust these names as needed
             const coreNames = ['Coffee', 'Dinner', 'Drinks', 'Brunch', 'Pizza Night', 'Ice Cream',
                                'Hiking', 'Beach', 'Bowling', 'Walk in the Park',
                                'Movie', 'Trivia Night', 'Arcade', 'Board Games'];
             return coreNames.includes(a.name);
         }).map(a => a.id);
-        
-        extendedActivityIds = data.filter(a => !coreActivityIds.includes(a.id)).map(a => a.id);
-        
-        console.log('Loaded default activities:', defaultActivities);
-        console.log('Core activity IDs:', coreActivityIds);
-        
+
+        extendedActivityIds = defaultActivities.filter(a => !coreActivityIds.includes(a.id)).map(a => a.id);
+
+        console.log('Loaded default activities:', defaultActivities.length, 'activities');
+        console.log('Core activity IDs:', coreActivityIds.length, 'core activities');
+        console.log('Extended activity IDs:', extendedActivityIds.length, 'extended activities');
+
     } catch (error) {
         console.error('Error loading default activities:', error);
+        defaultActivities = [];
+        coreActivityIds = [];
+        extendedActivityIds = [];
     }
 }
         // Activity Management
@@ -11538,42 +11563,49 @@ const extendedGrid = document.getElementById('extended-activities-grid');
 const coreActivitiesArray = defaultActivities.filter(a => coreActivityIds.includes(a.id));
 
 // Populate core activities
-// Populate core activities
-coreActivitiesArray.forEach(activity => {
-    const card = document.createElement('div');
-    // Core activities visible by default unless explicitly set otherwise
-    const isVisible = visibilityMap.hasOwnProperty(activity.id) 
-        ? visibilityMap[activity.id] 
-        : true;
-    card.className = `activity-card ${isVisible ? 'selected' : ''}`;
-    card.onclick = () => toggleActivityVisibility(card, activity.id);
-    card.dataset.activityId = activity.id;
-    card.innerHTML = `
-        <div class="activity-emoji">${activity.emoji}</div>
-        <div class="activity-name">${activity.name}</div>
-    `;
-    coreGrid.appendChild(card);
-});
+if (coreActivitiesArray.length === 0) {
+    coreGrid.innerHTML = '<p style="color: #999; font-size: 14px; padding: 20px; text-align: center; grid-column: 1/-1;">No default core activities available. The database needs to be seeded.</p>';
+} else {
+    coreActivitiesArray.forEach(activity => {
+        const card = document.createElement('div');
+        // Core activities visible by default unless explicitly set otherwise
+        const isVisible = visibilityMap.hasOwnProperty(activity.id)
+            ? visibilityMap[activity.id]
+            : true;
+        card.className = `activity-card ${isVisible ? 'selected' : ''}`;
+        card.onclick = () => toggleActivityVisibility(card, activity.id);
+        card.dataset.activityId = activity.id;
+        card.innerHTML = `
+            <div class="activity-emoji">${activity.emoji || '🎯'}</div>
+            <div class="activity-name">${activity.name}</div>
+        `;
+        coreGrid.appendChild(card);
+    });
+}
 
 // Get extended activities from defaultActivities array
 const extendedActivitiesArray = defaultActivities.filter(a => extendedActivityIds.includes(a.id));
 
 // Populate extended activities
-extendedActivitiesArray.forEach(activity => {
-    const card = document.createElement('div');
-    // Extended activities hidden by default unless explicitly set otherwise
-    const isVisible = visibilityMap.hasOwnProperty(activity.id) 
-        ? visibilityMap[activity.id] 
-        : false;
-    card.className = `activity-card ${isVisible ? 'selected' : ''}`;
-    card.onclick = () => toggleActivityVisibility(card, activity.id);
-    card.dataset.activityId = activity.id;
-    card.innerHTML = `
-        <div class="activity-emoji">${activity.emoji}</div>
-        <div class="activity-name">${activity.name}</div>
-    `;
-    extendedGrid.appendChild(card);
-});
+if (extendedActivitiesArray.length === 0) {
+    extendedGrid.innerHTML = '<p style="color: #999; font-size: 14px; padding: 20px; text-align: center; grid-column: 1/-1;">No additional activities available.</p>';
+} else {
+    extendedActivitiesArray.forEach(activity => {
+        const card = document.createElement('div');
+        // Extended activities hidden by default unless explicitly set otherwise
+        const isVisible = visibilityMap.hasOwnProperty(activity.id)
+            ? visibilityMap[activity.id]
+            : false;
+        card.className = `activity-card ${isVisible ? 'selected' : ''}`;
+        card.onclick = () => toggleActivityVisibility(card, activity.id);
+        card.dataset.activityId = activity.id;
+        card.innerHTML = `
+            <div class="activity-emoji">${activity.emoji || '🎯'}</div>
+            <div class="activity-name">${activity.name}</div>
+        `;
+        extendedGrid.appendChild(card);
+    });
+}
 
         // Load and display custom activities
         const { data: customActivities, error: customError } = await supabase
