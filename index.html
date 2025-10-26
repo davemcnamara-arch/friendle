@@ -2643,15 +2643,19 @@ window.signUp = async function() {
         // This is critical for new users who will create circles
         await loadDefaultActivities();
 
-        // Request notification permission
-        if ('Notification' in window && Notification.permission === 'default') {
-            await Notification.requestPermission();
-        }
-
-        // Save OneSignal Player ID to profile
+        // Request notification permission and subscribe to OneSignal
         if (window.OneSignalDeferred) {
             try {
                 window.OneSignalDeferred.push(async function(OneSignal) {
+                    // Use OneSignal API to request permission and subscribe
+                    // This properly subscribes the user unlike native Notification.requestPermission()
+                    const permission = await OneSignal.Notifications.permission;
+                    if (!permission) {
+                        console.log('🔔 Requesting OneSignal notification permission...');
+                        await OneSignal.Notifications.requestPermission();
+                    }
+
+                    // Save player ID to profile
                     const userId = await OneSignal.User.PushSubscription.id;
                     if (userId) {
                         await supabase
@@ -3148,9 +3152,34 @@ function showNotificationPrompt() {
 
 window.enableNotifications = async function() {
     closeNotificationPrompt();
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-        showNotification('Notifications enabled! 🎉');
+
+    // Use OneSignal API to properly request permission and subscribe
+    if (window.OneSignalDeferred) {
+        window.OneSignalDeferred.push(async function(OneSignal) {
+            try {
+                await OneSignal.Notifications.requestPermission();
+                const permission = await OneSignal.Notifications.permission;
+
+                if (permission) {
+                    showNotification('Notifications enabled! 🎉');
+
+                    // Save player ID to profile
+                    const userId = await OneSignal.User.PushSubscription.id;
+                    if (userId && window.currentUser) {
+                        await supabase
+                            .from('profiles')
+                            .update({ onesignal_player_id: userId })
+                            .eq('id', currentUser.id);
+                        console.log('✅ OneSignal Player ID saved:', userId);
+                    }
+                } else {
+                    showNotification('Notification permission denied', 'error');
+                }
+            } catch (error) {
+                console.error('Error enabling notifications:', error);
+                showNotification('Error enabling notifications', 'error');
+            }
+        });
     }
 }
 
