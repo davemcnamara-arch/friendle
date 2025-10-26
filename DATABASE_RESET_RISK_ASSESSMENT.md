@@ -37,7 +37,7 @@ COMMIT;
 
 Once the script commits successfully:
 
-1. **All user data** (17 tables worth)
+1. **All user data** (18 tables worth)
 2. **All authentication users** (cannot sign in with old accounts)
 3. **All profile pictures** in storage
 4. **All chat history** (messages, reactions)
@@ -418,7 +418,7 @@ SELECT * FROM storage.policies WHERE bucket_id = 'avatars';
 2. **No schema changes:** Only data deletion, structure intact
 3. **Supabase backups:** Daily backups available for restore
 4. **Manual backup option:** Create snapshot before running
-5. **We've analyzed all 17 tables:** Complete coverage
+5. **We've analyzed all 18 tables:** Complete coverage
 6. **No hidden dependencies:** All Edge Functions checked
 7. **Well-tested delete order:** Respects all foreign keys
 

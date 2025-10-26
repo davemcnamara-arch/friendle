@@ -31,6 +31,7 @@ BEGIN;
 CREATE TABLE profiles_backup_20251026 AS SELECT * FROM profiles;
 CREATE TABLE circles_backup_20251026 AS SELECT * FROM circles;
 CREATE TABLE circle_members_backup_20251026 AS SELECT * FROM circle_members;
+CREATE TABLE hidden_activities_backup_20251026 AS SELECT * FROM hidden_activities;
 CREATE TABLE activities_backup_20251026 AS SELECT * FROM activities;
 CREATE TABLE matches_backup_20251026 AS SELECT * FROM matches;
 CREATE TABLE match_participants_backup_20251026 AS SELECT * FROM match_participants;
@@ -211,6 +212,9 @@ INSERT INTO circles SELECT * FROM circles_backup_20251026;
 -- Restore circle members
 INSERT INTO circle_members SELECT * FROM circle_members_backup_20251026;
 
+-- Restore hidden activities
+INSERT INTO hidden_activities SELECT * FROM hidden_activities_backup_20251026;
+
 -- Restore activities
 INSERT INTO activities SELECT * FROM activities_backup_20251026;
 
@@ -262,6 +266,7 @@ Once you're confident the reset worked and beta is going well:
 DROP TABLE profiles_backup_20251026;
 DROP TABLE circles_backup_20251026;
 DROP TABLE circle_members_backup_20251026;
+DROP TABLE hidden_activities_backup_20251026;
 DROP TABLE activities_backup_20251026;
 DROP TABLE matches_backup_20251026;
 DROP TABLE match_participants_backup_20251026;
