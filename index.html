@@ -2009,8 +2009,8 @@
         </div>
 
         <div class="bottom-nav">
-            <div class="nav-item active" onclick="showPage('circles')"><div class="nav-icon">👥</div><div class="nav-label">Circles</div></div>
-            <div class="nav-item" onclick="showPage('activities')"><div class="nav-icon">🎯</div><div class="nav-label">Activities</div></div>
+            <div class="nav-item" onclick="showPage('circles')"><div class="nav-icon">👥</div><div class="nav-label">Circles</div></div>
+            <div class="nav-item active" onclick="showPage('activities')"><div class="nav-icon">🎯</div><div class="nav-label">Activities</div></div>
             <div class="nav-item" id="matches-nav-item" onclick="showPage('matches')">
     <div class="nav-icon">💫</div>
     <div class="nav-label">Matches</div>
@@ -11354,7 +11354,7 @@ if (pageId === 'settings') {
             window.appState.dataLoaded = true;
             console.log('✅ App fully initialized:', JSON.stringify(window.appState));
 
-            const lastPage = localStorage.getItem('friendle_current_page') || 'circles';
+            const lastPage = localStorage.getItem('friendle_current_page') || 'activities';
             
             // Check if we should open a chat from notification click
             const openChatId = urlParams.get('openChat');
@@ -11420,8 +11420,6 @@ if (pageId === 'settings') {
                 // Don't restore chat page on full refresh - go to matches instead
                 if (lastPage === 'chat') {
                     showPage('matches');
-                } else if (lastPage === 'activities' && !selectedCircle) {
-                    showPage('circles');
                 } else {
                     showPage(lastPage);
                 }
