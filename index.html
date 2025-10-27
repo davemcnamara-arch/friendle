@@ -2253,6 +2253,7 @@
             clearAll() {
                 localStorage.removeItem('friendle_user_id');
                 localStorage.removeItem('friendle_user'); // Legacy - clean up old storage
+                localStorage.removeItem('friendle_current_page'); // Reset page preference to default
                 sessionStorage.removeItem('friendle_session');
             }
         };
