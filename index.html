@@ -6425,17 +6425,29 @@ async function renderThreadedChat(matchId, events) {
         console.log('📌 Creating UPCOMING EVENTS section with', upcomingEvents.length, 'events');
         const upcomingSection = document.createElement('div');
         upcomingSection.style.cssText = 'margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px;';
-        upcomingSection.innerHTML = '<h4 style="margin: 0 0 12px 0; font-size: 14px; color: #666; font-weight: 600;">📌 UPCOMING EVENTS</h4>';
+        upcomingSection.id = 'upcoming-events-section';
+
+        // Create heading using createElement instead of innerHTML
+        const heading = document.createElement('h4');
+        heading.style.cssText = 'margin: 0 0 12px 0; font-size: 14px; color: #666; font-weight: 600;';
+        heading.textContent = '📌 UPCOMING EVENTS';
+        upcomingSection.appendChild(heading);
+
+        console.log('  Heading appended, children count:', upcomingSection.children.length);
 
         upcomingEvents.forEach((event, index) => {
             console.log(`  Adding event card ${index + 1}/${upcomingEvents.length}:`, event);
             const eventCard = createEventCard(event, matchId);
             console.log('  Event card created:', eventCard);
+            console.log('  Event card outerHTML preview:', eventCard.outerHTML.substring(0, 200));
             upcomingSection.appendChild(eventCard);
+            console.log('  After appendChild, children count:', upcomingSection.children.length);
         });
 
+        console.log('📦 Final upcomingSection children count:', upcomingSection.children.length);
         messagesContainer.appendChild(upcomingSection);
         console.log('✅ UPCOMING EVENTS section appended to messages container');
+        console.log('✅ messagesContainer first child:', messagesContainer.firstChild);
     } else {
         console.log('⚠️ No upcoming events to display');
     }
