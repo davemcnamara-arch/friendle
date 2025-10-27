@@ -506,6 +506,62 @@
             background: #134e4a;
         }
 
+        /* Dark mode styles for upcoming events section */
+        body.dark-mode #upcoming-events-section {
+            background: var(--bg-secondary) !important;
+        }
+
+        body.dark-mode #upcoming-events-section h4 {
+            color: var(--text-secondary) !important;
+        }
+
+        /* Dark mode styles for event cards */
+        body.dark-mode #upcoming-events-section > div[style*="padding: 12px"] {
+            background: var(--card-bg) !important;
+            border-left-color: var(--primary-color) !important;
+        }
+
+        /* Dark mode - joined event cards (blue background becomes darker with primary accent) */
+        body.dark-mode #upcoming-events-section > div[style*="rgb(240, 249, 255)"] {
+            background: #1a1a2e !important;
+            border-left-color: var(--primary-color) !important;
+        }
+
+        /* Dark mode - non-joined event cards (yellow background becomes darker neutral) */
+        body.dark-mode #upcoming-events-section > div[style*="rgb(255, 248, 225)"] {
+            background: var(--card-bg) !important;
+            border-left-color: #ff9800 !important;
+        }
+
+        /* Dark mode - past event cards */
+        body.dark-mode details[style*="background: #f8f9fa"] > div > div[style*="padding: 12px"] {
+            background: #1a1a1a !important;
+            border-left-color: #4a4a4a !important;
+        }
+
+        /* Dark mode - past events section */
+        body.dark-mode details[style*="background: #f8f9fa"] {
+            background: var(--bg-secondary) !important;
+        }
+
+        body.dark-mode details[style*="background: #f8f9fa"] summary {
+            color: var(--text-secondary) !important;
+        }
+
+        /* Dark mode - event card text colors */
+        body.dark-mode #upcoming-events-section div[style*="color: #666"] {
+            color: var(--text-secondary) !important;
+        }
+
+        body.dark-mode #upcoming-events-section div[style*="font-weight: 600"] {
+            color: var(--text-primary) !important;
+        }
+
+        /* Dark mode - past event card text colors */
+        body.dark-mode details div[style*="color: #666"] {
+            color: var(--text-tertiary) !important;
+        }
+
         .event-item div {
             color: var(--text-primary);
         }
