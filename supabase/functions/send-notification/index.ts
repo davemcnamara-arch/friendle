@@ -231,7 +231,11 @@ serve(async (req) => {
         include_player_ids: playerIds,
         headings: { en: heading },
         contents: { en: content },
-        data: notificationData
+        data: notificationData,
+        // Web Push specific settings
+        web_push_topic: chatId || undefined,  // Helps group notifications
+        isAnyWeb: true,  // Required for Web SDK v16
+        chrome_web_image: undefined,  // Prevent image loading errors
       })
     })
 
