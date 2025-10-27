@@ -6455,14 +6455,8 @@ async function renderThreadedChat(matchId, events) {
     createBtn.style.cssText = 'width: 100%; margin-bottom: 20px; font-size: 14px;';
     createBtn.onclick = () => openCreateEventModal(matchId);
     messagesContainer.appendChild(createBtn);
-    
-    // General chat header
-    const generalHeader = document.createElement('div');
-    generalHeader.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
-    generalHeader.innerHTML = '<h4 style="margin: 0; font-size: 14px; color: #666; font-weight: 600;">💬 GENERAL CHAT</h4>';
-    messagesContainer.appendChild(generalHeader);
-    
-    // Load and display general messages (event_id = null)
+
+    // Load and display general messages (this function will add the "GENERAL CHAT" header)
     await loadAndDisplayGeneralMessages(matchId);
     
     // Scroll to bottom after a delay to let images load
@@ -6835,17 +6829,41 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
         messagePagination.match.loadedCount = messages?.length || 0;
         messagePagination.match.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
 
-        // Clear messages but preserve the header
-        const header = messagesContainer.querySelector('h4');
+        // Preserve upcoming events section, past events section, and create event button before clearing
+        const upcomingEventsSection = messagesContainer.querySelector('#upcoming-events-section');
+        const pastEventsSection = messagesContainer.querySelector('details'); // Past events use <details>
+        const createEventBtn = messagesContainer.querySelector('button.btn-secondary');
+        const generalChatHeader = messagesContainer.querySelector('h4'); // General chat header (the last h4)
+
+        console.log('🧹 Preserving sections before clear:', {
+            upcomingEvents: !!upcomingEventsSection,
+            pastEvents: !!pastEventsSection,
+            createBtn: !!createEventBtn,
+            header: !!generalChatHeader
+        });
+
         messagesContainer.innerHTML = '';
 
-        // Re-add header if it existed
-        if (header) {
-            const headerContainer = document.createElement('div');
-            headerContainer.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
-            headerContainer.appendChild(header);
-            messagesContainer.appendChild(headerContainer);
+        // Re-add preserved sections in order
+        if (upcomingEventsSection) {
+            messagesContainer.appendChild(upcomingEventsSection);
+            console.log('✅ Re-added upcoming events section');
         }
+        if (pastEventsSection) {
+            messagesContainer.appendChild(pastEventsSection);
+            console.log('✅ Re-added past events section');
+        }
+        if (createEventBtn) {
+            messagesContainer.appendChild(createEventBtn);
+            console.log('✅ Re-added create event button');
+        }
+
+        // Add general chat header
+        const headerContainer = document.createElement('div');
+        headerContainer.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
+        headerContainer.innerHTML = '<h4 style="margin: 0; font-size: 14px; color: #666; font-weight: 600;">💬 GENERAL CHAT</h4>';
+        messagesContainer.appendChild(headerContainer);
+        console.log('✅ Added general chat header');
 
         if (!messages || messages.length === 0) {
             const placeholder = document.createElement('p');
