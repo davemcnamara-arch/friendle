@@ -1454,6 +1454,21 @@
     grid-template-columns: unset !important;
 }
 
+.custom-activity-item {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px solid #e1e5e9;
+}
+
+body.dark-mode .custom-activity-item {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
     </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
@@ -11843,15 +11858,7 @@ if (extendedActivitiesArray.length === 0) {
         } else {
             customActivities.forEach(activity => {
                 const item = document.createElement('div');
-                item.style.cssText = `
-                    display: flex;
-                    gap: 10px;
-                    align-items: center;
-                    padding: 12px;
-                    background: #f8f9fa;
-                    border-radius: 8px;
-                    border: 2px solid #e1e5e9;
-                `;
+                item.className = 'custom-activity-item';
                item.innerHTML = `
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
         <span style="font-size: 1.5em;">${activity.emoji}</span>
