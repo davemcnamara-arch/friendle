@@ -1797,6 +1797,7 @@
 	<button id="mute-chat-btn" class="btn btn-secondary btn-small" onclick="toggleMuteChat()" style="display: none;">
     <span id="mute-btn-text">🔔 Mute</span>
 </button>
+        <button id="create-event-header-btn" onclick="openCreateEventModalFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">➕ Create Event</button>
         <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️</button>
     </div>
 </div>
@@ -6424,6 +6425,12 @@ document.getElementById('event-participants').innerHTML =
             updateMuteButton(matchId, null, null);
         }
 
+        // Show create event button in general match chat
+        const createEventBtn = document.getElementById('create-event-header-btn');
+        if (createEventBtn) {
+            createEventBtn.style.display = 'inline-block';
+        }
+
         // Hide event details banner in general chat (redundant with event cards)
         document.getElementById('event-details').style.display = 'none';
         
@@ -7082,6 +7089,10 @@ window.openCircleChat = async function(circleId) {
             muteChatBtn.style.display = 'inline-block';
             await updateMuteButton(null, null, circleId);
         }
+
+        // Hide create event button in circle chats
+        const createEventBtn = document.getElementById('create-event-header-btn');
+        if (createEventBtn) createEventBtn.style.display = 'none';
 
         // Get all circle members
         const { data: members, error: membersError } = await supabase
@@ -9261,6 +9272,15 @@ function closeCreateEventModal() {
     document.getElementById('create-event-modal').style.display = 'none';
 }
 
+// Open modal from header using current match context
+function openCreateEventModalFromHeader() {
+    if (!currentMatchId) {
+        console.error('No current match context');
+        return;
+    }
+    openCreateEventModal(currentMatchId);
+}
+
 // Create new event
 async function createEvent(e) {
     e.preventDefault();
@@ -9466,6 +9486,10 @@ async function openEventChat(eventId) {
         if (calendarBtn) calendarBtn.style.display = 'inline-block';
         if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
         if (leaveEventBtn) leaveEventBtn.style.display = 'inline-block';
+
+        // Hide create event button in event chats
+        const createEventBtn = document.getElementById('create-event-header-btn');
+        if (createEventBtn) createEventBtn.style.display = 'none';
 
 // Show mute button for event chats
         const muteChatBtn = document.getElementById('mute-chat-btn');
