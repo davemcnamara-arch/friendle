@@ -6599,25 +6599,50 @@ function createEventCard(event, matchId, isPast = false) {
                 <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
             </div>
             ${isUserJoined ? `
-                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                <button class="event-chat-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                     💬 Event Chat
                 </button>
             ` : participantCount === 0 ? `
                 <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                    <button class="join-event-btn btn" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                         ✓ Join Event
                     </button>
-                    <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                    <button class="delete-event-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
                         🗑️ Delete
                     </button>
                 </div>
             ` : `
-                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                <button class="join-event-btn btn" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                     ✓ Join Event
                 </button>
             `}
         </div>
     `;
+
+    // Add event listeners properly instead of inline onclick
+    const eventChatBtn = eventCard.querySelector('.event-chat-btn');
+    if (eventChatBtn) {
+        eventChatBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEventChat(event.id);
+        });
+    }
+
+    const joinBtns = eventCard.querySelectorAll('.join-event-btn');
+    joinBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            joinEvent(btn.dataset.eventId);
+        });
+    });
+
+    const deleteBtn = eventCard.querySelector('.delete-event-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteEmptyEvent(deleteBtn.dataset.eventId);
+        });
+    }
 
     return eventCard;
 }
@@ -8484,10 +8509,17 @@ window.joinEvent = async function(eventId) {
         
         hideLoader();
         showNotification('Joined event! You can now access the event chat.');
-        
+
         // Refresh matches to update UI
         await loadMatches();
-        
+
+        // If we're currently viewing the match chat, refresh it to show updated event cards
+        const currentContext = getCurrentChatContext();
+        if (currentContext && currentContext.type === 'match' && event && event.match_id === currentContext.id) {
+            console.log('🔄 Refreshing current match chat after joining event');
+            await openMatchChatThreaded(event.match_id);
+        }
+
     } catch (error) {
         hideLoader();
         console.error('Error joining event:', error);
