@@ -6537,14 +6537,6 @@ async function renderThreadedChat(matchId, events) {
         pastSection.appendChild(pastContainer);
         messagesContainer.appendChild(pastSection);
     }
-    
-    // Create event button
-    const createBtn = document.createElement('button');
-    createBtn.className = 'btn btn-secondary';
-    createBtn.textContent = '+ Create Event';
-    createBtn.style.cssText = 'width: 100%; margin-bottom: 20px; font-size: 14px;';
-    createBtn.onclick = () => openCreateEventModal(matchId);
-    messagesContainer.appendChild(createBtn);
 
     // Load and display general messages (this function will add the "GENERAL CHAT" header)
     await loadAndDisplayGeneralMessages(matchId);
@@ -6571,14 +6563,12 @@ function createEventCard(event, matchId, isPast = false) {
         ${isPast ? 'opacity: 0.7;' : ''}
     `;
     
-    // Format date
-    const dateStr = event.scheduled_date ? 
-        new Date(event.scheduled_date).toLocaleDateString('en-US', { 
+    // Format date (date only, no time)
+    const dateStr = event.scheduled_date ?
+        new Date(event.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
             weekday: 'short',
-            month: 'short', 
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
+            month: 'short',
+            day: 'numeric'
         }) : 'Date TBD';
     
     // Get participant count
@@ -7531,12 +7521,25 @@ window.downloadICSFile = async function(eventId) {
     }
     
     if (!activity) return;
-    
-    const startDate = new Date(event.scheduled_date);
-    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours default
-    
-    // Format dates for .ics (YYYYMMDDTHHMMSS)
-    const formatDate = (date) => {
+
+    // Parse as date-only (no time component)
+    const [year, month, day] = event.scheduled_date.split('-');
+
+    // Format dates for .ics all-day events (YYYYMMDD)
+    const formatDateOnly = (y, m, d) => {
+        return `${y}${m}${d}`;
+    };
+
+    // For all-day events, end date is the next day (exclusive)
+    const startDateStr = formatDateOnly(year, month, day);
+    const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
+    const endDateStr = formatDateOnly(
+        nextDay.getFullYear(),
+        String(nextDay.getMonth() + 1).padStart(2, '0'),
+        String(nextDay.getDate()).padStart(2, '0')
+    );
+
+    const formatTimestamp = (date) => {
         const year = date.getUTCFullYear();
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const day = String(date.getUTCDate()).padStart(2, '0');
@@ -7545,16 +7548,16 @@ window.downloadICSFile = async function(eventId) {
         const seconds = String(date.getUTCSeconds()).padStart(2, '0');
         return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
     };
-    
+
     const icsContent = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
         'PRODID:-//Friendle//Event//EN',
         'BEGIN:VEVENT',
         `UID:${event.id}@friendle.app`,
-        `DTSTAMP:${formatDate(new Date())}`,
-        `DTSTART:${formatDate(startDate)}`,
-        `DTEND:${formatDate(endDate)}`,
+        `DTSTAMP:${formatTimestamp(new Date())}`,
+        `DTSTART;VALUE=DATE:${startDateStr}`,
+        `DTEND;VALUE=DATE:${endDateStr}`,
         `SUMMARY:${activity.emoji} ${activity.name}`,
         event.location ? `LOCATION:${event.location}` : '',
         event.notes ? `DESCRIPTION:${event.notes}\\n\\nOrganized via Friendle` : 'DESCRIPTION:Organized via Friendle',
@@ -7619,25 +7622,29 @@ window.openGoogleCalendar = async function(eventId) {
     }
     
     if (!activity) return;
-    
-    const startDate = new Date(event.scheduled_date);
-    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-    
-    const formatGoogleDate = (date) => {
-        const year = date.getUTCFullYear();
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const hours = String(date.getUTCHours()).padStart(2, '0');
-        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
-        return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+
+    // Parse as date-only (no time component) for all-day event
+    const [year, month, day] = event.scheduled_date.split('-');
+
+    // Format for Google Calendar all-day events (YYYYMMDD)
+    const formatDateOnly = (y, m, d) => {
+        return `${y}${m}${d}`;
     };
-    
+
+    // For all-day events, end date is the next day (exclusive)
+    const startDateStr = formatDateOnly(year, month, day);
+    const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
+    const endDateStr = formatDateOnly(
+        nextDay.getFullYear(),
+        String(nextDay.getMonth() + 1).padStart(2, '0'),
+        String(nextDay.getDate()).padStart(2, '0')
+    );
+
     // Build Google Calendar URL
     const googleUrl = new URL('https://calendar.google.com/calendar/render');
     googleUrl.searchParams.set('action', 'TEMPLATE');
     googleUrl.searchParams.set('text', `${activity.emoji} ${activity.name}`);
-    googleUrl.searchParams.set('dates', `${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}`);
+    googleUrl.searchParams.set('dates', `${startDateStr}/${endDateStr}`);
     if (event.location) googleUrl.searchParams.set('location', event.location);
     if (event.notes) googleUrl.searchParams.set('details', event.notes + '\n\nOrganized via Friendle');
     
@@ -7858,10 +7865,10 @@ async function sendEventJoinNotification(event) {
         }
         
         // Format event date
-        const eventDate = new Date(event.scheduled_date);
-        const dateStr = eventDate.toLocaleDateString('en-US', { 
+        const eventDate = new Date(event.scheduled_date + 'T00:00:00');
+        const dateStr = eventDate.toLocaleDateString('en-US', {
             weekday: 'short',
-            month: 'short', 
+            month: 'short',
             day: 'numeric'
         });
         
@@ -9515,10 +9522,10 @@ if (!activity) {
 }
 
 // Format event date for header
-const headerEventDate = new Date(event.scheduled_date);
-const headerDateStr = headerEventDate.toLocaleDateString('en-US', { 
+const headerEventDate = new Date(event.scheduled_date + 'T00:00:00');
+const headerDateStr = headerEventDate.toLocaleDateString('en-US', {
     weekday: 'short',
-    month: 'short', 
+    month: 'short',
     day: 'numeric'
 });
 
