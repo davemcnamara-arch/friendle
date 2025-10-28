@@ -8307,10 +8307,10 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     <div style="margin-bottom: 15px;">
     <h4 style="margin: 0 0 12px 0; font-size: 15px; color: #666; font-weight: 600;">Upcoming</h4>
         ${upcomingEvents.map(event => {
-            const date = new Date(event.scheduled_date);
-            const dateStr = date.toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                month: 'short', 
+            const date = new Date(event.scheduled_date + 'T00:00:00');
+            const dateStr = date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
                 day: 'numeric'
             });
             
@@ -8360,9 +8360,9 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                         <summary style="cursor: pointer; color: #666; font-size: 14px;">Past Events (${pastEvents.length})</summary>
                         <div style="margin-top: 8px;">
                             ${pastEvents.map(event => {
-                                const date = new Date(event.scheduled_date);
-                                const dateStr = date.toLocaleDateString('en-US', { 
-                                    month: 'short', 
+                                const date = new Date(event.scheduled_date + 'T00:00:00');
+                                const dateStr = date.toLocaleDateString('en-US', {
+                                    month: 'short',
                                     day: 'numeric'
                                 });
                                 const statusEmoji = event.status === 'completed' ? '✅' : event.status === 'cancelled' ? '❌' : '📅';
@@ -9549,11 +9549,11 @@ if (participantCount <= 3) {
         `${shown}, and <a href="#" onclick="event.preventDefault(); alert('Participants:\\n\\n${allNames}');" style="color: white; text-decoration: underline; cursor: pointer;">${remaining} other${remaining > 1 ? 's' : ''}</a>`;
 }
         
-        // Format and display event details
-const eventDate = new Date(event.scheduled_date);
-const dateStr = eventDate.toLocaleDateString('en-US', { 
+        // Format and display event details (date only, no time)
+const eventDate = new Date(event.scheduled_date + 'T00:00:00');
+const dateStr = eventDate.toLocaleDateString('en-US', {
     weekday: 'long',
-    month: 'long', 
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
 });
@@ -10149,10 +10149,9 @@ function closeEventOptionsModal() {
 
 function editCurrentEvent() {
     closeEventOptionsModal();
-    
-    // Populate edit form
-    const date = new Date(currentEvent.scheduled_date);
-    document.getElementById('edit-event-date').value = date.toISOString().slice(0, 10);
+
+    // Populate edit form - scheduled_date is already in YYYY-MM-DD format
+    document.getElementById('edit-event-date').value = currentEvent.scheduled_date;
     document.getElementById('edit-event-location').value = currentEvent.location || '';
     document.getElementById('edit-event-notes').value = currentEvent.notes || '';
     
