@@ -6565,19 +6565,19 @@ async function renderThreadedChat(matchId, events) {
 
 function createEventCard(event, matchId, isPast = false) {
     const eventCard = document.createElement('div');
-    
+
     // Check if user has joined this event
     const isUserJoined = event.event_participants?.some(p => p.profile_id === currentUser.id) || false;
-    
-    eventCard.style.cssText = `
-        padding: 12px;
-        margin-bottom: 10px;
-        background: ${isPast ? '#fafafa' : (isUserJoined ? '#f0f9ff' : '#fff8e1')};
-        border-radius: 8px;
-        border-left: 4px solid ${isPast ? '#ccc' : (isUserJoined ? '#4CAF50' : '#FFA726')};
-        ${isPast ? 'opacity: 0.7;' : ''}
-    `;
-    
+
+    // Apply CSS classes instead of inline styles
+    eventCard.className = 'event-item';
+    if (!isUserJoined && !isPast) {
+        eventCard.className += ' pending';
+    }
+    if (isPast) {
+        eventCard.style.cssText = 'opacity: 0.7; background: #fafafa;';
+    }
+
     // Format date (date only, no time)
     const dateStr = event.scheduled_date ?
         new Date(event.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
@@ -6585,54 +6585,40 @@ function createEventCard(event, matchId, isPast = false) {
             month: 'short',
             day: 'numeric'
         }) : 'Date TBD';
-    
+
     // Get participant count
     const participantCount = event.event_participants?.length || 0;
-    const participantNames = event.event_participants?.map(p => p.profiles?.name || 'Unknown').slice(0, 3).join(', ') || 'No one yet';
-    
-    // Count messages for this event
-    let messageCount = 0;
-    // We'll load this dynamically later, for now just show the thread link
-    
+
     eventCard.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
             <div style="flex: 1;">
-                <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">
+                <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                     📅 ${dateStr}
                 </div>
-                ${event.location ? `
-                    <div style="font-size: 13px; color: #666; margin-bottom: 4px;">
-                        📍 ${event.location}
-                    </div>
-                ` : ''}
-                ${event.notes ? `
-                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
-                        📝 ${event.notes}
-                    </div>
-                ` : ''}
-                <div style="font-size: 12px; color: #666; margin-top: 6px;">
-                    👥 ${participantCount} going${participantCount > 0 ? ': ' + participantNames : ''}
+                ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
+                <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
+            </div>
+            ${isUserJoined ? `
+                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                    💬 Event Chat
+                </button>
+            ` : participantCount === 0 ? `
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                        ✓ Join Event
+                    </button>
+                    <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                        🗑️ Delete
+                    </button>
                 </div>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
-                ${isUserJoined ? `
-                    <button onclick="addToCalendar('${event.id}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 10px; margin: 0; width: 100%;">
-                        📅 Add to Calendar
-                    </button>
-                    ${!isPast ? `
-                        <button onclick="openEventChat('${event.id}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 10px; margin: 0; width: 100%;">
-                            💬 Open Event Chat
-                        </button>
-                    ` : ''}
-                ` : `
-                    <button onclick="joinEventFromChat('${event.id}', '${matchId}')" class="btn" style="font-size: 12px; padding: 6px 10px; margin: 0; background: #4CAF50; width: 100%;">
-                        Join Event
-                    </button>
-                `}
-            </div>
+            ` : `
+                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                    ✓ Join Event
+                </button>
+            `}
         </div>
     `;
-    
+
     return eventCard;
 }
 
