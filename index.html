@@ -2547,7 +2547,7 @@ async function submitPasswordReset() {
             const hasPendingChat = sessionStorage.getItem('pending_chat_id') && sessionStorage.getItem('pending_chat_type');
 
             if (!hasPendingChat) {
-                showPage('circles');
+                showPage('activities');
             }
 
             updateProfile();
@@ -2750,7 +2750,7 @@ window.signUp = async function() {
         const hasPendingChat = sessionStorage.getItem('pending_chat_id') && sessionStorage.getItem('pending_chat_type');
 
         if (!hasPendingChat) {
-            showPage('circles');
+            showPage('activities');
         }
 
         updateProfile();
@@ -2839,7 +2839,7 @@ window.signIn = async function() {
         const hasPendingChat = sessionStorage.getItem('pending_chat_id') && sessionStorage.getItem('pending_chat_type');
 
         if (!hasPendingChat) {
-            showPage('circles');
+            showPage('activities');
         }
 
         updateProfile();
@@ -3481,7 +3481,7 @@ function closeNotificationPrompt() {
   // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
   SecureStorage.setUserId(currentUser.id);
   SecureStorage.setSessionData(currentUser); // keep local copy for session
-  showPage('circles');
+  showPage('activities');
   updateProfile();
   processInvite();
 }
