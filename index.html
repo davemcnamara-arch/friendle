@@ -6579,12 +6579,12 @@ function createEventCard(event, matchId, isPast = false) {
     }
 
     // Format date (date only, no time)
-    const dateStr = event.scheduled_date ?
-        new Date(event.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
-        }) : 'Date TBD';
+    const date = event.scheduled_date ? new Date(event.scheduled_date) : null;
+    const dateStr = date ? date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+    }) : 'Date TBD';
 
     // Get participant count
     const participantCount = event.event_participants?.length || 0;
@@ -6910,17 +6910,13 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
         messagePagination.match.loadedCount = messages?.length || 0;
         messagePagination.match.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
 
-        // Preserve upcoming events section, past events section, and create event button before clearing
+        // Preserve upcoming events section and past events section before clearing
         const upcomingEventsSection = messagesContainer.querySelector('#upcoming-events-section');
         const pastEventsSection = messagesContainer.querySelector('details'); // Past events use <details>
-        const createEventBtn = messagesContainer.querySelector('button.btn-secondary');
-        const generalChatHeader = messagesContainer.querySelector('h4'); // General chat header (the last h4)
 
         console.log('🧹 Preserving sections before clear:', {
             upcomingEvents: !!upcomingEventsSection,
-            pastEvents: !!pastEventsSection,
-            createBtn: !!createEventBtn,
-            header: !!generalChatHeader
+            pastEvents: !!pastEventsSection
         });
 
         messagesContainer.innerHTML = '';
@@ -6933,10 +6929,6 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
         if (pastEventsSection) {
             messagesContainer.appendChild(pastEventsSection);
             console.log('✅ Re-added past events section');
-        }
-        if (createEventBtn) {
-            messagesContainer.appendChild(createEventBtn);
-            console.log('✅ Re-added create event button');
         }
 
         // Add general chat header
