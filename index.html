@@ -1172,6 +1172,80 @@
     	border: 1px solid var(--border-color);
 	}
 
+        /* Tutorial Modal Styles */
+        .tutorial-modal {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .tutorial-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tutorial-header h2 {
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .tutorial-progress {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            justify-content: center;
+        }
+
+        .tutorial-step-indicator {
+            height: 4px;
+            flex: 1;
+            background: var(--border-color);
+            border-radius: 2px;
+            transition: background-color 0.3s ease;
+        }
+
+        .tutorial-step-indicator.active {
+            background: var(--primary-color);
+        }
+
+        .tutorial-content {
+            min-height: 200px;
+            margin-bottom: 20px;
+        }
+
+        .tutorial-step {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .tutorial-step h3 {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .tutorial-step p {
+            font-size: 1em;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .tutorial-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
         /* PWA Install Banner */
         .pwa-install-banner {
             position: fixed;
@@ -1967,6 +2041,26 @@ body.dark-mode .custom-activity-item {
 
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
 
+    <!-- Help & Tutorials Section -->
+    <div style="margin: 20px 0; padding: 15px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid #667eea;">
+        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: var(--text-primary);">📚 Help & Tutorials</h3>
+        <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+            View the tutorial guides again to learn how to use Friendle.
+        </p>
+
+        <button class="btn btn-secondary" onclick="showTutorial('activities', true)" style="width: 100%; margin-bottom: 10px;">
+            🎯 Activities Tutorial
+        </button>
+
+        <button class="btn btn-secondary" onclick="showTutorial('circles', true)" style="width: 100%; margin-bottom: 10px;">
+            👥 Circles Tutorial
+        </button>
+
+        <button class="btn btn-secondary" onclick="showTutorial('matches', true)" style="width: 100%;">
+            💫 Matches Tutorial
+        </button>
+    </div>
+
     <!-- Advanced Settings Section (Collapsible) -->
     <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
         <div onclick="toggleAdvancedSettings()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
@@ -2187,6 +2281,157 @@ body.dark-mode .custom-activity-item {
         <div id="match-notification-text" style="color: #666; margin-bottom: 20px; line-height: 1.6;"></div>
         <button class="btn" onclick="joinMatchFromNotification()" style="margin-bottom: 10px; background: #4CAF50;">✓ Join Match</button>
         <button class="btn btn-secondary" onclick="closeMatchNotification()">Keep Swiping</button>
+    </div>
+</div>
+
+<!-- Tutorial Modals -->
+<!-- Activities Tutorial Modal -->
+<div class="modal-overlay" id="tutorial-activities-modal" style="z-index: 9999;">
+    <div class="modal-content tutorial-modal" style="max-width: 400px;">
+        <div class="tutorial-header">
+            <h2 style="margin: 0 0 10px 0; color: var(--primary-color);">🎯 Activities Guide</h2>
+            <div class="tutorial-progress">
+                <span class="tutorial-step-indicator"></span>
+            </div>
+        </div>
+
+        <div class="tutorial-content">
+            <!-- Step 1 -->
+            <div class="tutorial-step" data-step="1">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👆</div>
+                <h3 style="margin-bottom: 10px;">Select Activities You Like</h3>
+                <p>Tap an activity card to select it, or swipe right. Your selections help match you with friends who want to do the same things!</p>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="tutorial-step" data-step="2" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👈</div>
+                <h3 style="margin-bottom: 10px;">Pass on Activities</h3>
+                <p>Tap the ✕ button or swipe left to pass on activities you're not interested in. Don't worry - you can always change your mind later!</p>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="tutorial-step" data-step="3" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">🔄</div>
+                <h3 style="margin-bottom: 10px;">Switch Views</h3>
+                <p>Toggle between swipe mode and grid view using the view switcher. Grid view lets you see and select multiple activities at once.</p>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="tutorial-step" data-step="4" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">💡</div>
+                <h3 style="margin-bottom: 10px;">Suggest New Activities</h3>
+                <p>Don't see what you're looking for? Use the "Suggest Activity" button to add your own ideas to the circle!</p>
+            </div>
+        </div>
+
+        <div class="tutorial-buttons">
+            <button class="btn btn-secondary" onclick="skipTutorial('activities')" id="tutorial-activities-skip">Skip</button>
+            <div style="display: flex; gap: 10px; flex: 1; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="previousTutorialStep('activities')" id="tutorial-activities-prev" style="display: none;">Previous</button>
+                <button class="btn" onclick="nextTutorialStep('activities')" id="tutorial-activities-next">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Circles Tutorial Modal -->
+<div class="modal-overlay" id="tutorial-circles-modal" style="z-index: 9999;">
+    <div class="modal-content tutorial-modal" style="max-width: 400px;">
+        <div class="tutorial-header">
+            <h2 style="margin: 0 0 10px 0; color: var(--primary-color);">👥 Circles Guide</h2>
+            <div class="tutorial-progress">
+                <span class="tutorial-step-indicator"></span>
+            </div>
+        </div>
+
+        <div class="tutorial-content">
+            <!-- Step 1 -->
+            <div class="tutorial-step" data-step="1">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">⭕</div>
+                <h3 style="margin-bottom: 10px;">What are Circles?</h3>
+                <p>Circles are your friend groups! Create different circles for different sets of friends - work buddies, college friends, family, etc.</p>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="tutorial-step" data-step="2" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">➕</div>
+                <h3 style="margin-bottom: 10px;">Create a Circle</h3>
+                <p>Tap "Create Circle" to start a new group. Give it a name and you'll get an invite code to share with friends!</p>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="tutorial-step" data-step="3" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">🔗</div>
+                <h3 style="margin-bottom: 10px;">Join a Circle</h3>
+                <p>Have an invite code? Tap "Join Circle" and enter the code to join your friends' circle.</p>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="tutorial-step" data-step="4" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">📤</div>
+                <h3 style="margin-bottom: 10px;">Invite Friends</h3>
+                <p>Tap a circle to see its invite code and share it with friends. The more people in your circle, the better the matches!</p>
+            </div>
+        </div>
+
+        <div class="tutorial-buttons">
+            <button class="btn btn-secondary" onclick="skipTutorial('circles')" id="tutorial-circles-skip">Skip</button>
+            <div style="display: flex; gap: 10px; flex: 1; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="previousTutorialStep('circles')" id="tutorial-circles-prev" style="display: none;">Previous</button>
+                <button class="btn" onclick="nextTutorialStep('circles')" id="tutorial-circles-next">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Matches Tutorial Modal -->
+<div class="modal-overlay" id="tutorial-matches-modal" style="z-index: 9999;">
+    <div class="modal-content tutorial-modal" style="max-width: 400px;">
+        <div class="tutorial-header">
+            <h2 style="margin: 0 0 10px 0; color: var(--primary-color);">💫 Matches Guide</h2>
+            <div class="tutorial-progress">
+                <span class="tutorial-step-indicator"></span>
+            </div>
+        </div>
+
+        <div class="tutorial-content">
+            <!-- Step 1 -->
+            <div class="tutorial-step" data-step="1">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">✨</div>
+                <h3 style="margin-bottom: 10px;">What are Matches?</h3>
+                <p>Matches happen when you and your friends select the same activities! This is where you turn interest into actual plans.</p>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="tutorial-step" data-step="2" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👀</div>
+                <h3 style="margin-bottom: 10px;">See Who's Interested</h3>
+                <p>Each match shows which friends are interested in that activity. Tap to see the full list and start coordinating!</p>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="tutorial-step" data-step="3" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">📅</div>
+                <h3 style="margin-bottom: 10px;">Create Events</h3>
+                <p>Ready to make it happen? Tap "Create Event" on any match to schedule a time and place. All interested friends will be notified!</p>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="tutorial-step" data-step="4" style="display: none;">
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">🎉</div>
+                <h3 style="margin-bottom: 10px;">Join Events</h3>
+                <p>When someone creates an event, you'll see it here. Join events to confirm your attendance and chat with others who are going!</p>
+            </div>
+        </div>
+
+        <div class="tutorial-buttons">
+            <button class="btn btn-secondary" onclick="skipTutorial('matches')" id="tutorial-matches-skip">Skip</button>
+            <div style="display: flex; gap: 10px; flex: 1; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="previousTutorialStep('matches')" id="tutorial-matches-prev" style="display: none;">Previous</button>
+                <button class="btn" onclick="nextTutorialStep('matches')" id="tutorial-matches-next">Next</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -4368,6 +4613,200 @@ window.changePassword = async function() {
         window.showCreateCircle = () => { document.getElementById('create-circle').style.display = 'block'; document.getElementById('circle-modal-overlay').style.display = 'flex'; };
         window.showJoinCircle = () => { document.getElementById('join-circle').style.display = 'block'; document.getElementById('circle-modal-overlay').style.display = 'flex'; };
         window.closeCircleModal = () => { document.getElementById('circle-modal-overlay').style.display = 'none'; document.getElementById('create-circle').style.display = 'none'; document.getElementById('join-circle').style.display = 'none'; };
+
+        // Tutorial Management
+        const tutorialSteps = {
+            'activities': 4,
+            'circles': 4,
+            'matches': 4
+        };
+
+        let currentTutorialSteps = {
+            'activities': 1,
+            'circles': 1,
+            'matches': 1
+        };
+
+        window.showTutorial = function(tutorialId, force = false) {
+            if (!currentUser) return;
+
+            // Check if user has already completed this tutorial (unless forced)
+            if (!force && currentUser.completed_tutorials && currentUser.completed_tutorials[tutorialId]) {
+                return;
+            }
+
+            // Reset to first step
+            currentTutorialSteps[tutorialId] = 1;
+
+            // Show modal
+            const modal = document.getElementById(`tutorial-${tutorialId}-modal`);
+            if (!modal) return;
+
+            // Reset all steps
+            const steps = modal.querySelectorAll('.tutorial-step');
+            steps.forEach((step, index) => {
+                step.style.display = index === 0 ? 'block' : 'none';
+            });
+
+            // Update progress indicators
+            updateTutorialProgress(tutorialId);
+
+            // Show/hide navigation buttons
+            document.getElementById(`tutorial-${tutorialId}-prev`).style.display = 'none';
+            const nextBtn = document.getElementById(`tutorial-${tutorialId}-next`);
+            nextBtn.textContent = tutorialSteps[tutorialId] === 1 ? 'Got it!' : 'Next';
+
+            // Display modal
+            modal.style.display = 'flex';
+        };
+
+        window.nextTutorialStep = function(tutorialId) {
+            const currentStep = currentTutorialSteps[tutorialId];
+            const totalSteps = tutorialSteps[tutorialId];
+
+            if (currentStep >= totalSteps) {
+                // Last step - close and mark complete
+                closeTutorial(tutorialId);
+                return;
+            }
+
+            // Hide current step
+            const modal = document.getElementById(`tutorial-${tutorialId}-modal`);
+            const steps = modal.querySelectorAll('.tutorial-step');
+            steps[currentStep - 1].style.display = 'none';
+
+            // Show next step
+            currentTutorialSteps[tutorialId]++;
+            steps[currentTutorialSteps[tutorialId] - 1].style.display = 'block';
+
+            // Update progress indicators
+            updateTutorialProgress(tutorialId);
+
+            // Update buttons
+            document.getElementById(`tutorial-${tutorialId}-prev`).style.display = 'inline-block';
+            const nextBtn = document.getElementById(`tutorial-${tutorialId}-next`);
+
+            if (currentTutorialSteps[tutorialId] >= totalSteps) {
+                nextBtn.textContent = 'Got it!';
+            } else {
+                nextBtn.textContent = 'Next';
+            }
+
+            // Update skip button text
+            const skipBtn = document.getElementById(`tutorial-${tutorialId}-skip`);
+            if (currentTutorialSteps[tutorialId] >= totalSteps) {
+                skipBtn.style.display = 'none';
+            }
+        };
+
+        window.previousTutorialStep = function(tutorialId) {
+            const currentStep = currentTutorialSteps[tutorialId];
+
+            if (currentStep <= 1) return;
+
+            // Hide current step
+            const modal = document.getElementById(`tutorial-${tutorialId}-modal`);
+            const steps = modal.querySelectorAll('.tutorial-step');
+            steps[currentStep - 1].style.display = 'none';
+
+            // Show previous step
+            currentTutorialSteps[tutorialId]--;
+            steps[currentTutorialSteps[tutorialId] - 1].style.display = 'block';
+
+            // Update progress indicators
+            updateTutorialProgress(tutorialId);
+
+            // Update buttons
+            if (currentTutorialSteps[tutorialId] === 1) {
+                document.getElementById(`tutorial-${tutorialId}-prev`).style.display = 'none';
+            }
+
+            const nextBtn = document.getElementById(`tutorial-${tutorialId}-next`);
+            nextBtn.textContent = 'Next';
+
+            // Show skip button again
+            const skipBtn = document.getElementById(`tutorial-${tutorialId}-skip`);
+            skipBtn.style.display = 'inline-block';
+        };
+
+        window.skipTutorial = function(tutorialId) {
+            closeTutorial(tutorialId);
+        };
+
+        window.closeTutorial = async function(tutorialId) {
+            // Hide modal
+            const modal = document.getElementById(`tutorial-${tutorialId}-modal`);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+
+            // Mark tutorial as completed in database
+            await markTutorialComplete(tutorialId);
+        };
+
+        async function markTutorialComplete(tutorialId) {
+            if (!currentUser) return;
+
+            try {
+                // Initialize completed_tutorials if it doesn't exist
+                const completed = currentUser.completed_tutorials || {};
+                completed[tutorialId] = true;
+
+                // Update in database
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ completed_tutorials: completed })
+                    .eq('id', currentUser.id);
+
+                if (error) throw error;
+
+                // Update local user object
+                currentUser.completed_tutorials = completed;
+            } catch (error) {
+                console.error('Error marking tutorial complete:', error);
+            }
+        }
+
+        function updateTutorialProgress(tutorialId) {
+            const currentStep = currentTutorialSteps[tutorialId];
+            const totalSteps = tutorialSteps[tutorialId];
+            const modal = document.getElementById(`tutorial-${tutorialId}-modal`);
+            const progressContainer = modal.querySelector('.tutorial-progress');
+
+            // Clear existing indicators
+            progressContainer.innerHTML = '';
+
+            // Create indicators for each step
+            for (let i = 1; i <= totalSteps; i++) {
+                const indicator = document.createElement('span');
+                indicator.className = 'tutorial-step-indicator';
+                if (i <= currentStep) {
+                    indicator.classList.add('active');
+                }
+                progressContainer.appendChild(indicator);
+            }
+        }
+
+        window.checkAndShowTutorial = async function(pageId) {
+            // Only show tutorials for these pages
+            if (!['activities', 'circles', 'matches'].includes(pageId)) {
+                return;
+            }
+
+            if (!currentUser) return;
+
+            // Check if tutorial has been completed
+            const completed = currentUser.completed_tutorials || {};
+            if (completed[pageId]) {
+                return; // Tutorial already seen
+            }
+
+            // Show tutorial after a brief delay (500ms)
+            setTimeout(() => {
+                showTutorial(pageId, false);
+            }, 500);
+        };
+
 	window.goToCircleStep2 = async function() {
     const name = document.getElementById('circle-name').value.trim();
     
@@ -11192,6 +11631,9 @@ if (pageId === 'matches') {
 if (pageId === 'settings') {
     initAdvancedSettings();
 }
+
+    // Check and show tutorial for first-time users
+    await checkAndShowTutorial(pageId);
 }
         // Export user data for GDPR compliance
         window.exportData = async function() {
