@@ -16,18 +16,19 @@ SELECT jobid, jobname, schedule, active
 FROM cron.job
 WHERE jobname = 'inactivity-cleanup-daily';
 
--- View cron job execution history
+-- View cron job execution history (joined with job table to get job name)
 SELECT
-  jobid,
-  jobname,
-  runid,
-  start_time,
-  end_time,
-  status,
-  return_message
-FROM cron.job_run_details
-WHERE jobname = 'inactivity-cleanup-daily'
-ORDER BY start_time DESC
+  jrd.jobid,
+  j.jobname,
+  jrd.runid,
+  jrd.start_time,
+  jrd.end_time,
+  jrd.status,
+  jrd.return_message
+FROM cron.job_run_details jrd
+JOIN cron.job j ON j.jobid = jrd.jobid
+WHERE j.jobname = 'inactivity-cleanup-daily'
+ORDER BY jrd.start_time DESC
 LIMIT 10;
 
 -- Check for participants who would get Day 5 warnings

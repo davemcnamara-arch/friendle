@@ -51,9 +51,11 @@ WHERE jobname = 'inactivity-cleanup-daily';
 -- For manual testing, use the MANUAL_TEST_inactivity_cleanup.sql file.
 
 -- To view job run history:
--- SELECT * FROM cron.job_run_details
--- WHERE jobname = 'inactivity-cleanup-daily'
--- ORDER BY start_time DESC
+-- SELECT jrd.*, j.jobname
+-- FROM cron.job_run_details jrd
+-- JOIN cron.job j ON j.jobid = jrd.jobid
+-- WHERE j.jobname = 'inactivity-cleanup-daily'
+-- ORDER BY jrd.start_time DESC
 -- LIMIT 10;
 
 -- To unschedule the job:
