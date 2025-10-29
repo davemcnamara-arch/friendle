@@ -8396,43 +8396,67 @@ async function loadMatches() {
             prefSet.has(`${match.circle_id}|${match.activity_id}`)
         );
         
-        // Get data for each match
-        for (let match of matches) {
-            // Load activity details if not already in activities array
-            let activity = activities.find(a => a.id === match.activity_id);
-            if (!activity) {
-                const { data: activityData } = await supabase
-                    .from('activities')
-                    .select('*')
-                    .eq('id', match.activity_id)
-                    .single();
-                
-                if (activityData) {
-                    activities.push(activityData);
-                    activity = activityData;
-                }
+        // PERFORMANCE FIX: Batch all queries instead of N+1 pattern
+
+        // 1. Batch fetch missing activities
+        const missingActivityIds = [...new Set(matches.map(m => m.activity_id))]
+            .filter(actId => !activities.find(a => a.id === actId));
+
+        if (missingActivityIds.length > 0) {
+            const { data: activitiesData } = await supabase
+                .from('activities')
+                .select('*')
+                .in('id', missingActivityIds);
+
+            if (activitiesData) {
+                activities.push(...activitiesData);
             }
-            match.activity = activity; // Store activity on match object
-            
-            // Get all users interested (have activity in preferences)
-            const { data: interested } = await supabase
-                .from('preferences')
-                .select('profile_id, profiles(id, name, avatar)')
-                .eq('circle_id', match.circle_id)
-                .eq('activity_id', match.activity_id);
-            
-            match.interestedUsers = interested?.map(i => i.profiles) || [];
+        }
+
+        // 2. Batch fetch all interested users for all circle+activity combinations
+        const circleActivityPairs = matches.map(m => ({
+            circle_id: m.circle_id,
+            activity_id: m.activity_id
+        }));
+
+        // Build OR conditions for batch query
+        let interestedQuery = supabase
+            .from('preferences')
+            .select('profile_id, circle_id, activity_id, profiles(id, name, avatar)');
+
+        // Add filters to match any circle+activity pair
+        const orConditions = circleActivityPairs
+            .map(pair => `and(circle_id.eq.${pair.circle_id},activity_id.eq.${pair.activity_id})`)
+            .join(',');
+
+        const { data: allInterested } = await interestedQuery.or(orConditions);
+
+        // 3. Batch fetch all chat participants for all matches
+        const matchIds = matches.map(m => m.id);
+        const { data: allChatParticipants } = await supabase
+            .from('match_participants')
+            .select('profile_id, match_id, profiles(id, name, avatar)')
+            .in('match_id', matchIds);
+
+        // Map batched data back to each match
+        for (let match of matches) {
+            // Attach activity
+            match.activity = activities.find(a => a.id === match.activity_id);
+
+            // Attach interested users for this specific circle+activity
+            const interested = (allInterested || []).filter(i =>
+                i.circle_id === match.circle_id && i.activity_id === match.activity_id
+            );
+            match.interestedUsers = interested.map(i => i.profiles);
             match.interestedCount = match.interestedUsers.length;
-            
-            // Get who's in the chat
-            const { data: chatParticipants } = await supabase
-                .from('match_participants')
-                .select('profile_id, profiles(id, name, avatar)')
-                .eq('match_id', match.id);
-            
-            match.chatParticipants = chatParticipants?.map(p => p.profiles) || [];
+
+            // Attach chat participants for this match
+            const chatParticipants = (allChatParticipants || []).filter(p =>
+                p.match_id === match.id
+            );
+            match.chatParticipants = chatParticipants.map(p => p.profiles);
             match.inChatCount = match.chatParticipants.length;
-            match.userInChat = chatParticipants?.some(p => p.profile_id === currentUser.id) || false;
+            match.userInChat = chatParticipants.some(p => p.profile_id === currentUser.id);
         }
         
         await displayMatches();
