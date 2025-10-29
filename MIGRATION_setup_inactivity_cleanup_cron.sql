@@ -3,8 +3,17 @@
 -- - Day 5: Send "Still interested?" warning notifications
 -- - Day 7: Auto-remove inactive participants (unless they have upcoming events)
 
--- Step 1: Enable pg_cron extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+-- IMPORTANT: pg_cron must be enabled in Supabase Dashboard first!
+-- Go to: Database > Extensions > Search for "pg_cron" > Enable
+-- Or contact Supabase support if you encounter privilege errors
+
+-- Step 1: Verify pg_cron is available (will error if not enabled)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    RAISE EXCEPTION 'pg_cron extension is not enabled. Please enable it in Supabase Dashboard under Database > Extensions';
+  END IF;
+END $$;
 
 -- Step 2: Unschedule any existing job (in case re-running)
 SELECT cron.unschedule('inactivity-cleanup-daily') WHERE EXISTS (
