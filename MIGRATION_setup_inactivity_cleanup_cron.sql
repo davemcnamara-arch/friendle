@@ -47,8 +47,8 @@ WHERE jobname = 'inactivity-cleanup-daily';
 -- ------|---------------------------|---------------|--------
 -- XXX   | inactivity-cleanup-daily  | 0 10 * * *    | SELECT net.http_post(...)
 
--- To manually trigger the job for testing:
--- SELECT cron.run('inactivity-cleanup-daily');
+-- Note: The cron job will run automatically at 10:00 AM UTC daily.
+-- For manual testing, use the MANUAL_TEST_inactivity_cleanup.sql file.
 
 -- To view job run history:
 -- SELECT * FROM cron.job_run_details

@@ -1,10 +1,7 @@
 -- Manual Test: Trigger inactivity-cleanup Edge Function
 -- Use this to manually test the inactivity cleanup without waiting for the cron job
 
--- Option 1: Trigger via pg_cron (if cron job is already scheduled)
-SELECT cron.run('inactivity-cleanup-daily');
-
--- Option 2: Direct HTTP call via SQL (works even without cron job)
+-- MANUAL TRIGGER: Direct HTTP call to the edge function
 SELECT net.http_post(
   url := 'https://kxsewkjbhxtfqbytftbu.supabase.co/functions/v1/inactivity-cleanup',
   headers := jsonb_build_object(
@@ -14,7 +11,12 @@ SELECT net.http_post(
   body := '{}'::jsonb
 ) as request_id;
 
--- View cron job history
+-- View scheduled cron job details
+SELECT jobid, jobname, schedule, active
+FROM cron.job
+WHERE jobname = 'inactivity-cleanup-daily';
+
+-- View cron job execution history
 SELECT
   jobid,
   jobname,
