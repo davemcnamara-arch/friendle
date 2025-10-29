@@ -1,0 +1,51 @@
+--- index.html (original)
++++ index.html (with security headers)
+@@ -5,6 +5,44 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+     <title>Friendle - Who's in?</title>
++
++    <!-- ========================================
++         SECURITY HEADERS
++         ========================================
++         Added: [DATE]
++         Purpose: Protect against XSS, clickjacking, MIME sniffing, and other attacks
++         Note: Uses 'unsafe-inline' due to inline onclick handlers and style attributes
++         ======================================== -->
++
++    <!-- Content Security Policy: Controls what resources can be loaded -->
++    <meta http-equiv="Content-Security-Policy"
++          content="default-src 'self';
++                   script-src 'self' 'unsafe-inline' https://cdn.supabase.co https://cdn.onesignal.com https://unpkg.com;
++                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
++                   font-src 'self' https://fonts.gstatic.com;
++                   img-src 'self' data: blob: https://kxsewkjbhxtfqbytftbu.supabase.co https://onesignal.com;
++                   connect-src 'self' https://kxsewkjbhxtfqbytftbu.supabase.co https://onesignal.com https://api.onesignal.com wss://kxsewkjbhxtfqbytftbu.supabase.co;
++                   frame-src 'none';
++                   object-src 'none';
++                   base-uri 'self';
++                   form-action 'self';
++                   frame-ancestors 'none';
++                   upgrade-insecure-requests;">
++
++    <!-- Prevent clickjacking attacks -->
++    <meta http-equiv="X-Frame-Options" content="DENY">
++
++    <!-- Prevent MIME type sniffing -->
++    <meta http-equiv="X-Content-Type-Options" content="nosniff">
++
++    <!-- Control referrer information -->
++    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
++
++    <!-- Control browser features/permissions -->
++    <meta http-equiv="Permissions-Policy"
++          content="geolocation=(),
++                   microphone=(),
++                   camera=(),
++                   payment=(),
++                   usb=(),
++                   magnetometer=(),
++                   gyroscope=(),
++                   accelerometer=()">
++
+     <link rel="manifest" href="/manifest.json">
+     <meta name="theme-color" content="#5b4fc7">
