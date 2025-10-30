@@ -2279,7 +2279,7 @@ body.dark-mode .custom-activity-item {
         <div id="match-notification-heading" style="font-size: 1.5em; font-weight: 700; color: #667eea; margin-bottom: 10px;">It's a Match!</div>
         <div id="match-notification-activity" style="font-size: 2em; margin-bottom: 15px;">🎯</div>
         <div id="match-notification-text" style="color: #666; margin-bottom: 20px; line-height: 1.6;"></div>
-        <button class="btn" onclick="joinMatchFromNotification()" style="margin-bottom: 10px; background: #4CAF50;">✓ Join Match</button>
+        <button id="match-notification-join-btn" class="btn" onclick="joinMatchFromNotification()" style="margin-bottom: 10px; background: #4CAF50;">✓ Join Match</button>
         <button class="btn btn-secondary" onclick="closeMatchNotification()">Keep Swiping</button>
     </div>
 </div>
@@ -11038,15 +11038,19 @@ function showMatchNotification(activity, matchId, otherUsers) {
     // Set activity emoji
     document.getElementById('match-notification-activity').textContent = activity.emoji + ' ' + activity.name;
 
-    // Set heading based on whether others are interested
+    // Set heading and button based on whether others are interested
     const headingElement = document.getElementById('match-notification-heading');
+    const joinButton = document.getElementById('match-notification-join-btn');
+
     if (otherUsers && otherUsers.length > 0) {
         // Show "It's a Match!" for subsequent people
         headingElement.textContent = "It's a Match!";
         headingElement.style.display = 'block';
+        joinButton.textContent = '✓ Join Match';
     } else {
         // Hide heading for first person
         headingElement.style.display = 'none';
+        joinButton.textContent = 'View Activity';
     }
 
     // Set message based on whether others are interested
