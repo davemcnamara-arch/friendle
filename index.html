@@ -8523,6 +8523,7 @@ async function sendEventJoinNotification(event) {
 async function sendEventCreatedNotification(matchId, event) {
     try {
         console.log('📢 Sending event created notification for:', event.id);
+        console.log('📅 Event scheduled_date:', event.scheduled_date);
 
         // Fetch the activity data
         const { data: activity, error: activityError } = await supabase
@@ -8549,13 +8550,20 @@ async function sendEventCreatedNotification(matchId, event) {
 
         const recipientIds = participants.map(p => p.profile_id);
 
-        // Format event date
-        const eventDate = new Date(event.scheduled_date + 'T00:00:00');
-        const dateStr = eventDate.toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
-        });
+        // Format event date - handle various date formats
+        let dateStr = 'soon';
+        if (event.scheduled_date) {
+            const eventDate = new Date(event.scheduled_date + 'T00:00:00');
+            console.log('📅 Parsed eventDate:', eventDate);
+            if (!isNaN(eventDate.getTime())) {
+                dateStr = eventDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            }
+        }
+        console.log('📅 Formatted dateStr:', dateStr);
 
         // Create notification message
         const message = `${currentUser.name} created a ${activity.emoji} ${activity.name} event on ${dateStr}!`;
@@ -10005,7 +10013,7 @@ async function createEvent(e) {
                 created_by: currentUser.id,
                 status: 'scheduled'
             })
-            .select()
+            .select('id, match_id, activity_id, circle_id, scheduled_date, scheduled_time, location, notes, created_by, status')
             .single();
         
         if (eventError) throw eventError;
