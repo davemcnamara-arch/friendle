@@ -6637,12 +6637,16 @@ async function leaveMatchChat(matchId) {
 // Join chat as first person
 window.joinMatchChatFirst = async function(matchId) {
     showLoader('Joining chat...');
-    
+
     const success = await joinMatchChat(matchId);
-    
+
     if (success) {
         hideLoader();
         showNotification('You\'re in! Others can now see and join.');
+
+        // Send notification to existing participants
+        await sendMatchJoinNotification(matchId);
+
         await loadMatches();
     } else {
         hideLoader();
@@ -8285,6 +8289,85 @@ async function sendNewMatchNotification(match) {
     }
 }
 
+async function sendMatchJoinNotification(matchId) {
+    try {
+        console.log('📢 Sending match join notification for:', matchId);
+
+        // Get match with activity details
+        const { data: match, error: matchError } = await supabase
+            .from('matches')
+            .select('id, activity_id, circle_id, activities(emoji, name)')
+            .eq('id', matchId)
+            .single();
+
+        if (matchError) throw matchError;
+        if (!match) return;
+
+        const activity = match.activities;
+
+        // Get existing participants (exclude current user who just joined)
+        const { data: participants, error: participantsError } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId)
+            .neq('profile_id', currentUser.id);
+
+        if (participantsError) throw participantsError;
+
+        if (!participants || participants.length === 0) {
+            console.log('ℹ️ No existing participants to notify (user is first)');
+            return;
+        }
+
+        const existingParticipantIds = participants.map(p => p.profile_id);
+
+        // Get profiles with OneSignal IDs
+        const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, name, onesignal_player_id')
+            .in('id', existingParticipantIds)
+            .not('onesignal_player_id', 'is', null);
+
+        if (profileError) throw profileError;
+
+        if (!profiles || profiles.length === 0) {
+            console.log('ℹ️ No participants with notification IDs');
+            return;
+        }
+
+        // Create notification message
+        const message = `${currentUser.name} joined your ${activity.emoji} ${activity.name} match!`;
+
+        console.log('📬 Notifying:', message);
+
+        // Get recipient IDs for the Edge Function
+        const recipientIds = profiles.map(p => p.id);
+
+        // Send notification via Edge Function
+        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                senderId: currentUser.id,
+                recipientIds: recipientIds,
+                message: message,
+                activityName: `${activity.emoji} ${activity.name}`,
+                chatType: 'match',
+                chatId: matchId,
+                notificationType: 'match_join'
+            }
+        });
+
+        if (notifError) {
+            console.error('❌ Error sending match join notification:', notifError);
+        } else {
+            console.log('✅ Match join notifications sent successfully:', data);
+        }
+
+    } catch (error) {
+        console.error('❌ Error in sendMatchJoinNotification:', error);
+        // Don't throw - we don't want to block match joining if notifications fail
+    }
+}
+
 async function sendEventJoinNotification(event) {
     try {
         console.log('📢 Sending event join notification for:', event.id);
@@ -8873,22 +8956,25 @@ window.joinMatch = async function(matchId) {
     try {
         const match = matches.find(m => m.id === matchId);
         if (!match) return;
-        
+
         // Add user to match participants
         const { error } = await supabase
             .from('match_participants')
-            .insert([{ 
-                match_id: matchId, 
-                profile_id: currentUser.id 
+            .insert([{
+                match_id: matchId,
+                profile_id: currentUser.id
             }]);
-        
+
         if (error) throw error;
-        
+
         showNotification('Joined match! You can now chat and schedule events.');
-        
+
+        // Send notification to existing participants
+        await sendMatchJoinNotification(matchId);
+
         // Refresh matches to update UI
         await loadMatches();
-        
+
     } catch (error) {
         console.error('Error joining match:', error);
         showNotification('Error joining match', 'error');
@@ -11085,34 +11171,39 @@ window.joinMatchFromNotification = async function() {
         closeMatchNotification();
         return;
     }
-    
+
     showLoader('Joining match...');
-    
+
     try {
         // Add user to match participants
         const { error } = await supabase
             .from('match_participants')
-            .insert([{ 
-                match_id: currentMatchNotification, 
-                profile_id: currentUser.id 
+            .insert([{
+                match_id: currentMatchNotification,
+                profile_id: currentUser.id
             }]);
-        
+
         if (error) {
             // If error is duplicate key (user already joined), that's fine
             if (error.code !== '23505') {
                 throw error;
             }
         }
-        
+
+        // Send notification to existing participants (only if not a duplicate join)
+        if (!error || error.code !== '23505') {
+            await sendMatchJoinNotification(currentMatchNotification);
+        }
+
         closeMatchNotification();
         hideLoader();
-        
+
         // Reload matches and go to matches page
         await loadMatches();
         showPage('matches');
-        
+
         showNotification('Joined match! You can now chat and schedule events.');
-        
+
     } catch (error) {
         hideLoader();
         closeMatchNotification();
