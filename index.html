@@ -8520,17 +8520,24 @@ async function sendEventJoinNotification(event) {
     }
 }
 
-async function sendEventCreatedNotification(match, event) {
+async function sendEventCreatedNotification(matchId, event) {
     try {
         console.log('📢 Sending event created notification for:', event.id);
 
-        const activity = match.activities;
+        // Fetch the activity data
+        const { data: activity, error: activityError } = await supabase
+            .from('activities')
+            .select('name, emoji')
+            .eq('id', event.activity_id)
+            .single();
+
+        if (activityError) throw activityError;
 
         // Get all match participants (exclude current user who created the event)
         const { data: participants, error: participantError } = await supabase
             .from('match_participants')
             .select('profile_id')
-            .eq('match_id', match.id)
+            .eq('match_id', matchId)
             .neq('profile_id', currentUser.id);
 
         if (participantError) throw participantError;
@@ -10022,7 +10029,7 @@ async function createEvent(e) {
             .eq('profile_id', currentUser.id);
 
         // Send notification to other match participants
-        await sendEventCreatedNotification(match, newEvent);
+        await sendEventCreatedNotification(matchId, newEvent);
 
         closeCreateEventModal();
 
