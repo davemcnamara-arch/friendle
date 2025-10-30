@@ -1867,19 +1867,19 @@ body.dark-mode .custom-activity-item {
     <div class="chat-container">
         <div class="chat-header">
     <div style="display: flex; align-items: center; margin-bottom: 8px;">
-        <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 10px;">← Back</button>
-        <div style="flex: 1;">
+        <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">← Back</button>
+        <div style="flex: 1; text-align: center;">
             <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
             <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
         </div>
+        <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
     </div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
-        <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
         <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
         <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
-	<button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none; width: 90px; overflow: hidden; white-space: nowrap;">
-    <span id="mute-btn-text">🔔 Mute</span>
-</button>
+        <button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">
+            <span id="mute-btn-text">🔔 Mute</span>
+        </button>
         <button id="create-event-header-btn" onclick="openCreateEventModalFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">➕ Create Event</button>
         <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️</button>
     </div>
