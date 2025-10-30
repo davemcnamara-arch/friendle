@@ -8454,31 +8454,31 @@ async function sendEventJoinNotification(event) {
         console.log('📢 Sending event join notification for:', event.id);
 
         const activity = event.activities;
-        
+
         // Get existing participants (exclude current user who just joined)
         const existingParticipantIds = event.event_participants
             .map(p => p.profile_id)
             .filter(id => id !== currentUser.id);
-        
+
         if (existingParticipantIds.length === 0) {
             console.log('ℹ️ No existing participants to notify (user is first)');
             return;
         }
-        
+
         // Get profiles with OneSignal IDs
         const { data: profiles, error: profileError } = await supabase
             .from('profiles')
             .select('id, name, onesignal_player_id')
             .in('id', existingParticipantIds)
             .not('onesignal_player_id', 'is', null);
-        
+
         if (profileError) throw profileError;
-        
+
         if (!profiles || profiles.length === 0) {
             console.log('ℹ️ No participants with notification IDs');
             return;
         }
-        
+
         // Format event date
         const eventDate = new Date(event.scheduled_date + 'T00:00:00');
         const dateStr = eventDate.toLocaleDateString('en-US', {
@@ -8486,15 +8486,15 @@ async function sendEventJoinNotification(event) {
             month: 'short',
             day: 'numeric'
         });
-        
+
         // Create notification message
         const message = `${currentUser.name} is coming to ${activity.emoji} ${activity.name} on ${dateStr}!`;
-        
+
         console.log('📬 Notifying:', message);
-        
+
         // Get recipient IDs for the Edge Function
         const recipientIds = profiles.map(p => p.id);
-        
+
         // Send notification via Edge Function
         const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
             body: {
@@ -8513,10 +8513,70 @@ async function sendEventJoinNotification(event) {
         } else {
             console.log('✅ Event join notifications sent successfully:', data);
         }
-        
+
     } catch (error) {
         console.error('❌ Error in sendEventJoinNotification:', error);
         // Don't throw - we don't want to block event joining if notifications fail
+    }
+}
+
+async function sendEventCreatedNotification(match, event) {
+    try {
+        console.log('📢 Sending event created notification for:', event.id);
+
+        const activity = match.activities;
+
+        // Get all match participants (exclude current user who created the event)
+        const { data: participants, error: participantError } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', match.id)
+            .neq('profile_id', currentUser.id);
+
+        if (participantError) throw participantError;
+
+        if (!participants || participants.length === 0) {
+            console.log('ℹ️ No other participants in match to notify');
+            return;
+        }
+
+        const recipientIds = participants.map(p => p.profile_id);
+
+        // Format event date
+        const eventDate = new Date(event.scheduled_date + 'T00:00:00');
+        const dateStr = eventDate.toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+        });
+
+        // Create notification message
+        const message = `${currentUser.name} created a ${activity.emoji} ${activity.name} event on ${dateStr}!`;
+
+        console.log('📬 Notifying:', message);
+
+        // Send notification via Edge Function
+        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                senderId: currentUser.id,
+                recipientIds: recipientIds,
+                message: message,
+                activityName: `${activity.emoji} ${activity.name}`,
+                chatType: 'event',
+                chatId: event.id,
+                notificationType: 'event_created'
+            }
+        });
+
+        if (notifError) {
+            console.error('❌ Error sending event created notification:', notifError);
+        } else {
+            console.log('✅ Event created notifications sent successfully:', data);
+        }
+
+    } catch (error) {
+        console.error('❌ Error in sendEventCreatedNotification:', error);
+        // Don't throw - we don't want to block event creation if notifications fail
     }
 }
 
@@ -9961,11 +10021,14 @@ async function createEvent(e) {
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id);
 
+        // Send notification to other match participants
+        await sendEventCreatedNotification(match, newEvent);
+
         closeCreateEventModal();
-        
+
         // Refresh matches to show new event
         await loadMatches();
-        
+
         // Open the new event chat
         openEventChat(newEvent.id);
         
