@@ -7994,23 +7994,6 @@ window.downloadICSFile = async function(eventId) {
     
     if (!activity) return;
 
-    // Parse as date-only (no time component)
-    const [year, month, day] = event.scheduled_date.split('-');
-
-    // Format dates for .ics all-day events (YYYYMMDD)
-    const formatDateOnly = (y, m, d) => {
-        return `${y}${m}${d}`;
-    };
-
-    // For all-day events, end date is the next day (exclusive)
-    const startDateStr = formatDateOnly(year, month, day);
-    const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
-    const endDateStr = formatDateOnly(
-        nextDay.getFullYear(),
-        String(nextDay.getMonth() + 1).padStart(2, '0'),
-        String(nextDay.getDate()).padStart(2, '0')
-    );
-
     const formatTimestamp = (date) => {
         const year = date.getUTCFullYear();
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -8021,6 +8004,45 @@ window.downloadICSFile = async function(eventId) {
         return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
     };
 
+    let dtStart, dtEnd;
+
+    if (event.scheduled_time) {
+        // Timed event - parse date and time
+        const [year, month, day] = event.scheduled_date.split('-');
+        const [hours, minutes] = event.scheduled_time.split(':');
+
+        // Create date in local timezone
+        const startDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(hours),
+            parseInt(minutes)
+        );
+
+        // End time is 1 hour later
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+        dtStart = `DTSTART:${formatTimestamp(startDate)}`;
+        dtEnd = `DTEND:${formatTimestamp(endDate)}`;
+    } else {
+        // All-day event
+        const [year, month, day] = event.scheduled_date.split('-');
+
+        const formatDateOnly = (y, m, d) => `${y}${m}${d}`;
+
+        const startDateStr = formatDateOnly(year, month, day);
+        const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
+        const endDateStr = formatDateOnly(
+            nextDay.getFullYear(),
+            String(nextDay.getMonth() + 1).padStart(2, '0'),
+            String(nextDay.getDate()).padStart(2, '0')
+        );
+
+        dtStart = `DTSTART;VALUE=DATE:${startDateStr}`;
+        dtEnd = `DTEND;VALUE=DATE:${endDateStr}`;
+    }
+
     const icsContent = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
@@ -8028,8 +8050,8 @@ window.downloadICSFile = async function(eventId) {
         'BEGIN:VEVENT',
         `UID:${event.id}@friendle.app`,
         `DTSTAMP:${formatTimestamp(new Date())}`,
-        `DTSTART;VALUE=DATE:${startDateStr}`,
-        `DTEND;VALUE=DATE:${endDateStr}`,
+        dtStart,
+        dtEnd,
         `SUMMARY:${activity.emoji} ${activity.name}`,
         event.location ? `LOCATION:${event.location}` : '',
         event.notes ? `DESCRIPTION:${event.notes}\\n\\nOrganized via Friendle` : 'DESCRIPTION:Organized via Friendle',
@@ -8095,28 +8117,58 @@ window.openGoogleCalendar = async function(eventId) {
     
     if (!activity) return;
 
-    // Parse as date-only (no time component) for all-day event
-    const [year, month, day] = event.scheduled_date.split('-');
-
-    // Format for Google Calendar all-day events (YYYYMMDD)
-    const formatDateOnly = (y, m, d) => {
-        return `${y}${m}${d}`;
+    const formatTimestamp = (date) => {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
     };
 
-    // For all-day events, end date is the next day (exclusive)
-    const startDateStr = formatDateOnly(year, month, day);
-    const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
-    const endDateStr = formatDateOnly(
-        nextDay.getFullYear(),
-        String(nextDay.getMonth() + 1).padStart(2, '0'),
-        String(nextDay.getDate()).padStart(2, '0')
-    );
+    let datesParam;
+
+    if (event.scheduled_time) {
+        // Timed event
+        const [year, month, day] = event.scheduled_date.split('-');
+        const [hours, minutes] = event.scheduled_time.split(':');
+
+        // Create date in local timezone
+        const startDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(hours),
+            parseInt(minutes)
+        );
+
+        // End time is 1 hour later
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+        datesParam = `${formatTimestamp(startDate)}/${formatTimestamp(endDate)}`;
+    } else {
+        // All-day event
+        const [year, month, day] = event.scheduled_date.split('-');
+
+        const formatDateOnly = (y, m, d) => `${y}${m}${d}`;
+
+        const startDateStr = formatDateOnly(year, month, day);
+        const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
+        const endDateStr = formatDateOnly(
+            nextDay.getFullYear(),
+            String(nextDay.getMonth() + 1).padStart(2, '0'),
+            String(nextDay.getDate()).padStart(2, '0')
+        );
+
+        datesParam = `${startDateStr}/${endDateStr}`;
+    }
 
     // Build Google Calendar URL
     const googleUrl = new URL('https://calendar.google.com/calendar/render');
     googleUrl.searchParams.set('action', 'TEMPLATE');
     googleUrl.searchParams.set('text', `${activity.emoji} ${activity.name}`);
-    googleUrl.searchParams.set('dates', `${startDateStr}/${endDateStr}`);
+    googleUrl.searchParams.set('dates', datesParam);
     if (event.location) googleUrl.searchParams.set('location', event.location);
     if (event.notes) googleUrl.searchParams.set('details', event.notes + '\n\nOrganized via Friendle');
     
@@ -10128,14 +10180,24 @@ if (participantCount <= 3) {
         
         // Format and display event details
 const eventDate = new Date(event.scheduled_date);
-const dateStr = eventDate.toLocaleDateString('en-US', { 
+const dateStr = eventDate.toLocaleDateString('en-US', {
     weekday: 'long',
-    month: 'long', 
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
 });
-        
-        document.getElementById('event-date').textContent = `📅 ${dateStr}`;
+
+// Format time if available
+let timeStr = '';
+if (event.scheduled_time) {
+    const [hours, minutes] = event.scheduled_time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    timeStr = ` at ${displayHour}:${minutes} ${ampm}`;
+}
+
+        document.getElementById('event-date').textContent = `📅 ${dateStr}${timeStr}`;
         document.getElementById('event-location').textContent = 
             event.location ? `📍 ${event.location}` : '';
         document.getElementById('event-notes').textContent = 
