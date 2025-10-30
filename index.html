@@ -1955,6 +1955,9 @@ body.dark-mode .custom-activity-item {
             <option value="Australia/Sydney">Sydney (AEDT)</option>
             <option value="Pacific/Auckland">New Zealand (NZDT)</option>
         </select>
+        <button onclick="detectAndUpdateTimezone()" style="width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 0.9em; cursor: pointer;">
+            🌍 Detect Automatically
+        </button>
         <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 4px;">Reminders will be sent at 9 AM in your timezone</div>
     </div>
 
@@ -3719,11 +3722,15 @@ function closeNotificationPrompt() {
     return showNotification('Please enter a name and select an avatar', 'error');
   }
 
+  // Auto-detect user's timezone
+  const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles';
+
   // Create profile object with UUID
   const profileData = {
     id: generateUUID(), // Use UUID instead of letting Supabase auto-generate
-    name, 
-    avatar: selectedAvatar.dataset.avatar
+    name,
+    avatar: selectedAvatar.dataset.avatar,
+    timezone: detectedTimezone
   };
 
   // Insert into Supabase
@@ -3783,7 +3790,20 @@ async function loadMinimumGroupSize() {
     // Load timezone preference
     const timezoneSelect = document.getElementById('timezone-select');
     if (timezoneSelect) {
-        timezoneSelect.value = currentUser.timezone || 'America/Los_Angeles';
+        const userTimezone = currentUser.timezone || 'America/Los_Angeles';
+
+        // Check if user's timezone is in the dropdown
+        const existingOption = Array.from(timezoneSelect.options).find(opt => opt.value === userTimezone);
+
+        // If not in dropdown, add it dynamically
+        if (!existingOption) {
+            const newOption = document.createElement('option');
+            newOption.value = userTimezone;
+            newOption.textContent = userTimezone;
+            timezoneSelect.appendChild(newOption);
+        }
+
+        timezoneSelect.value = userTimezone;
     }
 
     const newMatchToggle = document.getElementById('new-match-toggle');
@@ -4428,6 +4448,56 @@ window.updateTimezone = async function() {
         hideLoader();
         console.error('Error updating timezone:', error);
         showNotification('Error updating timezone', 'error');
+    }
+}
+
+window.detectAndUpdateTimezone = async function() {
+    try {
+        showLoader('Detecting timezone...');
+
+        // Detect timezone using browser's Intl API
+        const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        if (!detectedTimezone) {
+            throw new Error('Could not detect timezone');
+        }
+
+        // Update the dropdown to show detected timezone
+        const select = document.getElementById('timezone-select');
+
+        // Check if the detected timezone is already in the dropdown
+        const existingOption = Array.from(select.options).find(opt => opt.value === detectedTimezone);
+
+        // If not in dropdown, add it dynamically
+        if (!existingOption) {
+            const newOption = document.createElement('option');
+            newOption.value = detectedTimezone;
+            newOption.textContent = detectedTimezone;
+            select.appendChild(newOption);
+        }
+
+        select.value = detectedTimezone;
+
+        // Update in database
+        const { error } = await supabase
+            .from('profiles')
+            .update({ timezone: detectedTimezone })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.timezone = detectedTimezone;
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
+
+        hideLoader();
+        showNotification(`Timezone detected: ${detectedTimezone}`);
+
+    } catch (error) {
+        hideLoader();
+        console.error('Error detecting timezone:', error);
+        showNotification('Error detecting timezone', 'error');
     }
 }
 
