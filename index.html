@@ -2190,9 +2190,12 @@ body.dark-mode .custom-activity-item {
             
             <div class="form-group">
     <label for="new-event-date">Date *</label>
-    <input type="date" id="new-event-date" required>
+    <div style="display: flex; gap: 10px;">
+        <input type="date" id="new-event-date" required style="flex: 1;">
+        <input type="time" id="new-event-time" placeholder="Time (optional)" style="flex: 1;">
+    </div>
 </div>
-            
+
             <div class="form-group">
                 <label for="new-event-location">Location</label>
                 <input type="text" id="new-event-location" placeholder="Where are you meeting?">
@@ -2235,9 +2238,12 @@ body.dark-mode .custom-activity-item {
         <form id="edit-event-form">
             <div class="form-group">
     <label for="edit-event-date">Date *</label>
-    <input type="date" id="edit-event-date" required>
+    <div style="display: flex; gap: 10px;">
+        <input type="date" id="edit-event-date" required style="flex: 1;">
+        <input type="time" id="edit-event-time" placeholder="Time (optional)" style="flex: 1;">
+    </div>
 </div>
-            
+
             <div class="form-group">
                 <label for="edit-event-location">Location</label>
                 <input type="text" id="edit-event-location" placeholder="Where are you meeting?">
@@ -7015,13 +7021,23 @@ function createEventCard(event, matchId, isPast = false) {
         eventCard.style.cssText = 'opacity: 0.7; background: #fafafa;';
     }
 
-    // Format date (date only, no time)
+    // Format date and time
     const date = event.scheduled_date ? new Date(event.scheduled_date) : null;
     const dateStr = date ? date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric'
     }) : 'Date TBD';
+
+    // Format time if available (convert 24h to 12h format)
+    let timeStr = '';
+    if (event.scheduled_time) {
+        const [hours, minutes] = event.scheduled_time.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+        timeStr = `, ${displayHour}:${minutes} ${ampm}`;
+    }
 
     // Get participant count
     const participantCount = event.event_participants?.length || 0;
@@ -7030,7 +7046,7 @@ function createEventCard(event, matchId, isPast = false) {
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
             <div style="flex: 1;">
                 <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
-                    📅 ${dateStr}
+                    📅 ${dateStr}${timeStr}
                 </div>
                 ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
                 <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
@@ -7815,6 +7831,7 @@ window.joinEventFromChat = async function(eventId, matchId) {
             .select(`
                 id,
                 scheduled_date,
+                scheduled_time,
                 activity_id,
                 activities(name, emoji),
                 event_participants(profile_id)
@@ -9003,6 +9020,7 @@ window.joinEvent = async function(eventId) {
                 id,
                 match_id,
                 scheduled_date,
+                scheduled_time,
                 activity_id,
                 activities(name, emoji),
                 event_participants(profile_id)
@@ -9850,6 +9868,7 @@ async function createEvent(e) {
                 activity_id: match.activity_id,
                 circle_id: match.circle_id,
                 scheduled_date: document.getElementById('new-event-date').value,
+                scheduled_time: document.getElementById('new-event-time').value || null,
                 location: document.getElementById('new-event-location').value || null,
                 notes: document.getElementById('new-event-notes').value || null,
                 created_by: currentUser.id,
@@ -9933,7 +9952,7 @@ console.log('Result:', testQuery);
 // Now try with filters
 const { data: upcomingEvents, error: eventsError } = await supabase
     .from('events')
-    .select('id, scheduled_date, location, status')
+    .select('id, scheduled_date, scheduled_time, location, status')
     .eq('match_id', matchId)
     .eq('status', 'scheduled')
     .gte('scheduled_date', todayUTC.toISOString());
@@ -10695,13 +10714,14 @@ function closeEventOptionsModal() {
 
 function editCurrentEvent() {
     closeEventOptionsModal();
-    
+
     // Populate edit form
     const date = new Date(currentEvent.scheduled_date);
     document.getElementById('edit-event-date').value = date.toISOString().slice(0, 10);
+    document.getElementById('edit-event-time').value = currentEvent.scheduled_time || '';
     document.getElementById('edit-event-location').value = currentEvent.location || '';
     document.getElementById('edit-event-notes').value = currentEvent.notes || '';
-    
+
     document.getElementById('edit-event-modal').style.display = 'flex';
 }
 
@@ -10711,24 +10731,25 @@ function closeEditEventModal() {
 
 async function saveEventEdits(e) {
     e.preventDefault();
-    
+
     try {
         const { error } = await supabase
             .from('events')
             .update({
                 scheduled_date: document.getElementById('edit-event-date').value,
+                scheduled_time: document.getElementById('edit-event-time').value || null,
                 location: document.getElementById('edit-event-location').value || null,
                 notes: document.getElementById('edit-event-notes').value || null
             })
             .eq('id', currentEvent.id);
-        
+
         if (error) throw error;
-        
+
         closeEditEventModal();
-        
+
         // Reload the event
         openEventChat(currentEvent.id);
-        
+
     } catch (error) {
         console.error('Error updating event:', error);
         alert('Failed to update event');
