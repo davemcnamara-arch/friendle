@@ -10138,17 +10138,9 @@ if (!activity) {
     }
 }
 
-// Format event date for header
-const headerEventDate = new Date(event.scheduled_date + 'T00:00:00');
-const headerDateStr = headerEventDate.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-});
-
-// Update header with activity name and date
-document.getElementById('event-activity-name').textContent = 
-    `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'} - ${headerDateStr}`;
+// Update header with activity name only (date is shown in banner below)
+document.getElementById('event-activity-name').textContent =
+    `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'}`;
 
 const participants = event.event_participants.map(p => p.profiles.name);
 const participantCount = participants.length;
