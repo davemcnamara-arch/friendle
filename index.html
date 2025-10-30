@@ -8847,21 +8847,23 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     
     document.querySelectorAll('.event-item').forEach(item => {
         item.addEventListener('mouseenter', function() {
-            this.style.background = '#e8e8e8';
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            this.style.background = isDarkMode ? '#2a2a2e' : '#e8e8e8';
         });
         item.addEventListener('mouseleave', function() {
+            const isDarkMode = document.body.classList.contains('dark-mode');
             if (this.style.opacity === '0.7') {
                 // Past events
-                this.style.background = '#fafafa';
+                this.style.background = isDarkMode ? '#1a1a1a' : '#fafafa';
             } else if (this.dataset.unread === 'true') {
                 // Unread events
-                this.style.background = '#ccfbf1';
+                this.style.background = isDarkMode ? '#134e4a' : '#ccfbf1';
             } else if (this.dataset.joined === 'true') {
                 // Joined events
-                this.style.background = '#f5f5f5';
+                this.style.background = isDarkMode ? '#1a1a1e' : '#f5f5f5';
             } else {
                 // Not joined events
-                this.style.background = '#fff8e1';
+                this.style.background = isDarkMode ? '#2a2415' : '#fff8e1';
             }
         });
     });
