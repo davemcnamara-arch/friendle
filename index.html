@@ -8565,9 +8565,11 @@ async function sendEventCreatedNotification(matchId, event) {
                     day: 'numeric'
                 });
 
-                // Add time if provided
+                // Add time if provided (format HH:MM, removing seconds)
                 if (event.scheduled_time) {
-                    dateTimeStr += ` at ${event.scheduled_time}`;
+                    // Remove seconds if present (HH:MM:SS -> HH:MM)
+                    const timeStr = event.scheduled_time.substring(0, 5);
+                    dateTimeStr += ` at ${timeStr}`;
                 }
             }
         }
