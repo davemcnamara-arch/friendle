@@ -8523,7 +8523,7 @@ async function sendEventJoinNotification(event) {
 async function sendEventCreatedNotification(matchId, event) {
     try {
         console.log('📢 Sending event created notification for:', event.id);
-        console.log('📅 Event scheduled_date:', event.scheduled_date);
+        console.log('📅 Event data:', { scheduled_date: event.scheduled_date, scheduled_time: event.scheduled_time });
 
         // Fetch the activity data
         const { data: activity, error: activityError } = await supabase
@@ -8550,23 +8550,31 @@ async function sendEventCreatedNotification(matchId, event) {
 
         const recipientIds = participants.map(p => p.profile_id);
 
-        // Format event date - handle various date formats
-        let dateStr = 'soon';
+        // Format event date and time
+        let dateTimeStr = 'soon';
         if (event.scheduled_date) {
-            const eventDate = new Date(event.scheduled_date + 'T00:00:00');
-            console.log('📅 Parsed eventDate:', eventDate);
+            // Parse the date (format: YYYY-MM-DD from database)
+            const eventDate = new Date(event.scheduled_date);
+            console.log('📅 Parsed eventDate:', eventDate, 'isValid:', !isNaN(eventDate.getTime()));
+
             if (!isNaN(eventDate.getTime())) {
-                dateStr = eventDate.toLocaleDateString('en-US', {
+                // Format date: "Mon, Dec 25"
+                dateTimeStr = eventDate.toLocaleDateString('en-US', {
                     weekday: 'short',
                     month: 'short',
                     day: 'numeric'
                 });
+
+                // Add time if provided
+                if (event.scheduled_time) {
+                    dateTimeStr += ` at ${event.scheduled_time}`;
+                }
             }
         }
-        console.log('📅 Formatted dateStr:', dateStr);
+        console.log('📅 Formatted dateTimeStr:', dateTimeStr);
 
         // Create notification message
-        const message = `${currentUser.name} created a ${activity.emoji} ${activity.name} event on ${dateStr}!`;
+        const message = `${currentUser.name} created a ${activity.emoji} ${activity.name} event on ${dateTimeStr}!`;
 
         console.log('📬 Notifying:', message);
 
@@ -10013,10 +10021,12 @@ async function createEvent(e) {
                 created_by: currentUser.id,
                 status: 'scheduled'
             })
-            .select('id, match_id, activity_id, circle_id, scheduled_date, scheduled_time, location, notes, created_by, status')
+            .select('*')
             .single();
-        
+
         if (eventError) throw eventError;
+
+        console.log('✅ Created event:', newEvent);
         
         // Only add the event creator
         const { error: insertError } = await supabase
