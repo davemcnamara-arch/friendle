@@ -8234,6 +8234,12 @@ async function saveMatchesToSupabase(matches, circleId) {
 
 async function sendNewMatchNotification(match) {
     try {
+        // Validate match has required data
+        if (!match || !match.id) {
+            console.log('⚠️ Cannot send new match notification: match.id is undefined');
+            return;
+        }
+
         console.log('📢 Sending new match notification for:', match.activity?.name);
 
         // Get all users who are interested in this activity (have it in preferences)
@@ -8308,6 +8314,12 @@ async function sendNewMatchNotification(match) {
 
 async function sendMatchJoinNotification(matchId) {
     try {
+        // Validate matchId
+        if (!matchId) {
+            console.log('⚠️ Cannot send match join notification: matchId is undefined');
+            return;
+        }
+
         console.log('📢 Sending match join notification for:', matchId);
 
         // Get match with activity details
