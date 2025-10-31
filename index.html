@@ -6916,6 +6916,23 @@ async function findMatches(circleId) {
     }
 }
 
+// Helper function to check if user is in match chat
+async function isUserInMatchChat(matchId) {
+    try {
+        const { data: existing } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id)
+            .maybeSingle();
+
+        return !!existing;
+    } catch (error) {
+        console.error('Error checking match chat participation:', error);
+        return false;
+    }
+}
+
 // Helper function to join match chat
 async function joinMatchChat(matchId) {
     try {
@@ -7077,12 +7094,16 @@ window.markAsUninterested = async function(matchId, activityId, circleId) {
 // Join chat as normal (not first)
 window.joinMatchChatNormal = async function(matchId) {
     showLoader('Joining chat...');
-    
+
     const success = await joinMatchChat(matchId);
-    
+
     if (success) {
         hideLoader();
         showNotification('Joined chat!');
+
+        // Send notification to existing participants
+        await sendMatchJoinNotification(matchId);
+
         await loadMatches();
     } else {
         hideLoader();
@@ -8152,10 +8173,16 @@ window.joinEventFromChat = async function(eventId, matchId) {
             }]);
         
         if (error) throw error;
-        
-        // Auto-join general chat if not already in it
+
+        // Auto-join general chat if not already in it (and notify others if this is a new join)
+        const wasAlreadyInChat = await isUserInMatchChat(matchId);
         await joinMatchChat(matchId);
-        
+
+        if (!wasAlreadyInChat) {
+            // User just joined the match chat, notify existing participants
+            await sendMatchJoinNotification(matchId);
+        }
+
         // Get event details for notification
         const { data: event, error: eventError } = await supabase
             .from('events')
@@ -8594,21 +8621,20 @@ async function saveMatchesToSupabase(matches, circleId) {
 
     // Detect NEW matches (matches that didn't exist before)
     const newMatches = foundMatches.filter(m => !oldMatchIds.has(m.id));
-    
+
     console.log('📊 Match summary:', {
         total: foundMatches.length,
         new: newMatches.length,
         existing: foundMatches.length - newMatches.length
     });
-    
-    // Send notifications for NEW matches only
-    for (const match of newMatches) {
-        await sendNewMatchNotification(match);
-    }
+
+    // DON'T send notifications here - users are just swiping right (interested but anonymous)
+    // Notifications are only sent when users actually join the chat via sendMatchJoinNotification
 
     if (matches.length > 0) {
         if (newMatches.length > 0) {
-            showNotification(`Found ${newMatches.length} new match${newMatches.length > 1 ? 'es' : ''}!`);
+            // Silent - just log it, don't notify others
+            console.log(`Found ${newMatches.length} new match${newMatches.length > 1 ? 'es' : ''} (silent)`);
         }
     } else {
         showNotification('No matches found yet. Try selecting more activities or invite more friends!');
