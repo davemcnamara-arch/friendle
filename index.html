@@ -5887,10 +5887,10 @@ window.handleCircleChange = async function(shouldScroll = true) {
     
     const savedActivityIds = await loadUserPreferences(selectedCircle.id);
     const allActivities = await loadActivities(selectedCircle.id);
-    
+
     activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
-    
-    renderActivities();
+
+    await renderActivities();
     
     // If in swipe mode, reinitialize swipe view
     if (viewMode === 'swipe') {
@@ -5907,21 +5907,21 @@ window.handleCircleChange = async function(shouldScroll = true) {
 // View mode switching
 let viewMode = 'swipe'; // Default to swipe view
 
-window.switchToGridView = function() {
+window.switchToGridView = async function() {
     viewMode = 'grid';
     document.getElementById('swipe-view-container').style.display = 'none';
     document.getElementById('grid-view-container').style.display = 'block';
-    
+
     // Update button styles
     document.getElementById('grid-view-btn').style.background = '#667eea';
     document.getElementById('grid-view-btn').style.color = 'white';
     document.getElementById('swipe-view-btn').style.background = '#f8f9fa';
     document.getElementById('swipe-view-btn').style.color = '#333';
-    
+
     // Show save button in grid mode
     document.getElementById('grid-save-button').style.display = 'block';
-    
-    renderActivities(); // Render grid view
+
+    await renderActivities(); // Render grid view
 }
 
 window.switchToSwipeView = async function() {
@@ -6651,11 +6651,11 @@ window.setActivityMode = async function(activityId, isToday) {
             if (index > -1) activities.splice(index, 1);
             else activities.push(activity);
         }
-        window.handleSearch = (event) => {
+        window.handleSearch = async (event) => {
     const searchTerm = event.target.value;
-    
+
     if (viewMode === 'grid') {
-        renderActivities(searchTerm);
+        await renderActivities(searchTerm);
     } else {
         filterSwipeActivities(searchTerm);
     }
