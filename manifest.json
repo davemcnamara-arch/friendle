@@ -3,10 +3,13 @@
   "short_name": "Friendle",
   "description": "Match activities with friends and coordinate hangouts",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#667eea",
   "theme_color": "#667eea",
   "orientation": "portrait-primary",
+  "categories": ["social", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192.png",
@@ -20,5 +23,11 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [],
+  "screenshots": [],
+  "display_override": ["standalone", "fullscreen"],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  }
 }
