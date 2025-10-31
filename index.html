@@ -12231,6 +12231,8 @@ if (pageId !== 'chat') {
     
     if (pageId === 'circles') renderCircles();
 if (pageId === 'activities') {
+    // Scroll to top to ensure card is fully visible
+    document.getElementById('activities').scrollTop = 0;
     await populateCircleSelector();
     // If in swipe mode and circle is selected, initialize swipe view
     if (viewMode === 'swipe' && selectedCircle) {
