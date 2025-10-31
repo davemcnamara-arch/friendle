@@ -1580,6 +1580,20 @@ body.dark-mode .custom-activity-item {
     return ua.indexOf('SamsungBrowser') > -1 || ua.indexOf('SAMSUNG') > -1;
   }
 
+  // Detect if running as WebAPK (installed PWA on Android)
+  function isWebAPK() {
+    const ua = window.navigator.userAgent;
+    // WebAPKs often have specific identifiers in the user agent
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isAndroid = /Android/.test(ua);
+    const isSamsung = isSamsungInternet();
+
+    // Check if document.referrer contains android-app://
+    const hasAndroidReferrer = document.referrer.startsWith('android-app://');
+
+    return isAndroid && (isSamsung || hasAndroidReferrer) && isStandalone;
+  }
+
   function getBrowserInfo() {
     const ua = window.navigator.userAgent;
     let browserName = 'Unknown';
@@ -1612,12 +1626,15 @@ body.dark-mode .custom-activity-item {
 
   // Store browser info globally for debugging
   window.browserInfo = getBrowserInfo();
+  window.isWebAPK = isWebAPK();
 
   // Log browser info for Samsung debugging
   if (isSamsungInternet()) {
     console.log('🔍 SAMSUNG INTERNET DETECTED');
     console.log('🔍 Browser Info:', window.browserInfo);
     console.log('🔍 Display Mode:', window.matchMedia('(display-mode: standalone)').matches ? 'Standalone (PWA)' : 'Browser');
+    console.log('🔍 WebAPK Mode:', window.isWebAPK ? 'YES - Running as WebAPK' : 'NO - Running in browser');
+    console.log('🔍 Referrer:', document.referrer);
   }
 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -1629,6 +1646,25 @@ body.dark-mode .custom-activity-item {
       console.log('🔍 Platform:', navigator.platform);
       console.log('🔍 Is PWA:', window.matchMedia('(display-mode: standalone)').matches);
 
+      // Configure notification categories for Android (WebAPK)
+      const notificationCategories = [
+        {
+          id: 'friendle_messages',
+          name: 'Messages',
+          description: 'Chat messages and activity updates'
+        },
+        {
+          id: 'friendle_matches',
+          name: 'Matches',
+          description: 'New activity matches'
+        },
+        {
+          id: 'friendle_events',
+          name: 'Events',
+          description: 'Event joins and updates'
+        }
+      ];
+
       await OneSignal.init({
         appId: "67c70940-dc92-4d95-9072-503b2f5d84c8",
         allowLocalhostAsSecureOrigin: true,
@@ -1637,8 +1673,24 @@ body.dark-mode .custom-activity-item {
         // Add additional config for better Samsung compatibility
         notifyButton: {
           enable: false // We handle our own notification prompts
+        },
+        // Add notification categories for Android WebAPK support
+        notificationClickHandlerMatch: 'origin',
+        notificationClickHandlerAction: 'focus',
+        // For WebAPKs, ensure proper Android notification channels
+        android_notification_channel: {
+          id: 'friendle_default',
+          name: 'Friendle Notifications',
+          description: 'All Friendle notifications',
+          importance: 4 // IMPORTANCE_HIGH
         }
       });
+
+      // Log WebAPK-specific info
+      if (window.isWebAPK) {
+        console.log('🔍 WEBAPK: Initialized OneSignal with Android notification channels');
+        console.log('🔍 WEBAPK: Categories configured:', notificationCategories.length);
+      }
       console.log('✅ OneSignal initialized successfully');
 
       // Samsung-specific diagnostics
@@ -2110,15 +2162,25 @@ body.dark-mode .custom-activity-item {
     <!-- Samsung Internet Notification Troubleshooting -->
     <div id="samsung-notification-help" style="display: none; margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 3px solid #ffc107;">
         <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #856404;">📱 Samsung Device Notification Help</h3>
+
+        <div style="margin-bottom: 15px; padding: 10px; background: #ffe5e5; border-radius: 4px; border: 1px solid #ff4444;">
+            <strong style="color: #cc0000;">⚠️ IMPORTANT - WebAPK Issue:</strong>
+            <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
+                If your app info says "Downloaded from Google Play Store" but it's NOT actually in the Play Store, Samsung has installed this as a WebAPK which <strong>blocks web push notifications</strong>.
+            </p>
+            <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
+                <strong>FIX:</strong> Uninstall the app, then use Friendle directly from Samsung Internet browser (don't install to home screen), OR install it using Chrome browser instead.
+            </p>
+        </div>
+
         <p style="margin: 0 0 10px 0; font-size: 0.85em; color: #856404; line-height: 1.4;">
-            If you're not receiving notifications on your Samsung device, try these steps:
+            Run the diagnostic test below first. If not using WebAPK, try these steps:
         </p>
         <ol style="margin: 0; padding-left: 20px; font-size: 0.85em; color: #856404; line-height: 1.6;">
-            <li><strong>Check Sleeping Apps:</strong> Go to Settings → Battery → Background usage limits → Sleeping apps. Make sure Friendle is NOT in the sleeping apps list.</li>
-            <li><strong>Allow Background Activity:</strong> Go to Settings → Apps → Friendle → Battery → Allow background activity.</li>
-            <li><strong>Check Notification Settings:</strong> Go to Settings → Apps → Friendle → Notifications. Ensure all notification categories are enabled.</li>
-            <li><strong>Disable Battery Optimization:</strong> Go to Settings → Apps → Friendle → Battery → Optimize battery usage → Turn OFF for Friendle.</li>
-            <li><strong>Reinstall PWA:</strong> Remove the app from your home screen, clear browser cache, and reinstall from Samsung Internet browser.</li>
+            <li><strong>Check Sleeping Apps:</strong> Settings → Battery → Background usage limits → Sleeping apps. Friendle should NOT be in this list.</li>
+            <li><strong>Allow Background Activity:</strong> Settings → Apps → Friendle → Battery → Allow background activity.</li>
+            <li><strong>Check Notification Settings:</strong> Settings → Apps → Friendle → Notifications. Ensure all categories are enabled.</li>
+            <li><strong>Disable Battery Optimization:</strong> Settings → Apps → Friendle → Battery → Optimize battery usage → Turn OFF.</li>
         </ol>
         <button class="btn btn-secondary" onclick="testSamsungNotifications()" style="width: 100%; margin-top: 10px;">
             📊 Run Diagnostic Test
@@ -3661,7 +3723,15 @@ window.testSamsungNotifications = async function() {
     results.push(`Browser: ${window.browserInfo.browserName} ${window.browserInfo.browserVersion}\n`);
     results.push(`Platform: ${navigator.platform}\n`);
     results.push(`PWA Mode: ${window.matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No'}\n`);
+    results.push(`WebAPK Mode: ${window.isWebAPK ? 'YES ⚠️' : 'No'}\n`);
+    results.push(`Referrer: ${document.referrer || 'None'}\n`);
     results.push(`User Agent: ${navigator.userAgent}\n\n`);
+
+    // WebAPK warning
+    if (window.isWebAPK) {
+        results.push('⚠️ WEBAPK DETECTED: App is installed as WebAPK\n');
+        results.push('This may cause notification issues. See recommendations below.\n\n');
+    }
 
     try {
         // Test OneSignal availability
@@ -3715,14 +3785,34 @@ window.testSamsungNotifications = async function() {
 
                         // Recommendations
                         results.push('\n=== RECOMMENDATIONS ===\n');
+
+                        // WebAPK-specific recommendations
+                        if (window.isWebAPK) {
+                            results.push('\n⚠️ WEBAPK NOTIFICATION FIX:\n');
+                            results.push('Samsung installed this PWA as a WebAPK (appears in Play Store).\n');
+                            results.push('This prevents web push notifications from working properly.\n\n');
+                            results.push('TO FIX (RECOMMENDED):\n');
+                            results.push('1. Remove app from home screen (uninstall WebAPK)\n');
+                            results.push('2. Open Samsung Internet browser\n');
+                            results.push('3. Go to https://friendle.app\n');
+                            results.push('4. Use the app from the browser (bookmark it)\n');
+                            results.push('5. OR: Install PWA again but from Chrome browser instead\n\n');
+                            results.push('WHY: Samsung\'s WebAPK doesn\'t support OneSignal web push.\n');
+                            results.push('Using the browser version works perfectly!\n\n');
+                        }
+
                         if (!permission) {
                             results.push('❌ ISSUE: Notification permission not granted\n');
                             results.push('   → Tap "Enable Notifications" button above\n');
                         }
                         if (!token) {
                             results.push('❌ ISSUE: No push token registered\n');
-                            results.push('   → Try clearing browser cache and re-enabling notifications\n');
-                            results.push('   → Check if app is in "Sleeping Apps" (Settings → Battery)\n');
+                            if (!window.isWebAPK) {
+                                results.push('   → Try clearing browser cache and re-enabling notifications\n');
+                                results.push('   → Check if app is in "Sleeping Apps" (Settings → Battery)\n');
+                            } else {
+                                results.push('   → This is expected with WebAPK. See fix above.\n');
+                            }
                         }
                         if (playerId && currentUser && currentUser.onesignal_player_id !== playerId) {
                             results.push('⚠️ WARNING: Player ID mismatch between OneSignal and database\n');
@@ -3735,10 +3825,12 @@ window.testSamsungNotifications = async function() {
                         }
                         if (permission && token && playerId) {
                             results.push('✅ All checks passed! Notifications should be working.\n');
-                            results.push('   If you still don\'t receive notifications:\n');
-                            results.push('   1. Check "Sleeping Apps" in Battery settings\n');
-                            results.push('   2. Ensure "Allow background activity" is enabled\n');
-                            results.push('   3. Try reinstalling the PWA\n');
+                            if (!window.isWebAPK) {
+                                results.push('   If you still don\'t receive notifications:\n');
+                                results.push('   1. Check "Sleeping Apps" in Battery settings\n');
+                                results.push('   2. Ensure "Allow background activity" is enabled\n');
+                                results.push('   3. Try reinstalling the PWA\n');
+                            }
                         }
 
                     } catch (err) {
