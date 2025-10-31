@@ -6856,7 +6856,20 @@ async function findMatches(circleId) {
                 match = newMatch;
             }
 
-            // Get who's actually in the chat (users remain anonymous until they join)
+            // Get all users who swiped right (interested but anonymous count)
+            const { data: interestedUsers, error: prefsError } = await supabase
+                .from('preferences')
+                .select('profile_id')
+                .eq('circle_id', circleId)
+                .eq('activity_id', activityId);
+
+            if (prefsError) {
+                console.error('Error loading interested users:', prefsError);
+            }
+
+            const interestedCount = interestedUsers?.length || 0;
+
+            // Get who's actually in the chat (revealed their identity by joining)
             const { data: chatParticipants, error: chatError } = await supabase
                 .from('match_participants')
                 .select('profile_id, profiles(id, name, avatar)')
@@ -6889,6 +6902,7 @@ async function findMatches(circleId) {
                 circleId: circleId,
                 activity: activity || activities.find(a => a.id === activityId),
                 interestedUsers: chatParticipants?.map(p => p.profiles) || [],
+                interestedCount: interestedCount,
                 inChatCount: chatParticipants?.length || 0,
                 userInChat: userInChat,
                 isRead: true // We'll handle notifications differently now
@@ -8611,32 +8625,33 @@ async function sendNewMatchNotification(match) {
 
         console.log('📢 Sending new match notification for:', match.activity?.name);
 
-        // Get users who are actually in the chat (keeps users anonymous until they join)
-        const { data: chatUsers, error } = await supabase
-            .from('match_participants')
+        // Get all users who are interested in this activity (have it in preferences)
+        const { data: interestedUsers, error } = await supabase
+            .from('preferences')
             .select('profile_id, profiles(id, name, onesignal_player_id, notify_new_matches)')
-            .eq('match_id', match.id)
+            .eq('circle_id', match.circleId || match.circle_id)
+            .eq('activity_id', match.activity_id || match.activity.id)
             .neq('profile_id', currentUser.id); // Don't notify yourself
 
         if (error) throw error;
 
-        if (!chatUsers || chatUsers.length === 0) {
-            console.log('ℹ️ No other users in chat to notify');
+        if (!interestedUsers || interestedUsers.length === 0) {
+            console.log('ℹ️ No other interested users to notify');
             return;
         }
 
-        console.log(`📬 Notifying ${chatUsers.length} user(s) in chat`);
+        console.log(`📬 Notifying ${interestedUsers.length} interested user(s)`);
 
-        // Get names of all users in chat (including current user)
-        const allChatNames = [currentUser.name, ...chatUsers.map(u => u.profiles.name)];
+        // Get names of all interested users (including current user)
+        const allInterestedNames = [currentUser.name, ...interestedUsers.map(u => u.profiles.name)];
 
         // Create notification message
         let message = '';
-        if (allChatNames.length === 2) {
-            message = `You matched with ${allChatNames.find(n => n !== currentUser.name)} for ${match.activity.emoji} ${match.activity.name}!`;
+        if (allInterestedNames.length === 2) {
+            message = `You matched with ${allInterestedNames.find(n => n !== currentUser.name)} for ${match.activity.emoji} ${match.activity.name}!`;
         } else {
-            const otherNames = allChatNames.filter(n => n !== currentUser.name).slice(0, 2).join(', ');
-            const remaining = allChatNames.length - 3; // -3 because we show 2 names + current user
+            const otherNames = allInterestedNames.filter(n => n !== currentUser.name).slice(0, 2).join(', ');
+            const remaining = allInterestedNames.length - 3; // -3 because we show 2 names + current user
             if (remaining > 0) {
                 message = `You matched with ${otherNames}, and ${remaining} other${remaining > 1 ? 's' : ''} for ${match.activity.emoji} ${match.activity.name}!`;
             } else {
@@ -8645,7 +8660,7 @@ async function sendNewMatchNotification(match) {
         }
 
         // Send notifications via Edge Function
-        const recipientIds = chatUsers
+        const recipientIds = interestedUsers
             .filter(u => u.profiles.onesignal_player_id) // Only users with player IDs
             .map(u => u.profile_id);
         
@@ -8979,7 +8994,16 @@ async function loadMatches() {
             }
             match.activity = activity; // Store activity on match object
 
-            // Get who's in the chat - users remain anonymous until they join
+            // Get all users who swiped right (interested but anonymous count only)
+            const { data: interested } = await supabase
+                .from('preferences')
+                .select('profile_id')
+                .eq('circle_id', match.circle_id)
+                .eq('activity_id', match.activity_id);
+
+            match.interestedCount = interested?.length || 0;
+
+            // Get who's in the chat (these users have revealed their identity by joining)
             const { data: chatParticipants } = await supabase
                 .from('match_participants')
                 .select('profile_id, profiles(id, name, avatar)')
@@ -8989,9 +9013,8 @@ async function loadMatches() {
             match.inChatCount = match.chatParticipants.length;
             match.userInChat = chatParticipants?.some(p => p.profile_id === currentUser.id) || false;
 
-            // Show interested users as the same as chat participants (keeps users anonymous until they join)
+            // For display: only show names of people actually in chat
             match.interestedUsers = match.chatParticipants;
-            match.interestedCount = match.inChatCount;
         }
         
         await displayMatches();
