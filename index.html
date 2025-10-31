@@ -1574,16 +1574,91 @@ body.dark-mode .custom-activity-item {
 
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
+  // Samsung Internet and browser detection utilities
+  function isSamsungInternet() {
+    const ua = window.navigator.userAgent;
+    return ua.indexOf('SamsungBrowser') > -1 || ua.indexOf('SAMSUNG') > -1;
+  }
+
+  function getBrowserInfo() {
+    const ua = window.navigator.userAgent;
+    let browserName = 'Unknown';
+    let browserVersion = 'Unknown';
+
+    if (ua.indexOf('SamsungBrowser') > -1) {
+      browserName = 'Samsung Internet';
+      const match = ua.match(/SamsungBrowser\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Chrome') > -1 && ua.indexOf('Edg') === -1) {
+      browserName = 'Chrome';
+      const match = ua.match(/Chrome\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Firefox') > -1) {
+      browserName = 'Firefox';
+      const match = ua.match(/Firefox\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Safari') > -1 && ua.indexOf('Chrome') === -1) {
+      browserName = 'Safari';
+      const match = ua.match(/Version\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Edg') > -1) {
+      browserName = 'Edge';
+      const match = ua.match(/Edg\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    }
+
+    return { browserName, browserVersion, userAgent: ua };
+  }
+
+  // Store browser info globally for debugging
+  window.browserInfo = getBrowserInfo();
+
+  // Log browser info for Samsung debugging
+  if (isSamsungInternet()) {
+    console.log('🔍 SAMSUNG INTERNET DETECTED');
+    console.log('🔍 Browser Info:', window.browserInfo);
+    console.log('🔍 Display Mode:', window.matchMedia('(display-mode: standalone)').matches ? 'Standalone (PWA)' : 'Browser');
+  }
+
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     try {
+      // Enhanced initialization with Samsung-specific logging
+      console.log('🔔 Initializing OneSignal...');
+      console.log('🔍 Browser:', window.browserInfo.browserName, window.browserInfo.browserVersion);
+      console.log('🔍 Platform:', navigator.platform);
+      console.log('🔍 Is PWA:', window.matchMedia('(display-mode: standalone)').matches);
+
       await OneSignal.init({
-        appId: "67c70940-dc92-4d95-9072-503b2f5d84c8", // TODO: Verify this is your correct OneSignal App ID from dashboard
+        appId: "67c70940-dc92-4d95-9072-503b2f5d84c8",
         allowLocalhostAsSecureOrigin: true,
         serviceWorkerParam: { scope: '/' },
-        serviceWorkerPath: '/OneSignalSDKWorker.js'
+        serviceWorkerPath: '/OneSignalSDKWorker.js',
+        // Add additional config for better Samsung compatibility
+        notifyButton: {
+          enable: false // We handle our own notification prompts
+        }
       });
       console.log('✅ OneSignal initialized successfully');
+
+      // Samsung-specific diagnostics
+      if (isSamsungInternet()) {
+        console.log('🔍 SAMSUNG: Checking notification permission...');
+        const permission = await OneSignal.Notifications.permission;
+        console.log('🔍 SAMSUNG: Permission state:', permission);
+
+        const isPushSupported = await OneSignal.Notifications.isPushSupported();
+        console.log('🔍 SAMSUNG: Push supported:', isPushSupported);
+
+        const isSubscribed = OneSignal.User.PushSubscription.optedIn;
+        console.log('🔍 SAMSUNG: Is subscribed:', isSubscribed);
+
+        const playerId = OneSignal.User.PushSubscription.id;
+        console.log('🔍 SAMSUNG: Player ID:', playerId);
+
+        const token = OneSignal.User.PushSubscription.token;
+        console.log('🔍 SAMSUNG: Push token:', token ? 'Present' : 'Missing');
+      }
 
       // Save player ID immediately if user is logged in
       try {
@@ -1668,10 +1743,23 @@ body.dark-mode .custom-activity-item {
 
       if (!playerId) {
         console.log('⚠️ No player ID in subscription change event');
+        if (isSamsungInternet()) {
+          console.log('🔍 SAMSUNG: Subscription change event fired but no player ID');
+          console.log('🔍 SAMSUNG: Event details:', JSON.stringify(event, null, 2));
+        }
         return;
       }
 
       console.log('🔔 OneSignal subscription changed, player ID:', playerId);
+
+      // Samsung-specific subscription diagnostics
+      if (isSamsungInternet()) {
+        console.log('🔍 SAMSUNG: Subscription change event details:');
+        console.log('🔍 SAMSUNG: - Player ID:', playerId);
+        console.log('🔍 SAMSUNG: - Token:', event.current.token ? 'Present' : 'Missing');
+        console.log('🔍 SAMSUNG: - Opted In:', event.current.optedIn);
+        console.log('🔍 SAMSUNG: - Full event:', JSON.stringify(event.current, null, 2));
+      }
 
       try {
         // Get current session from Supabase
@@ -2016,6 +2104,25 @@ body.dark-mode .custom-activity-item {
                 </div>
             </label>
         </div>
+    </div>
+
+    <!-- Samsung Internet Notification Troubleshooting -->
+    <div id="samsung-notification-help" style="display: none; margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 3px solid #ffc107;">
+        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #856404;">📱 Samsung Device Notification Help</h3>
+        <p style="margin: 0 0 10px 0; font-size: 0.85em; color: #856404; line-height: 1.4;">
+            If you're not receiving notifications on your Samsung device, try these steps:
+        </p>
+        <ol style="margin: 0; padding-left: 20px; font-size: 0.85em; color: #856404; line-height: 1.6;">
+            <li><strong>Check Sleeping Apps:</strong> Go to Settings → Battery → Background usage limits → Sleeping apps. Make sure Friendle is NOT in the sleeping apps list.</li>
+            <li><strong>Allow Background Activity:</strong> Go to Settings → Apps → Friendle → Battery → Allow background activity.</li>
+            <li><strong>Check Notification Settings:</strong> Go to Settings → Apps → Friendle → Notifications. Ensure all notification categories are enabled.</li>
+            <li><strong>Disable Battery Optimization:</strong> Go to Settings → Apps → Friendle → Battery → Optimize battery usage → Turn OFF for Friendle.</li>
+            <li><strong>Reinstall PWA:</strong> Remove the app from your home screen, clear browser cache, and reinstall from Samsung Internet browser.</li>
+        </ol>
+        <button class="btn btn-secondary" onclick="testSamsungNotifications()" style="width: 100%; margin-top: 10px;">
+            📊 Run Diagnostic Test
+        </button>
+        <div id="samsung-diagnostic-results" style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-family: monospace; font-size: 0.75em; display: none;"></div>
     </div>
 
     <div class="toggle-container">
@@ -2973,7 +3080,20 @@ window.signUp = async function() {
                     const permission = await OneSignal.Notifications.permission;
                     if (!permission) {
                         console.log('🔔 Requesting OneSignal notification permission...');
+
+                        if (isSamsungInternet()) {
+                            console.log('🔍 SAMSUNG: About to request permission during signup');
+                            console.log('🔍 SAMSUNG: Current permission state:', permission);
+                        }
+
                         await OneSignal.Notifications.requestPermission();
+
+                        if (isSamsungInternet()) {
+                            const newPermission = await OneSignal.Notifications.permission;
+                            console.log('🔍 SAMSUNG: Permission after request:', newPermission);
+                            const token = OneSignal.User.PushSubscription.token;
+                            console.log('🔍 SAMSUNG: Token after request:', token ? 'Present' : 'Missing');
+                        }
                     }
 
                     // Save player ID to profile
@@ -2985,6 +3105,12 @@ window.signUp = async function() {
                             .eq('id', currentUser.id);
 
                         console.log('✅ OneSignal Player ID saved:', userId);
+
+                        if (isSamsungInternet()) {
+                            console.log('🔍 SAMSUNG: Player ID saved to database:', userId);
+                        }
+                    } else if (isSamsungInternet()) {
+                        console.log('🔍 SAMSUNG: WARNING - No player ID returned after permission request');
                     }
                 });
             } catch (error) {
@@ -3478,8 +3604,20 @@ window.enableNotifications = async function() {
     if (window.OneSignalDeferred) {
         window.OneSignalDeferred.push(async function(OneSignal) {
             try {
+                if (isSamsungInternet()) {
+                    console.log('🔍 SAMSUNG: Manual enable notifications clicked');
+                    const prePermission = await OneSignal.Notifications.permission;
+                    console.log('🔍 SAMSUNG: Permission before request:', prePermission);
+                }
+
                 await OneSignal.Notifications.requestPermission();
                 const permission = await OneSignal.Notifications.permission;
+
+                if (isSamsungInternet()) {
+                    console.log('🔍 SAMSUNG: Permission after request:', permission);
+                    const token = OneSignal.User.PushSubscription.token;
+                    console.log('🔍 SAMSUNG: Token after request:', token ? 'Present' : 'Missing');
+                }
 
                 if (permission) {
                     showNotification('Notifications enabled! 🎉');
@@ -3492,6 +3630,12 @@ window.enableNotifications = async function() {
                             .update({ onesignal_player_id: userId })
                             .eq('id', currentUser.id);
                         console.log('✅ OneSignal Player ID saved:', userId);
+
+                        if (isSamsungInternet()) {
+                            console.log('🔍 SAMSUNG: Player ID saved to database:', userId);
+                        }
+                    } else if (isSamsungInternet()) {
+                        console.log('🔍 SAMSUNG: WARNING - No player ID after enabling notifications');
                     }
                 } else {
                     showNotification('Notification permission denied', 'error');
@@ -3501,6 +3645,119 @@ window.enableNotifications = async function() {
                 showNotification('Error enabling notifications', 'error');
             }
         });
+    }
+}
+
+// Samsung notification diagnostic test
+window.testSamsungNotifications = async function() {
+    const resultsDiv = document.getElementById('samsung-diagnostic-results');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '<div style="color: #667eea;">Running diagnostics...</div>';
+
+    const results = [];
+    results.push('=== SAMSUNG NOTIFICATION DIAGNOSTIC ===\n');
+    results.push(`Timestamp: ${new Date().toLocaleString()}\n`);
+    results.push(`Browser: ${window.browserInfo.browserName} ${window.browserInfo.browserVersion}\n`);
+    results.push(`Platform: ${navigator.platform}\n`);
+    results.push(`PWA Mode: ${window.matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No'}\n`);
+    results.push(`User Agent: ${navigator.userAgent}\n\n`);
+
+    try {
+        // Test OneSignal availability
+        if (window.OneSignalDeferred) {
+            results.push('✅ OneSignal SDK loaded\n');
+
+            await new Promise((resolve) => {
+                window.OneSignalDeferred.push(async function(OneSignal) {
+                    try {
+                        // Check permission
+                        const permission = await OneSignal.Notifications.permission;
+                        results.push(`Permission State: ${permission ? '✅ Granted' : '❌ Not Granted'}\n`);
+
+                        // Check push support
+                        const isPushSupported = await OneSignal.Notifications.isPushSupported();
+                        results.push(`Push Supported: ${isPushSupported ? '✅ Yes' : '❌ No'}\n`);
+
+                        // Check subscription
+                        const isSubscribed = OneSignal.User.PushSubscription.optedIn;
+                        results.push(`Subscribed: ${isSubscribed ? '✅ Yes' : '❌ No'}\n`);
+
+                        // Check player ID
+                        const playerId = OneSignal.User.PushSubscription.id;
+                        results.push(`Player ID: ${playerId ? '✅ ' + playerId : '❌ Not Set'}\n`);
+
+                        // Check token
+                        const token = OneSignal.User.PushSubscription.token;
+                        results.push(`Push Token: ${token ? '✅ Present (' + token.substring(0, 20) + '...)' : '❌ Missing'}\n\n`);
+
+                        // Check database
+                        if (window.currentUser) {
+                            results.push(`User ID: ${currentUser.id}\n`);
+                            results.push(`DB Player ID: ${currentUser.onesignal_player_id || '❌ Not Set'}\n`);
+
+                            // Verify database record
+                            const { data, error } = await supabase
+                                .from('profiles')
+                                .select('onesignal_player_id, notify_new_matches, notify_event_joins, notify_chat_messages')
+                                .eq('id', currentUser.id)
+                                .single();
+
+                            if (data) {
+                                results.push(`\nNotification Preferences:\n`);
+                                results.push(`- New Matches: ${data.notify_new_matches ? '✅' : '❌'}\n`);
+                                results.push(`- Event Joins: ${data.notify_event_joins ? '✅' : '❌'}\n`);
+                                results.push(`- Chat Messages: ${data.notify_chat_messages ? '✅' : '❌'}\n`);
+                            }
+                        } else {
+                            results.push('⚠️ No user logged in\n');
+                        }
+
+                        // Recommendations
+                        results.push('\n=== RECOMMENDATIONS ===\n');
+                        if (!permission) {
+                            results.push('❌ ISSUE: Notification permission not granted\n');
+                            results.push('   → Tap "Enable Notifications" button above\n');
+                        }
+                        if (!token) {
+                            results.push('❌ ISSUE: No push token registered\n');
+                            results.push('   → Try clearing browser cache and re-enabling notifications\n');
+                            results.push('   → Check if app is in "Sleeping Apps" (Settings → Battery)\n');
+                        }
+                        if (playerId && currentUser && currentUser.onesignal_player_id !== playerId) {
+                            results.push('⚠️ WARNING: Player ID mismatch between OneSignal and database\n');
+                            results.push('   → Attempting to sync...\n');
+                            await supabase
+                                .from('profiles')
+                                .update({ onesignal_player_id: playerId })
+                                .eq('id', currentUser.id);
+                            results.push('   ✅ Synced!\n');
+                        }
+                        if (permission && token && playerId) {
+                            results.push('✅ All checks passed! Notifications should be working.\n');
+                            results.push('   If you still don\'t receive notifications:\n');
+                            results.push('   1. Check "Sleeping Apps" in Battery settings\n');
+                            results.push('   2. Ensure "Allow background activity" is enabled\n');
+                            results.push('   3. Try reinstalling the PWA\n');
+                        }
+
+                    } catch (err) {
+                        results.push(`\n❌ ERROR during diagnostics: ${err.message}\n`);
+                        console.error('Samsung diagnostic error:', err);
+                    }
+
+                    resultsDiv.innerHTML = '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">' +
+                                          results.join('') + '</pre>';
+                    resolve();
+                });
+            });
+        } else {
+            results.push('❌ OneSignal SDK not loaded\n');
+            resultsDiv.innerHTML = '<pre style="margin: 0; white-space: pre-wrap;">' + results.join('') + '</pre>';
+        }
+    } catch (error) {
+        results.push(`\n❌ FATAL ERROR: ${error.message}\n`);
+        resultsDiv.innerHTML = '<pre style="margin: 0; white-space: pre-wrap;">' + results.join('') + '</pre>';
+        console.error('Samsung diagnostic fatal error:', error);
     }
 }
 
@@ -12096,6 +12353,12 @@ if (pageId === 'settings') {
                 const arrow = document.getElementById('advanced-settings-arrow');
                 content.style.maxHeight = content.scrollHeight + 'px';
                 arrow.style.transform = 'rotate(180deg)';
+            }
+
+            // Show Samsung notification help if on Samsung Internet
+            const samsungHelpSection = document.getElementById('samsung-notification-help');
+            if (samsungHelpSection && isSamsungInternet()) {
+                samsungHelpSection.style.display = 'block';
             }
         };
         

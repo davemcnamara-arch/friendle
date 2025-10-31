@@ -6,8 +6,19 @@ const urlsToCache = [
   '/index.html'
 ];
 
+// Detect Samsung Internet from service worker
+function isSamsungInternet() {
+  const ua = self.navigator.userAgent || '';
+  return ua.indexOf('SamsungBrowser') > -1 || ua.indexOf('SAMSUNG') > -1;
+}
+
 // Install event - cache core files
 self.addEventListener('install', event => {
+  console.log('🔧 SW: Installing service worker');
+  if (isSamsungInternet()) {
+    console.log('🔍 SW SAMSUNG: Service worker installing on Samsung Internet');
+  }
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
@@ -17,6 +28,11 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
+  console.log('🔧 SW: Activating service worker');
+  if (isSamsungInternet()) {
+    console.log('🔍 SW SAMSUNG: Service worker activating on Samsung Internet');
+  }
+
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -43,6 +59,12 @@ self.addEventListener('fetch', event => {
 self.addEventListener('notificationclick', event => {
   console.log('🔔 SW: Notification clicked', event);
   console.log('📦 SW: Full notification object:', JSON.stringify(event.notification, null, 2));
+
+  if (isSamsungInternet()) {
+    console.log('🔍 SW SAMSUNG: Notification clicked on Samsung Internet');
+    console.log('🔍 SW SAMSUNG: Event action:', event.action);
+    console.log('🔍 SW SAMSUNG: Notification tag:', event.notification.tag);
+  }
 
   event.notification.close();
 
@@ -90,6 +112,11 @@ self.addEventListener('notificationclick', event => {
     .then(clientList => {
       console.log('👥 SW: Found', clientList.length, 'clients');
 
+      if (isSamsungInternet()) {
+        console.log('🔍 SW SAMSUNG: Client count:', clientList.length);
+        console.log('🔍 SW SAMSUNG: Will navigate to:', urlToOpen);
+      }
+
       // Try to focus an existing client
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
@@ -97,11 +124,33 @@ self.addEventListener('notificationclick', event => {
 
         if (client.url.includes(self.location.origin)) {
           console.log('✅ SW: Focusing existing client and navigating to:', urlToOpen);
+
+          if (isSamsungInternet()) {
+            console.log('🔍 SW SAMSUNG: Attempting to focus and navigate existing client');
+          }
+
           // Always navigate to update the URL with chat parameters
           return client.focus().then(() => {
             if (chatType && chatId) {
               console.log('🚀 SW: Navigating client to:', urlToOpen);
-              return client.navigate(urlToOpen);
+
+              // Samsung Internet may have issues with client.navigate
+              // Try-catch to handle potential errors
+              try {
+                if (isSamsungInternet()) {
+                  console.log('🔍 SW SAMSUNG: Calling client.navigate()');
+                }
+                return client.navigate(urlToOpen);
+              } catch (navError) {
+                console.error('❌ SW: Navigation error:', navError);
+                if (isSamsungInternet()) {
+                  console.log('🔍 SW SAMSUNG: client.navigate() failed, will open new window');
+                }
+                // Fallback: open new window if navigate fails
+                if (clients.openWindow) {
+                  return clients.openWindow(urlToOpen);
+                }
+              }
             }
             return client;
           });
@@ -110,6 +159,10 @@ self.addEventListener('notificationclick', event => {
 
       // No existing client found, open new window
       console.log('🆕 SW: Opening new client at:', urlToOpen);
+      if (isSamsungInternet()) {
+        console.log('🔍 SW SAMSUNG: No existing client, opening new window');
+      }
+
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
