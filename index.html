@@ -5450,23 +5450,22 @@ window.finalizeCircleCreation = async function() {
       return `
         <div class="circle-card${unreadCount > 0 ? ' unread' : ''}">
           <div class="main-content" onclick='selectCircle("${circle.id}")'>
-            <div class="circle-name">
+            <div class="circle-name" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="cursor: pointer;" title="Click to rename">
               ${circle.name}
             </div>
-            <div class="circle-members">${memberText}</div>
-            <div class="circle-code">Invite Code: <strong>${circle.code}</strong></div>
+            <div class="circle-members" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="cursor: pointer; text-decoration: underline;" title="Click to view members">${memberText}</div>
+            <div class="circle-code" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+              <span>Invite Code: <strong>${circle.code}</strong></span>
+              <span onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="cursor: pointer; font-size: 1.2em;" title="Copy code">📋</span>
+            </div>
           </div>
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
     <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%; background: #667eea;">💬 Open Circle Chat</button>
-    <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="width: 100%;">👥 View Members</button>
     <div style="display: flex; gap: 8px;">
-        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="flex: 1;">Copy Code</button>
         <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
-    </div>
-    <div style="display: flex; gap: 8px;">
-        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="flex: 1;">Rename</button>
         <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
     </div>
+    <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewUpcomingEvents('${circle.id}')" style="width: 100%;">📅 Upcoming Events</button>
 </div>
         </div>`;
     }).join('');
@@ -5733,6 +5732,155 @@ window.viewCircleMembers = async function(circleId) {
         hideLoader();
         console.error('Error loading circle members:', error);
         showNotification('Error loading members', 'error');
+    }
+}
+
+window.viewUpcomingEvents = async function(circleId) {
+    const circle = circles.find(c => c.id === circleId);
+
+    if (!circle) {
+        showNotification('Circle not found', 'error');
+        return;
+    }
+
+    try {
+        showLoader('Loading upcoming events...');
+
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split('T')[0];
+
+        // Query events for this circle that are today or in the future
+        const { data: events, error } = await supabase
+            .from('events')
+            .select(`
+                *,
+                activities(name, emoji),
+                event_participants(profile_id, profiles(id, name, avatar))
+            `)
+            .eq('circle_id', circleId)
+            .gte('scheduled_date', today)
+            .order('scheduled_date', { ascending: true })
+            .order('scheduled_time', { ascending: true });
+
+        if (error) throw error;
+
+        hideLoader();
+
+        if (!events || events.length === 0) {
+            alert(`No upcoming events for ${circle.name}.`);
+            return;
+        }
+
+        // Create a modal to display the events
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        `;
+
+        let eventsHtml = `<h2 style="margin-top: 0;">📅 Upcoming Events - ${circle.name}</h2>`;
+
+        events.forEach(event => {
+            const activity = event.activities;
+            const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
+            const eventDate = new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            const eventTime = event.scheduled_time || 'Time TBD';
+
+            // Check if user is already a participant
+            const isUserJoined = event.event_participants?.some(p => p.profile_id === currentUser.id) || false;
+            const participantCount = event.event_participants?.length || 0;
+
+            eventsHtml += `
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                    <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 5px;">${activityName}</div>
+                    <div style="color: #666; font-size: 0.9em; margin-bottom: 5px;">📅 ${eventDate} at ${eventTime}</div>
+                    <div style="color: #666; font-size: 0.9em; margin-bottom: 10px;">👥 ${participantCount} participant${participantCount !== 1 ? 's' : ''}</div>
+                    ${isUserJoined
+                        ? '<div style="color: #10b981; font-weight: 500;">✓ You\'re joined</div>'
+                        : `<button class="btn btn-small" onclick="joinEventFromModal('${event.id}')" style="width: 100%; background: #667eea;">Join Event</button>`
+                    }
+                </div>
+            `;
+        });
+
+        eventsHtml += `
+            <button class="btn btn-secondary" onclick="closeUpcomingEventsModal()" style="width: 100%; margin-top: 10px;">Close</button>
+        `;
+
+        modalContent.innerHTML = eventsHtml;
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+        // Store modal reference for closing
+        window.currentUpcomingEventsModal = modal;
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeUpcomingEventsModal();
+            }
+        });
+
+    } catch (error) {
+        hideLoader();
+        console.error('Error loading upcoming events:', error);
+        showNotification('Error loading upcoming events', 'error');
+    }
+}
+
+window.closeUpcomingEventsModal = function() {
+    if (window.currentUpcomingEventsModal) {
+        window.currentUpcomingEventsModal.remove();
+        window.currentUpcomingEventsModal = null;
+    }
+}
+
+window.joinEventFromModal = async function(eventId) {
+    try {
+        await window.joinEvent(eventId);
+
+        // Close and refresh the modal to show updated status
+        closeUpcomingEventsModal();
+
+        // Get the circle_id from the event
+        const { data: event } = await supabase
+            .from('events')
+            .select('circle_id')
+            .eq('id', eventId)
+            .single();
+
+        if (event && event.circle_id) {
+            // Reopen the modal with updated data
+            setTimeout(() => {
+                viewUpcomingEvents(event.circle_id);
+            }, 500);
+        }
+    } catch (error) {
+        console.error('Error joining event from modal:', error);
+        showNotification('Error joining event', 'error');
     }
 }
 
