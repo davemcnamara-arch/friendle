@@ -1914,25 +1914,26 @@ body.dark-mode .custom-activity-item {
         <option value="">Choose a circle...</option>
     </select>
 </div>
-    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-    <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
-    <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
-</div>
 
 <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
     <button id="grid-view-btn" class="btn btn-secondary btn-small" onclick="switchToGridView()">📋 Grid View</button>
     <button id="swipe-view-btn" class="btn btn-secondary btn-small" onclick="switchToSwipeView()" style="background: #667eea; color: white;">👆 Swipe View</button>
 </div>
-    
+
                 <!-- Swipe View Container -->
 <div id="swipe-view-container" style="display: block;">
-    <div id="swipe-container" style="position: relative; height: 500px; display: flex; align-items: center; justify-content: center;">
-        <div id="card-stack" style="position: relative; width: 100%; max-width: 350px; height: 450px;"></div>
+    <div id="swipe-container" style="position: relative; height: 400px; display: flex; align-items: center; justify-content: center;">
+        <div id="card-stack" style="position: relative; width: 100%; max-width: 350px; height: 360px;"></div>
     </div>
-    
+
     <div style="text-align: center; margin: 20px 0;">
         <span id="swipe-progress" style="font-size: 0.9em; color: #666;">0 of 0</span>
     </div>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+    <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
+    <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
+</div>
 </div>
 
 <!-- Grid View Container (existing) -->
@@ -6088,7 +6089,7 @@ function renderSwipeCard(activity) {
         position: absolute;
         width: 100%;
         max-width: 350px;
-        height: 400px;
+        height: 340px;
         background: ${bgColor};
         border: 3px solid ${borderColor};
         border-radius: 20px;
@@ -6097,7 +6098,7 @@ function renderSwipeCard(activity) {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 40px;
+        padding: 30px;
         cursor: grab;
         user-select: none;
         transition: transform 0.1s ease-out;
@@ -6106,8 +6107,8 @@ function renderSwipeCard(activity) {
     const isAlreadySelected = activities.some(a => a.id === activity.id);
 
     card.innerHTML = `
-        <div style="font-size: 5em; margin-bottom: 20px;">${activity.emoji}</div>
-        <h2 style="font-size: 1.8em; margin-bottom: 10px; text-align: center; color: ${textColor};">${activity.name}</h2>
+        <div style="font-size: 4.5em; margin-bottom: 15px;">${activity.emoji}</div>
+        <h2 style="font-size: 1.6em; margin-bottom: 10px; text-align: center; color: ${textColor};">${activity.name}</h2>
         ${activity.popularityCount > 0 ? `
             <div style="
                 background: linear-gradient(135deg, #667eea, #764ba2);
@@ -12231,6 +12232,8 @@ if (pageId !== 'chat') {
     
     if (pageId === 'circles') renderCircles();
 if (pageId === 'activities') {
+    // Scroll to top to ensure card is fully visible
+    document.getElementById('activities').scrollTop = 0;
     await populateCircleSelector();
     // If in swipe mode and circle is selected, initialize swipe view
     if (viewMode === 'swipe' && selectedCircle) {
