@@ -9486,20 +9486,25 @@ if (!showPastEvents) {
         // Check for inactivity warning
         const hasWarning = warningsMap.has(match.id);
 
-        // Get interested users display
+        // Get interested users display (keep anonymous - just show count)
         const interestedCount = match.interestedCount || 0;
-        const interestedNames = match.interestedUsers?.slice(0, 2).map(u => u.name).join(', ') || '';
-        const moreCount = interestedCount > 2 ? interestedCount - 2 : 0;
-        
-        let interestedDisplay = '';
-        if (interestedCount === 1) {
-            interestedDisplay = 'Just you interested';
-        } else if (interestedCount === 2) {
-            interestedDisplay = interestedNames;
-        } else if (interestedCount > 2) {
-            const allNames = match.interestedUsers.map(u => u.name).join('\\n');
-            interestedDisplay = `${interestedNames}, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('People interested:\\n\\n${allNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${moreCount} other${moreCount > 1 ? 's' : ''}</a>`;
+
+        // Get in-chat users display (these are revealed)
+        const inChatNames = match.chatParticipants?.slice(0, 2).map(u => u.name).join(', ') || '';
+        const inChatMoreCount = match.inChatCount > 2 ? match.inChatCount - 2 : 0;
+
+        let inChatDisplay = '';
+        if (match.inChatCount === 1 && match.userInChat) {
+            inChatDisplay = 'Just you';
+        } else if (match.inChatCount === 1) {
+            inChatDisplay = match.chatParticipants[0]?.name || '1 person';
+        } else if (match.inChatCount === 2) {
+            inChatDisplay = inChatNames;
+        } else if (match.inChatCount > 2) {
+            const allChatNames = match.chatParticipants.map(u => u.name).join('\\n');
+            inChatDisplay = `${inChatNames}, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('In chat:\\n\\n${allChatNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${inChatMoreCount} other${inChatMoreCount > 1 ? 's' : ''}</a>`;
         }
+
         
         // Compare dates at midnight to include events happening today
 const now = new Date();
@@ -9528,11 +9533,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         ${activityEmoji} ${activityName}
     </h3>
             <p style="margin: 8px 0 0 0; font-size: 14px; line-height: 1.4;">
-                ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested${interestedDisplay ? ': ' + interestedDisplay : ''}
+                ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested
             </p>
             ${match.inChatCount > 0 ? `
                 <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px;">
-                    💬 ${match.inChatCount} in chat${match.userInChat ? ' (including you)' : ''}
+                    💬 ${match.inChatCount} in chat${inChatDisplay ? ': ' + inChatDisplay : ''}
                 </p>
             ` : ''}
         </div>
