@@ -2058,135 +2058,7 @@ body.dark-mode .custom-activity-item {
         <h2 id="profile-name" style="color: var(--text-primary);">Your Name</h2>
     </div>
 
-    <div class="form-group">
-        <label for="new-username">Display Name</label>
-        <input type="text" id="new-username" placeholder="Enter new name">
-    </div>
-    <button class="btn btn-secondary" onclick="changeUsername()">Update Name</button>
-
-    <div class="toggle-container">
-        <label class="toggle-label" for="event-reminders-toggle">
-            <div class="toggle-text">
-                <div class="toggle-title">Event Reminders</div>
-                <div class="toggle-description">Get notified at 9 AM on the day of your events</div>
-            </div>
-            <div class="toggle-switch">
-                <input type="checkbox" id="event-reminders-toggle" onchange="toggleEventReminders()">
-                <span class="toggle-slider"></span>
-            </div>
-        </label>
-    </div>
-
-    <div style="margin: 0 0 20px 0;">
-        <label for="timezone-select" style="display: block; font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">Your Timezone</label>
-        <select id="timezone-select" onchange="updateTimezone()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 1em;">
-            <option value="America/New_York">Eastern Time (ET)</option>
-            <option value="America/Chicago">Central Time (CT)</option>
-            <option value="America/Denver">Mountain Time (MT)</option>
-            <option value="America/Los_Angeles">Pacific Time (PT)</option>
-            <option value="America/Anchorage">Alaska Time (AKT)</option>
-            <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
-            <option value="Europe/London">London (GMT/BST)</option>
-            <option value="Europe/Paris">Central European (CET)</option>
-            <option value="Europe/Athens">Eastern European (EET)</option>
-            <option value="Asia/Dubai">Dubai (GST)</option>
-            <option value="Asia/Kolkata">India (IST)</option>
-            <option value="Asia/Shanghai">China (CST)</option>
-            <option value="Asia/Tokyo">Japan (JST)</option>
-            <option value="Australia/Sydney">Sydney (AEDT)</option>
-            <option value="Pacific/Auckland">New Zealand (NZDT)</option>
-        </select>
-        <button onclick="detectAndUpdateTimezone()" style="width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 0.9em; cursor: pointer;">
-            🌍 Detect Automatically
-        </button>
-        <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 4px;">Reminders will be sent at 9 AM in your timezone</div>
-    </div>
-
-    <div style="margin: 20px 0; padding: 15px; background: var(--card-bg); border-radius: 8px;">
-        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: var(--text-primary);">Push Notifications</h3>
-        <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary);">Control which push notifications you receive</p>
-
-        <div class="toggle-container">
-            <label class="toggle-label" for="new-match-toggle">
-                <div class="toggle-text">
-                    <div class="toggle-title">New Matches</div>
-                    <div class="toggle-description">Get notified when someone joins your activity</div>
-                </div>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="new-match-toggle" onchange="toggleNewMatches()">
-                    <span class="toggle-slider"></span>
-                </div>
-            </label>
-        </div>
-
-        <div class="toggle-container">
-            <label class="toggle-label" for="event-join-toggle">
-                <div class="toggle-text">
-                    <div class="toggle-title">Event Joins</div>
-                    <div class="toggle-description">Get notified when someone joins your event</div>
-                </div>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="event-join-toggle" onchange="toggleEventJoins()">
-                    <span class="toggle-slider"></span>
-                </div>
-            </label>
-        </div>
-
-        <div class="toggle-container">
-            <label class="toggle-label" for="chat-messages-toggle">
-                <div class="toggle-text">
-                    <div class="toggle-title">Chat Messages</div>
-                    <div class="toggle-description">Get notified about new chat messages</div>
-                </div>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="chat-messages-toggle" onchange="toggleChatMessages()">
-                    <span class="toggle-slider"></span>
-                </div>
-            </label>
-        </div>
-
-        <div class="toggle-container">
-            <label class="toggle-label" for="inactivity-warnings-toggle">
-                <div class="toggle-text">
-                    <div class="toggle-title">Inactivity Warnings</div>
-                    <div class="toggle-description">Get notified before you're marked inactive</div>
-                </div>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="inactivity-warnings-toggle" onchange="toggleInactivityWarnings()">
-                    <span class="toggle-slider"></span>
-                </div>
-            </label>
-        </div>
-    </div>
-
-    <!-- Samsung Internet Notification Troubleshooting -->
-    <div id="samsung-notification-help" style="display: none; margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 3px solid #ffc107;">
-        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #856404;">📱 Samsung Device Notification Help</h3>
-
-        <div style="margin-bottom: 15px; padding: 10px; background: #ffe5e5; border-radius: 4px; border: 1px solid #ff4444;">
-            <strong style="color: #cc0000;">⚠️ IMPORTANT - WebAPK Issue:</strong>
-            <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
-                If your app info says "Downloaded from Google Play Store" but it's NOT actually in the Play Store, Samsung has installed this as a WebAPK which <strong>blocks web push notifications</strong>.
-            </p>
-            <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
-                <strong>FIX:</strong> Uninstall the app, then use Friendle directly from Samsung Internet browser (don't install to home screen), OR install it using Chrome browser instead.
-            </p>
-        </div>
-
-        <p style="margin: 0 0 10px 0; font-size: 0.85em; color: #856404; line-height: 1.4;">
-            Run the diagnostic test below first. If not using WebAPK, try these steps:
-        </p>
-        <ol style="margin: 0; padding-left: 20px; font-size: 0.85em; color: #856404; line-height: 1.6;">
-            <li><strong>Check Sleeping Apps:</strong> Settings → Battery → Background usage limits → Sleeping apps. Friendle should NOT be in this list.</li>
-            <li><strong>Allow Background Activity:</strong> Settings → Apps → Friendle → Battery → Allow background activity.</li>
-            <li><strong>Check Notification Settings:</strong> Settings → Apps → Friendle → Notifications. Ensure all categories are enabled.</li>
-            <li><strong>Disable Battery Optimization:</strong> Settings → Apps → Friendle → Battery → Optimize battery usage → Turn OFF.</li>
-        </ol>
-        <button class="btn btn-secondary" onclick="testSamsungNotifications()" style="width: 100%; margin-top: 10px;">
-            📊 Run Diagnostic Test
-        </button>
-        <div id="samsung-diagnostic-results" style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-family: monospace; font-size: 0.75em; display: none;"></div>
-    </div>
+    <button class="btn btn-secondary" onclick="openUpdateNameModal()">Update Name</button>
 
     <div class="toggle-container">
         <label class="toggle-label" for="dark-mode-toggle">
@@ -2201,37 +2073,166 @@ body.dark-mode .custom-activity-item {
         </label>
     </div>
 
-    <!-- Provide Feedback Section -->
-    <div style="margin: 20px 0; padding: 15px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid #28a745;">
-        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: var(--text-primary);">💬 Provide Feedback</h3>
-        <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
-            Help us improve Friendle! Share your thoughts, suggestions, or report issues.
-        </p>
-        <a href="https://docs.google.com/forms/d/e/1FAIpQLSdGqNR1X-Xe0jHEIbrpABegJBgrAid-xYUkUSGHMW4JbIsxcg/viewform?usp=header" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
-            <button class="btn btn-secondary" style="width: 100%;">Share Your Feedback</button>
-        </a>
+    <!-- Notification Settings Section (Collapsible) -->
+    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div onclick="toggleNotificationSettings()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">🔔 Notification Settings</h3>
+            <span id="notification-settings-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
+        </div>
+
+        <div id="notification-settings-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+            <div style="padding: 0 20px 20px 20px;">
+                <div class="toggle-container">
+                    <label class="toggle-label" for="event-reminders-toggle">
+                        <div class="toggle-text">
+                            <div class="toggle-title">Event Reminders</div>
+                            <div class="toggle-description">Get notified at 9 AM on the day of your events</div>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="event-reminders-toggle" onchange="toggleEventReminders()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="margin: 15px 0 20px 0;">
+                    <label for="timezone-select" style="display: block; font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">Your Timezone</label>
+                    <select id="timezone-select" onchange="updateTimezone()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 1em;">
+                        <option value="America/New_York">Eastern Time (ET)</option>
+                        <option value="America/Chicago">Central Time (CT)</option>
+                        <option value="America/Denver">Mountain Time (MT)</option>
+                        <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                        <option value="America/Anchorage">Alaska Time (AKT)</option>
+                        <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+                        <option value="Europe/London">London (GMT/BST)</option>
+                        <option value="Europe/Paris">Central European (CET)</option>
+                        <option value="Europe/Athens">Eastern European (EET)</option>
+                        <option value="Asia/Dubai">Dubai (GST)</option>
+                        <option value="Asia/Kolkata">India (IST)</option>
+                        <option value="Asia/Shanghai">China (CST)</option>
+                        <option value="Asia/Tokyo">Japan (JST)</option>
+                        <option value="Australia/Sydney">Sydney (AEDT)</option>
+                        <option value="Pacific/Auckland">New Zealand (NZDT)</option>
+                    </select>
+                    <button onclick="detectAndUpdateTimezone()" style="width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 0.9em; cursor: pointer;">
+                        🌍 Detect Automatically
+                    </button>
+                    <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 4px;">Reminders will be sent at 9 AM in your timezone</div>
+                </div>
+
+                <h4 style="margin: 20px 0 10px 0; font-size: 0.95em; color: var(--text-primary);">Push Notifications</h4>
+                <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary);">Control which push notifications you receive</p>
+
+                <div class="toggle-container">
+                    <label class="toggle-label" for="new-match-toggle">
+                        <div class="toggle-text">
+                            <div class="toggle-title">New Matches</div>
+                            <div class="toggle-description">Get notified when someone joins your activity</div>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="new-match-toggle" onchange="toggleNewMatches()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="toggle-container">
+                    <label class="toggle-label" for="event-join-toggle">
+                        <div class="toggle-text">
+                            <div class="toggle-title">Event Joins</div>
+                            <div class="toggle-description">Get notified when someone joins your event</div>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="event-join-toggle" onchange="toggleEventJoins()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="toggle-container">
+                    <label class="toggle-label" for="chat-messages-toggle">
+                        <div class="toggle-text">
+                            <div class="toggle-title">Chat Messages</div>
+                            <div class="toggle-description">Get notified about new chat messages</div>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="chat-messages-toggle" onchange="toggleChatMessages()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="toggle-container">
+                    <label class="toggle-label" for="inactivity-warnings-toggle">
+                        <div class="toggle-text">
+                            <div class="toggle-title">Inactivity Warnings</div>
+                            <div class="toggle-description">Get notified before you're marked inactive</div>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="inactivity-warnings-toggle" onchange="toggleInactivityWarnings()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Samsung Internet Notification Troubleshooting -->
+                <div id="samsung-notification-help" style="display: none; margin: 20px 0 0 0; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 3px solid #ffc107;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #856404;">📱 Samsung Device Notification Help</h3>
+
+                    <div style="margin-bottom: 15px; padding: 10px; background: #ffe5e5; border-radius: 4px; border: 1px solid #ff4444;">
+                        <strong style="color: #cc0000;">⚠️ IMPORTANT - WebAPK Issue:</strong>
+                        <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
+                            If your app info says "Downloaded from Google Play Store" but it's NOT actually in the Play Store, Samsung has installed this as a WebAPK which <strong>blocks web push notifications</strong>.
+                        </p>
+                        <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
+                            <strong>FIX:</strong> Uninstall the app, then use Friendle directly from Samsung Internet browser (don't install to home screen), OR install it using Chrome browser instead.
+                        </p>
+                    </div>
+
+                    <p style="margin: 0 0 10px 0; font-size: 0.85em; color: #856404; line-height: 1.4;">
+                        Run the diagnostic test below first. If not using WebAPK, try these steps:
+                    </p>
+                    <ol style="margin: 0; padding-left: 20px; font-size: 0.85em; color: #856404; line-height: 1.6;">
+                        <li><strong>Check Sleeping Apps:</strong> Settings → Battery → Background usage limits → Sleeping apps. Friendle should NOT be in this list.</li>
+                        <li><strong>Allow Background Activity:</strong> Settings → Apps → Friendle → Battery → Allow background activity.</li>
+                        <li><strong>Check Notification Settings:</strong> Settings → Apps → Friendle → Notifications. Ensure all categories are enabled.</li>
+                        <li><strong>Disable Battery Optimization:</strong> Settings → Apps → Friendle → Battery → Optimize battery usage → Turn OFF.</li>
+                    </ol>
+                    <button class="btn btn-secondary" onclick="testSamsungNotifications()" style="width: 100%; margin-top: 10px;">
+                        📊 Run Diagnostic Test
+                    </button>
+                    <div id="samsung-diagnostic-results" style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-family: monospace; font-size: 0.75em; display: none;"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
+    <!-- Help & Tutorials Section (Collapsible) -->
+    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div onclick="toggleHelpTutorials()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">📚 Help & Tutorials</h3>
+            <span id="help-tutorials-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
+        </div>
 
-    <!-- Help & Tutorials Section -->
-    <div style="margin: 20px 0; padding: 15px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid #667eea;">
-        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: var(--text-primary);">📚 Help & Tutorials</h3>
-        <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
-            View the tutorial guides again to learn how to use Friendle.
-        </p>
+        <div id="help-tutorials-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+            <div style="padding: 0 20px 20px 20px;">
+                <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                    View the tutorial guides again to learn how to use Friendle.
+                </p>
 
-        <button class="btn btn-secondary" onclick="showTutorial('activities', true)" style="width: 100%; margin-bottom: 10px;">
-            🎯 Activities Tutorial
-        </button>
+                <button class="btn btn-secondary" onclick="showTutorial('activities', true)" style="width: 100%; margin-bottom: 10px;">
+                    🎯 Activities Tutorial
+                </button>
 
-        <button class="btn btn-secondary" onclick="showTutorial('circles', true)" style="width: 100%; margin-bottom: 10px;">
-            👥 Circles Tutorial
-        </button>
+                <button class="btn btn-secondary" onclick="showTutorial('circles', true)" style="width: 100%; margin-bottom: 10px;">
+                    👥 Circles Tutorial
+                </button>
 
-        <button class="btn btn-secondary" onclick="showTutorial('matches', true)" style="width: 100%;">
-            💫 Matches Tutorial
-        </button>
+                <button class="btn btn-secondary" onclick="showTutorial('matches', true)" style="width: 100%;">
+                    💫 Matches Tutorial
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Advanced Settings Section (Collapsible) -->
@@ -2261,6 +2262,19 @@ body.dark-mode .custom-activity-item {
             </div>
         </div>
     </div>
+
+    <!-- Provide Feedback Section -->
+    <div style="margin: 20px 0; padding: 15px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid #28a745;">
+        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: var(--text-primary);">💬 Share Your Feedback</h3>
+        <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+            Help us improve Friendle! Share your thoughts, suggestions, or report issues.
+        </p>
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSdGqNR1X-Xe0jHEIbrpABegJBgrAid-xYUkUSGHMW4JbIsxcg/viewform?usp=header" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+            <button class="btn btn-secondary" style="width: 100%;">Share Your Feedback</button>
+        </a>
+    </div>
+
+    <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
 </div>
         </div>
         
@@ -2334,6 +2348,7 @@ body.dark-mode .custom-activity-item {
 </div><div id="join-circle" style="display: none;"><div class="modal-header">Join Circle</div><div class="form-group"><label for="circle-code">Circle Code</label><input type="text" id="circle-code" placeholder="Enter 6-digit code"></div><button class="btn" onclick="joinCircle()">Join</button></div></div></div>
         <div class="modal-overlay" id="suggest-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeSuggestModal()">×</span><div class="modal-header">Suggest an Activity</div><div class="form-group"><label for="suggest-name">Activity Name</label><input type="text" id="suggest-name" placeholder="e.g., Go Karting"></div><button class="btn" onclick="suggestActivity()">Suggest</button></div></div>
         <div class="modal-overlay" id="invite-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeInviteModal()">×</span><div class="modal-header">Share Invite Link</div><div class="form-group"><label for="invite-link">Copy this link and send it to a friend:</label><input type="text" id="invite-link" readonly></div><button class="btn" onclick="copyInviteLink()">Copy Link</button></div></div>
+        <div class="modal-overlay" id="update-name-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeUpdateNameModal()">×</span><div class="modal-header">Update Display Name</div><div class="form-group"><label for="modal-new-username">Display Name</label><input type="text" id="modal-new-username" placeholder="Enter new name"></div><button class="btn" onclick="changeUsername()">Update Name</button></div></div>
     
 <div class="undo-container" id="undo-container">
                     <span>Selection updated.</span>
@@ -4188,8 +4203,20 @@ async function loadMinimumGroupSize() {
     }
 }
 
+window.openUpdateNameModal = function() {
+    const modal = document.getElementById('update-name-modal-overlay');
+    const input = document.getElementById('modal-new-username');
+    input.value = currentUser.name || '';
+    modal.style.display = 'flex';
+};
+
+window.closeUpdateNameModal = function() {
+    const modal = document.getElementById('update-name-modal-overlay');
+    modal.style.display = 'none';
+};
+
 window.changeUsername = async function() {
-    const newName = document.getElementById('new-username').value.trim();
+    const newName = document.getElementById('modal-new-username').value.trim();
 
     if (!newName) {
         return showNotification('Please enter a name', 'error');
@@ -4209,7 +4236,7 @@ window.changeUsername = async function() {
   SecureStorage.setSessionData(currentUser);
 
         updateProfile();
-        document.getElementById('new-username').value = '';
+        closeUpdateNameModal();
 
         showNotification('Name updated successfully!');
 
@@ -12544,6 +12571,8 @@ if (pageId === 'matches') {
     await loadMatches();
 }
 if (pageId === 'settings') {
+    initNotificationSettings();
+    initHelpTutorials();
     initAdvancedSettings();
 }
 
@@ -12625,6 +12654,70 @@ if (pageId === 'settings') {
                     localStorage.clear();
                     alert('All data has been deleted. The app will now reload.');
                     location.reload();
+                }
+            }
+        };
+
+        // Toggle Notification Settings section
+        window.toggleNotificationSettings = function() {
+            const content = document.getElementById('notification-settings-content');
+            const arrow = document.getElementById('notification-settings-arrow');
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+
+            if (isExpanded) {
+                // Collapse
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+                localStorage.setItem('notification_settings_expanded', 'false');
+            } else {
+                // Expand - set to scrollHeight to animate smoothly
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+                localStorage.setItem('notification_settings_expanded', 'true');
+            }
+        };
+
+        // Initialize Notification Settings state on page load
+        window.initNotificationSettings = function() {
+            const isExpanded = localStorage.getItem('notification_settings_expanded') === 'true';
+            if (isExpanded) {
+                const content = document.getElementById('notification-settings-content');
+                const arrow = document.getElementById('notification-settings-arrow');
+                if (content && arrow) {
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                    arrow.style.transform = 'rotate(180deg)';
+                }
+            }
+        };
+
+        // Toggle Help & Tutorials section
+        window.toggleHelpTutorials = function() {
+            const content = document.getElementById('help-tutorials-content');
+            const arrow = document.getElementById('help-tutorials-arrow');
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+
+            if (isExpanded) {
+                // Collapse
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+                localStorage.setItem('help_tutorials_expanded', 'false');
+            } else {
+                // Expand - set to scrollHeight to animate smoothly
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+                localStorage.setItem('help_tutorials_expanded', 'true');
+            }
+        };
+
+        // Initialize Help & Tutorials state on page load
+        window.initHelpTutorials = function() {
+            const isExpanded = localStorage.getItem('help_tutorials_expanded') === 'true';
+            if (isExpanded) {
+                const content = document.getElementById('help-tutorials-content');
+                const arrow = document.getElementById('help-tutorials-arrow');
+                if (content && arrow) {
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                    arrow.style.transform = 'rotate(180deg)';
                 }
             }
         };
