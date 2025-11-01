@@ -1574,16 +1574,143 @@ body.dark-mode .custom-activity-item {
 
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
+  // Samsung Internet and browser detection utilities
+  function isSamsungInternet() {
+    const ua = window.navigator.userAgent;
+    return ua.indexOf('SamsungBrowser') > -1 || ua.indexOf('SAMSUNG') > -1;
+  }
+
+  // Detect if running as WebAPK (installed PWA on Android)
+  function isWebAPK() {
+    const ua = window.navigator.userAgent;
+    // WebAPKs often have specific identifiers in the user agent
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isAndroid = /Android/.test(ua);
+    const isSamsung = isSamsungInternet();
+
+    // Check if document.referrer contains android-app://
+    const hasAndroidReferrer = document.referrer.startsWith('android-app://');
+
+    return isAndroid && (isSamsung || hasAndroidReferrer) && isStandalone;
+  }
+
+  function getBrowserInfo() {
+    const ua = window.navigator.userAgent;
+    let browserName = 'Unknown';
+    let browserVersion = 'Unknown';
+
+    if (ua.indexOf('SamsungBrowser') > -1) {
+      browserName = 'Samsung Internet';
+      const match = ua.match(/SamsungBrowser\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Chrome') > -1 && ua.indexOf('Edg') === -1) {
+      browserName = 'Chrome';
+      const match = ua.match(/Chrome\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Firefox') > -1) {
+      browserName = 'Firefox';
+      const match = ua.match(/Firefox\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Safari') > -1 && ua.indexOf('Chrome') === -1) {
+      browserName = 'Safari';
+      const match = ua.match(/Version\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    } else if (ua.indexOf('Edg') > -1) {
+      browserName = 'Edge';
+      const match = ua.match(/Edg\/([0-9.]+)/);
+      if (match) browserVersion = match[1];
+    }
+
+    return { browserName, browserVersion, userAgent: ua };
+  }
+
+  // Store browser info globally for debugging
+  window.browserInfo = getBrowserInfo();
+  window.isWebAPK = isWebAPK();
+
+  // Log browser info for Samsung debugging
+  if (isSamsungInternet()) {
+    console.log('🔍 SAMSUNG INTERNET DETECTED');
+    console.log('🔍 Browser Info:', window.browserInfo);
+    console.log('🔍 Display Mode:', window.matchMedia('(display-mode: standalone)').matches ? 'Standalone (PWA)' : 'Browser');
+    console.log('🔍 WebAPK Mode:', window.isWebAPK ? 'YES - Running as WebAPK' : 'NO - Running in browser');
+    console.log('🔍 Referrer:', document.referrer);
+  }
+
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     try {
+      // Enhanced initialization with Samsung-specific logging
+      console.log('🔔 Initializing OneSignal...');
+      console.log('🔍 Browser:', window.browserInfo.browserName, window.browserInfo.browserVersion);
+      console.log('🔍 Platform:', navigator.platform);
+      console.log('🔍 Is PWA:', window.matchMedia('(display-mode: standalone)').matches);
+
+      // Configure notification categories for Android (WebAPK)
+      const notificationCategories = [
+        {
+          id: 'friendle_messages',
+          name: 'Messages',
+          description: 'Chat messages and activity updates'
+        },
+        {
+          id: 'friendle_matches',
+          name: 'Matches',
+          description: 'New activity matches'
+        },
+        {
+          id: 'friendle_events',
+          name: 'Events',
+          description: 'Event joins and updates'
+        }
+      ];
+
       await OneSignal.init({
-        appId: "67c70940-dc92-4d95-9072-503b2f5d84c8", // TODO: Verify this is your correct OneSignal App ID from dashboard
+        appId: "67c70940-dc92-4d95-9072-503b2f5d84c8",
         allowLocalhostAsSecureOrigin: true,
         serviceWorkerParam: { scope: '/' },
-        serviceWorkerPath: '/OneSignalSDKWorker.js'
+        serviceWorkerPath: '/OneSignalSDKWorker.js',
+        // Add additional config for better Samsung compatibility
+        notifyButton: {
+          enable: false // We handle our own notification prompts
+        },
+        // Add notification categories for Android WebAPK support
+        notificationClickHandlerMatch: 'origin',
+        notificationClickHandlerAction: 'focus',
+        // For WebAPKs, ensure proper Android notification channels
+        android_notification_channel: {
+          id: 'friendle_default',
+          name: 'Friendle Notifications',
+          description: 'All Friendle notifications',
+          importance: 4 // IMPORTANCE_HIGH
+        }
       });
+
+      // Log WebAPK-specific info
+      if (window.isWebAPK) {
+        console.log('🔍 WEBAPK: Initialized OneSignal with Android notification channels');
+        console.log('🔍 WEBAPK: Categories configured:', notificationCategories.length);
+      }
       console.log('✅ OneSignal initialized successfully');
+
+      // Samsung-specific diagnostics
+      if (isSamsungInternet()) {
+        console.log('🔍 SAMSUNG: Checking notification permission...');
+        const permission = await OneSignal.Notifications.permission;
+        console.log('🔍 SAMSUNG: Permission state:', permission);
+
+        const isPushSupported = await OneSignal.Notifications.isPushSupported();
+        console.log('🔍 SAMSUNG: Push supported:', isPushSupported);
+
+        const isSubscribed = OneSignal.User.PushSubscription.optedIn;
+        console.log('🔍 SAMSUNG: Is subscribed:', isSubscribed);
+
+        const playerId = OneSignal.User.PushSubscription.id;
+        console.log('🔍 SAMSUNG: Player ID:', playerId);
+
+        const token = OneSignal.User.PushSubscription.token;
+        console.log('🔍 SAMSUNG: Push token:', token ? 'Present' : 'Missing');
+      }
 
       // Save player ID immediately if user is logged in
       try {
@@ -1668,10 +1795,23 @@ body.dark-mode .custom-activity-item {
 
       if (!playerId) {
         console.log('⚠️ No player ID in subscription change event');
+        if (isSamsungInternet()) {
+          console.log('🔍 SAMSUNG: Subscription change event fired but no player ID');
+          console.log('🔍 SAMSUNG: Event details:', JSON.stringify(event, null, 2));
+        }
         return;
       }
 
       console.log('🔔 OneSignal subscription changed, player ID:', playerId);
+
+      // Samsung-specific subscription diagnostics
+      if (isSamsungInternet()) {
+        console.log('🔍 SAMSUNG: Subscription change event details:');
+        console.log('🔍 SAMSUNG: - Player ID:', playerId);
+        console.log('🔍 SAMSUNG: - Token:', event.current.token ? 'Present' : 'Missing');
+        console.log('🔍 SAMSUNG: - Opted In:', event.current.optedIn);
+        console.log('🔍 SAMSUNG: - Full event:', JSON.stringify(event.current, null, 2));
+      }
 
       try {
         // Get current session from Supabase
@@ -1826,23 +1966,24 @@ body.dark-mode .custom-activity-item {
         <option value="">Choose a circle...</option>
     </select>
 </div>
-    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-    <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
-    <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
-</div>
 
 <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
     <button id="grid-view-btn" class="btn btn-secondary btn-small" onclick="switchToGridView()">📋 Grid View</button>
     <button id="swipe-view-btn" class="btn btn-secondary btn-small" onclick="switchToSwipeView()" style="background: #667eea; color: white;">👆 Swipe View</button>
 </div>
-    
+
                 <!-- Swipe View Container -->
 <div id="swipe-view-container" style="display: block;">
-    <div id="swipe-container" style="position: relative; height: 500px; display: flex; align-items: center; justify-content: center;">
-        <div id="card-stack" style="position: relative; width: 100%; max-width: 350px; height: 450px;"></div>
+    <div id="swipe-container" style="position: relative; height: 400px; display: flex; align-items: center; justify-content: center;">
+        <div id="card-stack" style="position: relative; width: 100%; max-width: 350px; height: 360px;"></div>
     </div>
-    
-    <div style="text-align: center; margin: 20px 0;">
+
+    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+    <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
+    <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
+</div>
+
+    <div style="text-align: center; margin: 10px 0;">
         <span id="swipe-progress" style="font-size: 0.9em; color: #666;">0 of 0</span>
     </div>
 </div>
@@ -1867,19 +2008,19 @@ body.dark-mode .custom-activity-item {
     <div class="chat-container">
         <div class="chat-header">
     <div style="display: flex; align-items: center; margin-bottom: 8px;">
-        <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-right: 10px;">← Back</button>
-        <div style="flex: 1;">
+        <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">← Back</button>
+        <div style="flex: 1; text-align: center;">
             <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
             <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
         </div>
+        <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
     </div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
-        <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
         <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
         <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
-	<button id="mute-chat-btn" class="btn btn-secondary btn-small" onclick="toggleMuteChat()" style="display: none;">
-    <span id="mute-btn-text">🔔 Mute</span>
-</button>
+        <button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">
+            <span id="mute-btn-text">🔔 Mute</span>
+        </button>
         <button id="create-event-header-btn" onclick="openCreateEventModalFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">➕ Create Event</button>
         <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️</button>
     </div>
@@ -1955,6 +2096,9 @@ body.dark-mode .custom-activity-item {
             <option value="Australia/Sydney">Sydney (AEDT)</option>
             <option value="Pacific/Auckland">New Zealand (NZDT)</option>
         </select>
+        <button onclick="detectAndUpdateTimezone()" style="width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 0.9em; cursor: pointer;">
+            🌍 Detect Automatically
+        </button>
         <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 4px;">Reminders will be sent at 9 AM in your timezone</div>
     </div>
 
@@ -2013,6 +2157,35 @@ body.dark-mode .custom-activity-item {
                 </div>
             </label>
         </div>
+    </div>
+
+    <!-- Samsung Internet Notification Troubleshooting -->
+    <div id="samsung-notification-help" style="display: none; margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 3px solid #ffc107;">
+        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #856404;">📱 Samsung Device Notification Help</h3>
+
+        <div style="margin-bottom: 15px; padding: 10px; background: #ffe5e5; border-radius: 4px; border: 1px solid #ff4444;">
+            <strong style="color: #cc0000;">⚠️ IMPORTANT - WebAPK Issue:</strong>
+            <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
+                If your app info says "Downloaded from Google Play Store" but it's NOT actually in the Play Store, Samsung has installed this as a WebAPK which <strong>blocks web push notifications</strong>.
+            </p>
+            <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #cc0000;">
+                <strong>FIX:</strong> Uninstall the app, then use Friendle directly from Samsung Internet browser (don't install to home screen), OR install it using Chrome browser instead.
+            </p>
+        </div>
+
+        <p style="margin: 0 0 10px 0; font-size: 0.85em; color: #856404; line-height: 1.4;">
+            Run the diagnostic test below first. If not using WebAPK, try these steps:
+        </p>
+        <ol style="margin: 0; padding-left: 20px; font-size: 0.85em; color: #856404; line-height: 1.6;">
+            <li><strong>Check Sleeping Apps:</strong> Settings → Battery → Background usage limits → Sleeping apps. Friendle should NOT be in this list.</li>
+            <li><strong>Allow Background Activity:</strong> Settings → Apps → Friendle → Battery → Allow background activity.</li>
+            <li><strong>Check Notification Settings:</strong> Settings → Apps → Friendle → Notifications. Ensure all categories are enabled.</li>
+            <li><strong>Disable Battery Optimization:</strong> Settings → Apps → Friendle → Battery → Optimize battery usage → Turn OFF.</li>
+        </ol>
+        <button class="btn btn-secondary" onclick="testSamsungNotifications()" style="width: 100%; margin-top: 10px;">
+            📊 Run Diagnostic Test
+        </button>
+        <div id="samsung-diagnostic-results" style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-family: monospace; font-size: 0.75em; display: none;"></div>
     </div>
 
     <div class="toggle-container">
@@ -2190,9 +2363,12 @@ body.dark-mode .custom-activity-item {
             
             <div class="form-group">
     <label for="new-event-date">Date *</label>
-    <input type="date" id="new-event-date" required>
+    <div style="display: flex; gap: 10px;">
+        <input type="date" id="new-event-date" required style="flex: 1;">
+        <input type="time" id="new-event-time" placeholder="Time (optional)" style="flex: 1;">
+    </div>
 </div>
-            
+
             <div class="form-group">
                 <label for="new-event-location">Location</label>
                 <input type="text" id="new-event-location" placeholder="Where are you meeting?">
@@ -2235,9 +2411,12 @@ body.dark-mode .custom-activity-item {
         <form id="edit-event-form">
             <div class="form-group">
     <label for="edit-event-date">Date *</label>
-    <input type="date" id="edit-event-date" required>
+    <div style="display: flex; gap: 10px;">
+        <input type="date" id="edit-event-date" required style="flex: 1;">
+        <input type="time" id="edit-event-time" placeholder="Time (optional)" style="flex: 1;">
+    </div>
 </div>
-            
+
             <div class="form-group">
                 <label for="edit-event-location">Location</label>
                 <input type="text" id="edit-event-location" placeholder="Where are you meeting?">
@@ -2276,10 +2455,10 @@ body.dark-mode .custom-activity-item {
 <div class="modal-overlay" id="match-notification-modal" style="z-index: 10000;">
     <div class="modal-content" style="max-width: 350px; text-align: center; animation: slideUp 0.3s ease-out;">
         <div style="font-size: 4em; margin-bottom: 15px; animation: bounce 0.6s ease-in-out;">🎉</div>
-        <div style="font-size: 1.5em; font-weight: 700; color: #667eea; margin-bottom: 10px;">It's a Match!</div>
+        <div id="match-notification-heading" style="font-size: 1.5em; font-weight: 700; color: #667eea; margin-bottom: 10px;">It's a Match!</div>
         <div id="match-notification-activity" style="font-size: 2em; margin-bottom: 15px;">🎯</div>
         <div id="match-notification-text" style="color: #666; margin-bottom: 20px; line-height: 1.6;"></div>
-        <button class="btn" onclick="joinMatchFromNotification()" style="margin-bottom: 10px; background: #4CAF50;">✓ Join Match</button>
+        <button id="match-notification-join-btn" class="btn" onclick="joinMatchFromNotification()" style="margin-bottom: 10px; background: #4CAF50;">✓ Join Match</button>
         <button class="btn btn-secondary" onclick="closeMatchNotification()">Keep Swiping</button>
     </div>
 </div>
@@ -2964,7 +3143,20 @@ window.signUp = async function() {
                     const permission = await OneSignal.Notifications.permission;
                     if (!permission) {
                         console.log('🔔 Requesting OneSignal notification permission...');
+
+                        if (isSamsungInternet()) {
+                            console.log('🔍 SAMSUNG: About to request permission during signup');
+                            console.log('🔍 SAMSUNG: Current permission state:', permission);
+                        }
+
                         await OneSignal.Notifications.requestPermission();
+
+                        if (isSamsungInternet()) {
+                            const newPermission = await OneSignal.Notifications.permission;
+                            console.log('🔍 SAMSUNG: Permission after request:', newPermission);
+                            const token = OneSignal.User.PushSubscription.token;
+                            console.log('🔍 SAMSUNG: Token after request:', token ? 'Present' : 'Missing');
+                        }
                     }
 
                     // Save player ID to profile
@@ -2976,6 +3168,12 @@ window.signUp = async function() {
                             .eq('id', currentUser.id);
 
                         console.log('✅ OneSignal Player ID saved:', userId);
+
+                        if (isSamsungInternet()) {
+                            console.log('🔍 SAMSUNG: Player ID saved to database:', userId);
+                        }
+                    } else if (isSamsungInternet()) {
+                        console.log('🔍 SAMSUNG: WARNING - No player ID returned after permission request');
                     }
                 });
             } catch (error) {
@@ -3469,8 +3667,20 @@ window.enableNotifications = async function() {
     if (window.OneSignalDeferred) {
         window.OneSignalDeferred.push(async function(OneSignal) {
             try {
+                if (isSamsungInternet()) {
+                    console.log('🔍 SAMSUNG: Manual enable notifications clicked');
+                    const prePermission = await OneSignal.Notifications.permission;
+                    console.log('🔍 SAMSUNG: Permission before request:', prePermission);
+                }
+
                 await OneSignal.Notifications.requestPermission();
                 const permission = await OneSignal.Notifications.permission;
+
+                if (isSamsungInternet()) {
+                    console.log('🔍 SAMSUNG: Permission after request:', permission);
+                    const token = OneSignal.User.PushSubscription.token;
+                    console.log('🔍 SAMSUNG: Token after request:', token ? 'Present' : 'Missing');
+                }
 
                 if (permission) {
                     showNotification('Notifications enabled! 🎉');
@@ -3483,6 +3693,12 @@ window.enableNotifications = async function() {
                             .update({ onesignal_player_id: userId })
                             .eq('id', currentUser.id);
                         console.log('✅ OneSignal Player ID saved:', userId);
+
+                        if (isSamsungInternet()) {
+                            console.log('🔍 SAMSUNG: Player ID saved to database:', userId);
+                        }
+                    } else if (isSamsungInternet()) {
+                        console.log('🔍 SAMSUNG: WARNING - No player ID after enabling notifications');
                     }
                 } else {
                     showNotification('Notification permission denied', 'error');
@@ -3492,6 +3708,149 @@ window.enableNotifications = async function() {
                 showNotification('Error enabling notifications', 'error');
             }
         });
+    }
+}
+
+// Samsung notification diagnostic test
+window.testSamsungNotifications = async function() {
+    const resultsDiv = document.getElementById('samsung-diagnostic-results');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '<div style="color: #667eea;">Running diagnostics...</div>';
+
+    const results = [];
+    results.push('=== SAMSUNG NOTIFICATION DIAGNOSTIC ===\n');
+    results.push(`Timestamp: ${new Date().toLocaleString()}\n`);
+    results.push(`Browser: ${window.browserInfo.browserName} ${window.browserInfo.browserVersion}\n`);
+    results.push(`Platform: ${navigator.platform}\n`);
+    results.push(`PWA Mode: ${window.matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No'}\n`);
+    results.push(`WebAPK Mode: ${window.isWebAPK ? 'YES ⚠️' : 'No'}\n`);
+    results.push(`Referrer: ${document.referrer || 'None'}\n`);
+    results.push(`User Agent: ${navigator.userAgent}\n\n`);
+
+    // WebAPK warning
+    if (window.isWebAPK) {
+        results.push('⚠️ WEBAPK DETECTED: App is installed as WebAPK\n');
+        results.push('This may cause notification issues. See recommendations below.\n\n');
+    }
+
+    try {
+        // Test OneSignal availability
+        if (window.OneSignalDeferred) {
+            results.push('✅ OneSignal SDK loaded\n');
+
+            await new Promise((resolve) => {
+                window.OneSignalDeferred.push(async function(OneSignal) {
+                    try {
+                        // Check permission
+                        const permission = await OneSignal.Notifications.permission;
+                        results.push(`Permission State: ${permission ? '✅ Granted' : '❌ Not Granted'}\n`);
+
+                        // Check push support
+                        const isPushSupported = await OneSignal.Notifications.isPushSupported();
+                        results.push(`Push Supported: ${isPushSupported ? '✅ Yes' : '❌ No'}\n`);
+
+                        // Check subscription
+                        const isSubscribed = OneSignal.User.PushSubscription.optedIn;
+                        results.push(`Subscribed: ${isSubscribed ? '✅ Yes' : '❌ No'}\n`);
+
+                        // Check player ID
+                        const playerId = OneSignal.User.PushSubscription.id;
+                        results.push(`Player ID: ${playerId ? '✅ ' + playerId : '❌ Not Set'}\n`);
+
+                        // Check token
+                        const token = OneSignal.User.PushSubscription.token;
+                        results.push(`Push Token: ${token ? '✅ Present (' + token.substring(0, 20) + '...)' : '❌ Missing'}\n\n`);
+
+                        // Check database
+                        if (window.currentUser) {
+                            results.push(`User ID: ${currentUser.id}\n`);
+                            results.push(`DB Player ID: ${currentUser.onesignal_player_id || '❌ Not Set'}\n`);
+
+                            // Verify database record
+                            const { data, error } = await supabase
+                                .from('profiles')
+                                .select('onesignal_player_id, notify_new_matches, notify_event_joins, notify_chat_messages')
+                                .eq('id', currentUser.id)
+                                .single();
+
+                            if (data) {
+                                results.push(`\nNotification Preferences:\n`);
+                                results.push(`- New Matches: ${data.notify_new_matches ? '✅' : '❌'}\n`);
+                                results.push(`- Event Joins: ${data.notify_event_joins ? '✅' : '❌'}\n`);
+                                results.push(`- Chat Messages: ${data.notify_chat_messages ? '✅' : '❌'}\n`);
+                            }
+                        } else {
+                            results.push('⚠️ No user logged in\n');
+                        }
+
+                        // Recommendations
+                        results.push('\n=== RECOMMENDATIONS ===\n');
+
+                        // WebAPK-specific recommendations
+                        if (window.isWebAPK) {
+                            results.push('\n⚠️ WEBAPK NOTIFICATION FIX:\n');
+                            results.push('Samsung installed this PWA as a WebAPK (appears in Play Store).\n');
+                            results.push('This prevents web push notifications from working properly.\n\n');
+                            results.push('TO FIX (RECOMMENDED):\n');
+                            results.push('1. Remove app from home screen (uninstall WebAPK)\n');
+                            results.push('2. Open Samsung Internet browser\n');
+                            results.push('3. Go to https://friendle.app\n');
+                            results.push('4. Use the app from the browser (bookmark it)\n');
+                            results.push('5. OR: Install PWA again but from Chrome browser instead\n\n');
+                            results.push('WHY: Samsung\'s WebAPK doesn\'t support OneSignal web push.\n');
+                            results.push('Using the browser version works perfectly!\n\n');
+                        }
+
+                        if (!permission) {
+                            results.push('❌ ISSUE: Notification permission not granted\n');
+                            results.push('   → Tap "Enable Notifications" button above\n');
+                        }
+                        if (!token) {
+                            results.push('❌ ISSUE: No push token registered\n');
+                            if (!window.isWebAPK) {
+                                results.push('   → Try clearing browser cache and re-enabling notifications\n');
+                                results.push('   → Check if app is in "Sleeping Apps" (Settings → Battery)\n');
+                            } else {
+                                results.push('   → This is expected with WebAPK. See fix above.\n');
+                            }
+                        }
+                        if (playerId && currentUser && currentUser.onesignal_player_id !== playerId) {
+                            results.push('⚠️ WARNING: Player ID mismatch between OneSignal and database\n');
+                            results.push('   → Attempting to sync...\n');
+                            await supabase
+                                .from('profiles')
+                                .update({ onesignal_player_id: playerId })
+                                .eq('id', currentUser.id);
+                            results.push('   ✅ Synced!\n');
+                        }
+                        if (permission && token && playerId) {
+                            results.push('✅ All checks passed! Notifications should be working.\n');
+                            if (!window.isWebAPK) {
+                                results.push('   If you still don\'t receive notifications:\n');
+                                results.push('   1. Check "Sleeping Apps" in Battery settings\n');
+                                results.push('   2. Ensure "Allow background activity" is enabled\n');
+                                results.push('   3. Try reinstalling the PWA\n');
+                            }
+                        }
+
+                    } catch (err) {
+                        results.push(`\n❌ ERROR during diagnostics: ${err.message}\n`);
+                        console.error('Samsung diagnostic error:', err);
+                    }
+
+                    resultsDiv.innerHTML = '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">' +
+                                          results.join('') + '</pre>';
+                    resolve();
+                });
+            });
+        } else {
+            results.push('❌ OneSignal SDK not loaded\n');
+            resultsDiv.innerHTML = '<pre style="margin: 0; white-space: pre-wrap;">' + results.join('') + '</pre>';
+        }
+    } catch (error) {
+        results.push(`\n❌ FATAL ERROR: ${error.message}\n`);
+        resultsDiv.innerHTML = '<pre style="margin: 0; white-space: pre-wrap;">' + results.join('') + '</pre>';
+        console.error('Samsung diagnostic fatal error:', error);
     }
 }
 
@@ -3713,11 +4072,15 @@ function closeNotificationPrompt() {
     return showNotification('Please enter a name and select an avatar', 'error');
   }
 
+  // Auto-detect user's timezone
+  const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles';
+
   // Create profile object with UUID
   const profileData = {
     id: generateUUID(), // Use UUID instead of letting Supabase auto-generate
-    name, 
-    avatar: selectedAvatar.dataset.avatar
+    name,
+    avatar: selectedAvatar.dataset.avatar,
+    timezone: detectedTimezone
   };
 
   // Insert into Supabase
@@ -3777,7 +4140,20 @@ async function loadMinimumGroupSize() {
     // Load timezone preference
     const timezoneSelect = document.getElementById('timezone-select');
     if (timezoneSelect) {
-        timezoneSelect.value = currentUser.timezone || 'America/Los_Angeles';
+        const userTimezone = currentUser.timezone || 'America/Los_Angeles';
+
+        // Check if user's timezone is in the dropdown
+        const existingOption = Array.from(timezoneSelect.options).find(opt => opt.value === userTimezone);
+
+        // If not in dropdown, add it dynamically
+        if (!existingOption) {
+            const newOption = document.createElement('option');
+            newOption.value = userTimezone;
+            newOption.textContent = userTimezone;
+            timezoneSelect.appendChild(newOption);
+        }
+
+        timezoneSelect.value = userTimezone;
     }
 
     const newMatchToggle = document.getElementById('new-match-toggle');
@@ -4422,6 +4798,56 @@ window.updateTimezone = async function() {
         hideLoader();
         console.error('Error updating timezone:', error);
         showNotification('Error updating timezone', 'error');
+    }
+}
+
+window.detectAndUpdateTimezone = async function() {
+    try {
+        showLoader('Detecting timezone...');
+
+        // Detect timezone using browser's Intl API
+        const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        if (!detectedTimezone) {
+            throw new Error('Could not detect timezone');
+        }
+
+        // Update the dropdown to show detected timezone
+        const select = document.getElementById('timezone-select');
+
+        // Check if the detected timezone is already in the dropdown
+        const existingOption = Array.from(select.options).find(opt => opt.value === detectedTimezone);
+
+        // If not in dropdown, add it dynamically
+        if (!existingOption) {
+            const newOption = document.createElement('option');
+            newOption.value = detectedTimezone;
+            newOption.textContent = detectedTimezone;
+            select.appendChild(newOption);
+        }
+
+        select.value = detectedTimezone;
+
+        // Update in database
+        const { error } = await supabase
+            .from('profiles')
+            .update({ timezone: detectedTimezone })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.timezone = detectedTimezone;
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
+
+        hideLoader();
+        showNotification(`Timezone detected: ${detectedTimezone}`);
+
+    } catch (error) {
+        hideLoader();
+        console.error('Error detecting timezone:', error);
+        showNotification('Error detecting timezone', 'error');
     }
 }
 
@@ -5116,23 +5542,22 @@ window.finalizeCircleCreation = async function() {
       return `
         <div class="circle-card${unreadCount > 0 ? ' unread' : ''}">
           <div class="main-content" onclick='selectCircle("${circle.id}")'>
-            <div class="circle-name">
+            <div class="circle-name" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="cursor: pointer;" title="Click to rename">
               ${circle.name}
             </div>
-            <div class="circle-members">${memberText}</div>
-            <div class="circle-code">Invite Code: <strong>${circle.code}</strong></div>
+            <div class="circle-members" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="cursor: pointer; text-decoration: underline;" title="Click to view members">${memberText}</div>
+            <div class="circle-code" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+              <span>Invite Code: <strong>${circle.code}</strong></span>
+              <span onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="cursor: pointer; font-size: 1.2em;" title="Copy code">📋</span>
+            </div>
           </div>
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
     <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%; background: #667eea;">💬 Open Circle Chat</button>
-    <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="width: 100%;">👥 View Members</button>
     <div style="display: flex; gap: 8px;">
-        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="flex: 1;">Copy Code</button>
         <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
-    </div>
-    <div style="display: flex; gap: 8px;">
-        <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="flex: 1;">Rename</button>
         <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
     </div>
+    <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewUpcomingEvents('${circle.id}')" style="width: 100%;">📅 Upcoming Events</button>
 </div>
         </div>`;
     }).join('');
@@ -5402,6 +5827,155 @@ window.viewCircleMembers = async function(circleId) {
     }
 }
 
+window.viewUpcomingEvents = async function(circleId) {
+    const circle = circles.find(c => c.id === circleId);
+
+    if (!circle) {
+        showNotification('Circle not found', 'error');
+        return;
+    }
+
+    try {
+        showLoader('Loading upcoming events...');
+
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split('T')[0];
+
+        // Query events for this circle that are today or in the future
+        const { data: events, error } = await supabase
+            .from('events')
+            .select(`
+                *,
+                activities(name, emoji),
+                event_participants(profile_id, profiles(id, name, avatar))
+            `)
+            .eq('circle_id', circleId)
+            .gte('scheduled_date', today)
+            .order('scheduled_date', { ascending: true })
+            .order('scheduled_time', { ascending: true });
+
+        if (error) throw error;
+
+        hideLoader();
+
+        if (!events || events.length === 0) {
+            alert(`No upcoming events for ${circle.name}.`);
+            return;
+        }
+
+        // Create a modal to display the events
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        `;
+
+        let eventsHtml = `<h2 style="margin-top: 0;">📅 Upcoming Events - ${circle.name}</h2>`;
+
+        events.forEach(event => {
+            const activity = event.activities;
+            const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
+            const eventDate = new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            const eventTime = event.scheduled_time || 'Time TBD';
+
+            // Check if user is already a participant
+            const isUserJoined = event.event_participants?.some(p => p.profile_id === currentUser.id) || false;
+            const participantCount = event.event_participants?.length || 0;
+
+            eventsHtml += `
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                    <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 5px;">${activityName}</div>
+                    <div style="color: #666; font-size: 0.9em; margin-bottom: 5px;">📅 ${eventDate} at ${eventTime}</div>
+                    <div style="color: #666; font-size: 0.9em; margin-bottom: 10px;">👥 ${participantCount} participant${participantCount !== 1 ? 's' : ''}</div>
+                    ${isUserJoined
+                        ? '<div style="color: #10b981; font-weight: 500;">✓ You\'re joined</div>'
+                        : `<button class="btn btn-small" onclick="joinEventFromModal('${event.id}')" style="width: 100%; background: #667eea;">Join Event</button>`
+                    }
+                </div>
+            `;
+        });
+
+        eventsHtml += `
+            <button class="btn btn-secondary" onclick="closeUpcomingEventsModal()" style="width: 100%; margin-top: 10px;">Close</button>
+        `;
+
+        modalContent.innerHTML = eventsHtml;
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+        // Store modal reference for closing
+        window.currentUpcomingEventsModal = modal;
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeUpcomingEventsModal();
+            }
+        });
+
+    } catch (error) {
+        hideLoader();
+        console.error('Error loading upcoming events:', error);
+        showNotification('Error loading upcoming events', 'error');
+    }
+}
+
+window.closeUpcomingEventsModal = function() {
+    if (window.currentUpcomingEventsModal) {
+        window.currentUpcomingEventsModal.remove();
+        window.currentUpcomingEventsModal = null;
+    }
+}
+
+window.joinEventFromModal = async function(eventId) {
+    try {
+        await window.joinEvent(eventId);
+
+        // Close and refresh the modal to show updated status
+        closeUpcomingEventsModal();
+
+        // Get the circle_id from the event
+        const { data: event } = await supabase
+            .from('events')
+            .select('circle_id')
+            .eq('id', eventId)
+            .single();
+
+        if (event && event.circle_id) {
+            // Reopen the modal with updated data
+            setTimeout(() => {
+                viewUpcomingEvents(event.circle_id);
+            }, 500);
+        }
+    } catch (error) {
+        console.error('Error joining event from modal:', error);
+        showNotification('Error joining event', 'error');
+    }
+}
+
 // Save user preferences to Supabase
 async function saveUserPreferences(circleId, selectedActivityIds) {
     try {
@@ -5554,10 +6128,10 @@ window.handleCircleChange = async function(shouldScroll = true) {
     
     const savedActivityIds = await loadUserPreferences(selectedCircle.id);
     const allActivities = await loadActivities(selectedCircle.id);
-    
+
     activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
-    
-    renderActivities();
+
+    await renderActivities();
     
     // If in swipe mode, reinitialize swipe view
     if (viewMode === 'swipe') {
@@ -5574,21 +6148,21 @@ window.handleCircleChange = async function(shouldScroll = true) {
 // View mode switching
 let viewMode = 'swipe'; // Default to swipe view
 
-window.switchToGridView = function() {
+window.switchToGridView = async function() {
     viewMode = 'grid';
     document.getElementById('swipe-view-container').style.display = 'none';
     document.getElementById('grid-view-container').style.display = 'block';
-    
+
     // Update button styles
     document.getElementById('grid-view-btn').style.background = '#667eea';
     document.getElementById('grid-view-btn').style.color = 'white';
     document.getElementById('swipe-view-btn').style.background = '#f8f9fa';
     document.getElementById('swipe-view-btn').style.color = '#333';
-    
+
     // Show save button in grid mode
     document.getElementById('grid-save-button').style.display = 'block';
-    
-    renderActivities(); // Render grid view
+
+    await renderActivities(); // Render grid view
 }
 
 window.switchToSwipeView = async function() {
@@ -5755,7 +6329,7 @@ function renderSwipeCard(activity) {
         position: absolute;
         width: 100%;
         max-width: 350px;
-        height: 400px;
+        height: 340px;
         background: ${bgColor};
         border: 3px solid ${borderColor};
         border-radius: 20px;
@@ -5764,7 +6338,7 @@ function renderSwipeCard(activity) {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 40px;
+        padding: 30px;
         cursor: grab;
         user-select: none;
         transition: transform 0.1s ease-out;
@@ -5773,8 +6347,8 @@ function renderSwipeCard(activity) {
     const isAlreadySelected = activities.some(a => a.id === activity.id);
 
     card.innerHTML = `
-        <div style="font-size: 5em; margin-bottom: 20px;">${activity.emoji}</div>
-        <h2 style="font-size: 1.8em; margin-bottom: 10px; text-align: center; color: ${textColor};">${activity.name}</h2>
+        <div style="font-size: 4.5em; margin-bottom: 15px;">${activity.emoji}</div>
+        <h2 style="font-size: 1.6em; margin-bottom: 10px; text-align: center; color: ${textColor};">${activity.name}</h2>
         ${activity.popularityCount > 0 ? `
             <div style="
                 background: linear-gradient(135deg, #667eea, #764ba2);
@@ -5843,17 +6417,19 @@ async function animateSwipeRight(card, activity) {
         .single();
     
     if (existingMatch) {
-        // Get other users interested in this activity
+        // Get other users in the chat (not just interested - keeps users anonymous until they join)
         const { data: otherParticipants } = await supabase
             .from('match_participants')
             .select('profile_id, profiles(id, name, avatar)')
             .eq('match_id', existingMatch.id)
             .neq('profile_id', currentUser.id);
-        
+
         const otherUsers = otherParticipants?.map(p => p.profiles) || [];
-        
-        // Show match notification
-        showMatchNotification(activity, existingMatch.id, otherUsers);
+
+        // Show match notification only if there are others in the chat
+        if (otherUsers.length > 0) {
+            showMatchNotification(activity, existingMatch.id, otherUsers);
+        }
     }
     
     console.log('Calling checkForMatches...');
@@ -6318,11 +6894,11 @@ window.setActivityMode = async function(activityId, isToday) {
             if (index > -1) activities.splice(index, 1);
             else activities.push(activity);
         }
-        window.handleSearch = (event) => {
+        window.handleSearch = async (event) => {
     const searchTerm = event.target.value;
-    
+
     if (viewMode === 'grid') {
-        renderActivities(searchTerm);
+        await renderActivities(searchTerm);
     } else {
         filterSwipeActivities(searchTerm);
     }
@@ -6520,23 +7096,23 @@ async function findMatches(circleId) {
                 match = newMatch;
             }
 
-            // Get all users who have this activity in their preferences (interested)
+            // Get all users who swiped right (interested but anonymous count)
             const { data: interestedUsers, error: prefsError } = await supabase
                 .from('preferences')
-                .select('profile_id, profiles(id, name, avatar)')
+                .select('profile_id')
                 .eq('circle_id', circleId)
-                .eq('activity_id', activityId)
-                .neq('profile_id', currentUser.id);
+                .eq('activity_id', activityId);
 
             if (prefsError) {
                 console.error('Error loading interested users:', prefsError);
-                continue;
             }
 
-            // Get who's actually in the general chat
+            const interestedCount = interestedUsers?.length || 0;
+
+            // Get who's actually in the chat (revealed their identity by joining)
             const { data: chatParticipants, error: chatError } = await supabase
                 .from('match_participants')
-                .select('profile_id')
+                .select('profile_id, profiles(id, name, avatar)')
                 .eq('match_id', match.id);
 
             if (chatError) {
@@ -6555,7 +7131,7 @@ async function findMatches(circleId) {
                     .select('*')
                     .eq('id', activityId)
                     .single();
-                
+
                 if (activityData) {
                     activities.push(activityData);
                 }
@@ -6565,7 +7141,8 @@ async function findMatches(circleId) {
                 id: match.id,
                 circleId: circleId,
                 activity: activity || activities.find(a => a.id === activityId),
-                interestedUsers: interestedUsers?.map(u => u.profiles) || [],
+                interestedUsers: chatParticipants?.map(p => p.profiles) || [],
+                interestedCount: interestedCount,
                 inChatCount: chatParticipants?.length || 0,
                 userInChat: userInChat,
                 isRead: true // We'll handle notifications differently now
@@ -6576,6 +7153,23 @@ async function findMatches(circleId) {
     } catch (error) {
         console.error('Error finding matches:', error);
         return [];
+    }
+}
+
+// Helper function to check if user is in match chat
+async function isUserInMatchChat(matchId) {
+    try {
+        const { data: existing } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id)
+            .maybeSingle();
+
+        return !!existing;
+    } catch (error) {
+        console.error('Error checking match chat participation:', error);
+        return false;
     }
 }
 
@@ -6637,12 +7231,16 @@ async function leaveMatchChat(matchId) {
 // Join chat as first person
 window.joinMatchChatFirst = async function(matchId) {
     showLoader('Joining chat...');
-    
+
     const success = await joinMatchChat(matchId);
-    
+
     if (success) {
         hideLoader();
         showNotification('You\'re in! Others can now see and join.');
+
+        // Send notification to existing participants
+        await sendMatchJoinNotification(matchId);
+
         await loadMatches();
     } else {
         hideLoader();
@@ -6736,12 +7334,16 @@ window.markAsUninterested = async function(matchId, activityId, circleId) {
 // Join chat as normal (not first)
 window.joinMatchChatNormal = async function(matchId) {
     showLoader('Joining chat...');
-    
+
     const success = await joinMatchChat(matchId);
-    
+
     if (success) {
         hideLoader();
         showNotification('Joined chat!');
+
+        // Send notification to existing participants
+        await sendMatchJoinNotification(matchId);
+
         await loadMatches();
     } else {
         hideLoader();
@@ -7011,13 +7613,23 @@ function createEventCard(event, matchId, isPast = false) {
         eventCard.style.cssText = 'opacity: 0.7; background: #fafafa;';
     }
 
-    // Format date (date only, no time)
+    // Format date and time
     const date = event.scheduled_date ? new Date(event.scheduled_date) : null;
     const dateStr = date ? date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric'
     }) : 'Date TBD';
+
+    // Format time if available (convert 24h to 12h format)
+    let timeStr = '';
+    if (event.scheduled_time) {
+        const [hours, minutes] = event.scheduled_time.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+        timeStr = `, ${displayHour}:${minutes} ${ampm}`;
+    }
 
     // Get participant count
     const participantCount = event.event_participants?.length || 0;
@@ -7026,7 +7638,7 @@ function createEventCard(event, matchId, isPast = false) {
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
             <div style="flex: 1;">
                 <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
-                    📅 ${dateStr}
+                    📅 ${dateStr}${timeStr}
                 </div>
                 ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
                 <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
@@ -7801,16 +8413,23 @@ window.joinEventFromChat = async function(eventId, matchId) {
             }]);
         
         if (error) throw error;
-        
-        // Auto-join general chat if not already in it
+
+        // Auto-join general chat if not already in it (and notify others if this is a new join)
+        const wasAlreadyInChat = await isUserInMatchChat(matchId);
         await joinMatchChat(matchId);
-        
+
+        if (!wasAlreadyInChat) {
+            // User just joined the match chat, notify existing participants
+            await sendMatchJoinNotification(matchId);
+        }
+
         // Get event details for notification
         const { data: event, error: eventError } = await supabase
             .from('events')
             .select(`
                 id,
                 scheduled_date,
+                scheduled_time,
                 activity_id,
                 activities(name, emoji),
                 event_participants(profile_id)
@@ -7973,23 +8592,6 @@ window.downloadICSFile = async function(eventId) {
     
     if (!activity) return;
 
-    // Parse as date-only (no time component)
-    const [year, month, day] = event.scheduled_date.split('-');
-
-    // Format dates for .ics all-day events (YYYYMMDD)
-    const formatDateOnly = (y, m, d) => {
-        return `${y}${m}${d}`;
-    };
-
-    // For all-day events, end date is the next day (exclusive)
-    const startDateStr = formatDateOnly(year, month, day);
-    const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
-    const endDateStr = formatDateOnly(
-        nextDay.getFullYear(),
-        String(nextDay.getMonth() + 1).padStart(2, '0'),
-        String(nextDay.getDate()).padStart(2, '0')
-    );
-
     const formatTimestamp = (date) => {
         const year = date.getUTCFullYear();
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -8000,6 +8602,45 @@ window.downloadICSFile = async function(eventId) {
         return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
     };
 
+    let dtStart, dtEnd;
+
+    if (event.scheduled_time) {
+        // Timed event - parse date and time
+        const [year, month, day] = event.scheduled_date.split('-');
+        const [hours, minutes] = event.scheduled_time.split(':');
+
+        // Create date in local timezone
+        const startDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(hours),
+            parseInt(minutes)
+        );
+
+        // End time is 1 hour later
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+        dtStart = `DTSTART:${formatTimestamp(startDate)}`;
+        dtEnd = `DTEND:${formatTimestamp(endDate)}`;
+    } else {
+        // All-day event
+        const [year, month, day] = event.scheduled_date.split('-');
+
+        const formatDateOnly = (y, m, d) => `${y}${m}${d}`;
+
+        const startDateStr = formatDateOnly(year, month, day);
+        const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
+        const endDateStr = formatDateOnly(
+            nextDay.getFullYear(),
+            String(nextDay.getMonth() + 1).padStart(2, '0'),
+            String(nextDay.getDate()).padStart(2, '0')
+        );
+
+        dtStart = `DTSTART;VALUE=DATE:${startDateStr}`;
+        dtEnd = `DTEND;VALUE=DATE:${endDateStr}`;
+    }
+
     const icsContent = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
@@ -8007,8 +8648,8 @@ window.downloadICSFile = async function(eventId) {
         'BEGIN:VEVENT',
         `UID:${event.id}@friendle.app`,
         `DTSTAMP:${formatTimestamp(new Date())}`,
-        `DTSTART;VALUE=DATE:${startDateStr}`,
-        `DTEND;VALUE=DATE:${endDateStr}`,
+        dtStart,
+        dtEnd,
         `SUMMARY:${activity.emoji} ${activity.name}`,
         event.location ? `LOCATION:${event.location}` : '',
         event.notes ? `DESCRIPTION:${event.notes}\\n\\nOrganized via Friendle` : 'DESCRIPTION:Organized via Friendle',
@@ -8074,28 +8715,58 @@ window.openGoogleCalendar = async function(eventId) {
     
     if (!activity) return;
 
-    // Parse as date-only (no time component) for all-day event
-    const [year, month, day] = event.scheduled_date.split('-');
-
-    // Format for Google Calendar all-day events (YYYYMMDD)
-    const formatDateOnly = (y, m, d) => {
-        return `${y}${m}${d}`;
+    const formatTimestamp = (date) => {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
     };
 
-    // For all-day events, end date is the next day (exclusive)
-    const startDateStr = formatDateOnly(year, month, day);
-    const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
-    const endDateStr = formatDateOnly(
-        nextDay.getFullYear(),
-        String(nextDay.getMonth() + 1).padStart(2, '0'),
-        String(nextDay.getDate()).padStart(2, '0')
-    );
+    let datesParam;
+
+    if (event.scheduled_time) {
+        // Timed event
+        const [year, month, day] = event.scheduled_date.split('-');
+        const [hours, minutes] = event.scheduled_time.split(':');
+
+        // Create date in local timezone
+        const startDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(hours),
+            parseInt(minutes)
+        );
+
+        // End time is 1 hour later
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+        datesParam = `${formatTimestamp(startDate)}/${formatTimestamp(endDate)}`;
+    } else {
+        // All-day event
+        const [year, month, day] = event.scheduled_date.split('-');
+
+        const formatDateOnly = (y, m, d) => `${y}${m}${d}`;
+
+        const startDateStr = formatDateOnly(year, month, day);
+        const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
+        const endDateStr = formatDateOnly(
+            nextDay.getFullYear(),
+            String(nextDay.getMonth() + 1).padStart(2, '0'),
+            String(nextDay.getDate()).padStart(2, '0')
+        );
+
+        datesParam = `${startDateStr}/${endDateStr}`;
+    }
 
     // Build Google Calendar URL
     const googleUrl = new URL('https://calendar.google.com/calendar/render');
     googleUrl.searchParams.set('action', 'TEMPLATE');
     googleUrl.searchParams.set('text', `${activity.emoji} ${activity.name}`);
-    googleUrl.searchParams.set('dates', `${startDateStr}/${endDateStr}`);
+    googleUrl.searchParams.set('dates', datesParam);
     if (event.location) googleUrl.searchParams.set('location', event.location);
     if (event.notes) googleUrl.searchParams.set('details', event.notes + '\n\nOrganized via Friendle');
     
@@ -8190,21 +8861,20 @@ async function saveMatchesToSupabase(matches, circleId) {
 
     // Detect NEW matches (matches that didn't exist before)
     const newMatches = foundMatches.filter(m => !oldMatchIds.has(m.id));
-    
+
     console.log('📊 Match summary:', {
         total: foundMatches.length,
         new: newMatches.length,
         existing: foundMatches.length - newMatches.length
     });
-    
-    // Send notifications for NEW matches only
-    for (const match of newMatches) {
-        await sendNewMatchNotification(match);
-    }
+
+    // DON'T send notifications here - users are just swiping right (interested but anonymous)
+    // Notifications are only sent when users actually join the chat via sendMatchJoinNotification
 
     if (matches.length > 0) {
         if (newMatches.length > 0) {
-            showNotification(`Found ${newMatches.length} new match${newMatches.length > 1 ? 'es' : ''}!`);
+            // Silent - just log it, don't notify others
+            console.log(`Found ${newMatches.length} new match${newMatches.length > 1 ? 'es' : ''} (silent)`);
         }
     } else {
         showNotification('No matches found yet. Try selecting more activities or invite more friends!');
@@ -8213,28 +8883,34 @@ async function saveMatchesToSupabase(matches, circleId) {
 
 async function sendNewMatchNotification(match) {
     try {
+        // Validate match has required data
+        if (!match || !match.id) {
+            console.log('⚠️ Cannot send new match notification: match.id is undefined');
+            return;
+        }
+
         console.log('📢 Sending new match notification for:', match.activity?.name);
 
         // Get all users who are interested in this activity (have it in preferences)
         const { data: interestedUsers, error } = await supabase
             .from('preferences')
             .select('profile_id, profiles(id, name, onesignal_player_id, notify_new_matches)')
-            .eq('circle_id', match.circle_id)
+            .eq('circle_id', match.circleId || match.circle_id)
             .eq('activity_id', match.activity_id || match.activity.id)
             .neq('profile_id', currentUser.id); // Don't notify yourself
-        
+
         if (error) throw error;
-        
+
         if (!interestedUsers || interestedUsers.length === 0) {
             console.log('ℹ️ No other interested users to notify');
             return;
         }
-        
+
         console.log(`📬 Notifying ${interestedUsers.length} interested user(s)`);
-        
+
         // Get names of all interested users (including current user)
         const allInterestedNames = [currentUser.name, ...interestedUsers.map(u => u.profiles.name)];
-        
+
         // Create notification message
         let message = '';
         if (allInterestedNames.length === 2) {
@@ -8248,7 +8924,7 @@ async function sendNewMatchNotification(match) {
                 message = `You matched with ${otherNames} for ${match.activity.emoji} ${match.activity.name}!`;
             }
         }
-        
+
         // Send notifications via Edge Function
         const recipientIds = interestedUsers
             .filter(u => u.profiles.onesignal_player_id) // Only users with player IDs
@@ -8285,36 +8961,121 @@ async function sendNewMatchNotification(match) {
     }
 }
 
-async function sendEventJoinNotification(event) {
+async function sendMatchJoinNotification(matchId) {
     try {
-        console.log('📢 Sending event join notification for:', event.id);
+        // Validate matchId
+        if (!matchId) {
+            console.log('⚠️ Cannot send match join notification: matchId is undefined');
+            return;
+        }
 
-        const activity = event.activities;
-        
+        console.log('📢 Sending match join notification for:', matchId);
+
+        // Get match with activity details
+        const { data: match, error: matchError } = await supabase
+            .from('matches')
+            .select('id, activity_id, circle_id, activities(emoji, name)')
+            .eq('id', matchId)
+            .single();
+
+        if (matchError) throw matchError;
+        if (!match) return;
+
+        const activity = match.activities;
+
         // Get existing participants (exclude current user who just joined)
-        const existingParticipantIds = event.event_participants
-            .map(p => p.profile_id)
-            .filter(id => id !== currentUser.id);
-        
-        if (existingParticipantIds.length === 0) {
+        const { data: participants, error: participantsError } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId)
+            .neq('profile_id', currentUser.id);
+
+        if (participantsError) throw participantsError;
+
+        if (!participants || participants.length === 0) {
             console.log('ℹ️ No existing participants to notify (user is first)');
             return;
         }
-        
+
+        const existingParticipantIds = participants.map(p => p.profile_id);
+
         // Get profiles with OneSignal IDs
         const { data: profiles, error: profileError } = await supabase
             .from('profiles')
             .select('id, name, onesignal_player_id')
             .in('id', existingParticipantIds)
             .not('onesignal_player_id', 'is', null);
-        
+
         if (profileError) throw profileError;
-        
+
         if (!profiles || profiles.length === 0) {
             console.log('ℹ️ No participants with notification IDs');
             return;
         }
-        
+
+        // Create notification message
+        const message = `${currentUser.name} joined your ${activity.emoji} ${activity.name} match!`;
+
+        console.log('📬 Notifying:', message);
+
+        // Get recipient IDs for the Edge Function
+        const recipientIds = profiles.map(p => p.id);
+
+        // Send notification via Edge Function
+        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                senderId: currentUser.id,
+                recipientIds: recipientIds,
+                message: message,
+                activityName: `${activity.emoji} ${activity.name}`,
+                chatType: 'match',
+                chatId: matchId,
+                notificationType: 'match_join'
+            }
+        });
+
+        if (notifError) {
+            console.error('❌ Error sending match join notification:', notifError);
+        } else {
+            console.log('✅ Match join notifications sent successfully:', data);
+        }
+
+    } catch (error) {
+        console.error('❌ Error in sendMatchJoinNotification:', error);
+        // Don't throw - we don't want to block match joining if notifications fail
+    }
+}
+
+async function sendEventJoinNotification(event) {
+    try {
+        console.log('📢 Sending event join notification for:', event.id);
+
+        const activity = event.activities;
+
+        // Get existing participants (exclude current user who just joined)
+        const existingParticipantIds = event.event_participants
+            .map(p => p.profile_id)
+            .filter(id => id !== currentUser.id);
+
+        if (existingParticipantIds.length === 0) {
+            console.log('ℹ️ No existing participants to notify (user is first)');
+            return;
+        }
+
+        // Get profiles with OneSignal IDs
+        const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, name, onesignal_player_id')
+            .in('id', existingParticipantIds)
+            .not('onesignal_player_id', 'is', null);
+
+        if (profileError) throw profileError;
+
+        if (!profiles || profiles.length === 0) {
+            console.log('ℹ️ No participants with notification IDs');
+            return;
+        }
+
         // Format event date
         const eventDate = new Date(event.scheduled_date + 'T00:00:00');
         const dateStr = eventDate.toLocaleDateString('en-US', {
@@ -8322,15 +9083,15 @@ async function sendEventJoinNotification(event) {
             month: 'short',
             day: 'numeric'
         });
-        
+
         // Create notification message
         const message = `${currentUser.name} is coming to ${activity.emoji} ${activity.name} on ${dateStr}!`;
-        
+
         console.log('📬 Notifying:', message);
-        
+
         // Get recipient IDs for the Edge Function
         const recipientIds = profiles.map(p => p.id);
-        
+
         // Send notification via Edge Function
         const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
             body: {
@@ -8349,10 +9110,95 @@ async function sendEventJoinNotification(event) {
         } else {
             console.log('✅ Event join notifications sent successfully:', data);
         }
-        
+
     } catch (error) {
         console.error('❌ Error in sendEventJoinNotification:', error);
         // Don't throw - we don't want to block event joining if notifications fail
+    }
+}
+
+async function sendEventCreatedNotification(matchId, event) {
+    try {
+        console.log('📢 Sending event created notification for:', event.id);
+        console.log('📅 Event data:', { scheduled_date: event.scheduled_date, scheduled_time: event.scheduled_time });
+
+        // Fetch the activity data
+        const { data: activity, error: activityError } = await supabase
+            .from('activities')
+            .select('name, emoji')
+            .eq('id', event.activity_id)
+            .single();
+
+        if (activityError) throw activityError;
+
+        // Get all match participants (exclude current user who created the event)
+        const { data: participants, error: participantError } = await supabase
+            .from('match_participants')
+            .select('profile_id')
+            .eq('match_id', matchId)
+            .neq('profile_id', currentUser.id);
+
+        if (participantError) throw participantError;
+
+        if (!participants || participants.length === 0) {
+            console.log('ℹ️ No other participants in match to notify');
+            return;
+        }
+
+        const recipientIds = participants.map(p => p.profile_id);
+
+        // Format event date and time
+        let dateTimeStr = 'soon';
+        if (event.scheduled_date) {
+            // Parse the date (format: YYYY-MM-DD from database)
+            const eventDate = new Date(event.scheduled_date);
+            console.log('📅 Parsed eventDate:', eventDate, 'isValid:', !isNaN(eventDate.getTime()));
+
+            if (!isNaN(eventDate.getTime())) {
+                // Format date: "Mon, Dec 25"
+                dateTimeStr = eventDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                // Add time if provided (format HH:MM, removing seconds)
+                if (event.scheduled_time) {
+                    // Remove seconds if present (HH:MM:SS -> HH:MM)
+                    const timeStr = event.scheduled_time.substring(0, 5);
+                    dateTimeStr += ` at ${timeStr}`;
+                }
+            }
+        }
+        console.log('📅 Formatted dateTimeStr:', dateTimeStr);
+
+        // Create notification message
+        const message = `${currentUser.name} created a ${activity.emoji} ${activity.name} event on ${dateTimeStr}!`;
+
+        console.log('📬 Notifying:', message);
+
+        // Send notification via Edge Function
+        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                senderId: currentUser.id,
+                recipientIds: recipientIds,
+                message: message,
+                activityName: `${activity.emoji} ${activity.name}`,
+                chatType: 'event',
+                chatId: event.id,
+                notificationType: 'event_created'
+            }
+        });
+
+        if (notifError) {
+            console.error('❌ Error sending event created notification:', notifError);
+        } else {
+            console.log('✅ Event created notifications sent successfully:', data);
+        }
+
+    } catch (error) {
+        console.error('❌ Error in sendEventCreatedNotification:', error);
+        // Don't throw - we don't want to block event creation if notifications fail
     }
 }
 
@@ -8422,7 +9268,7 @@ async function loadMatches() {
         // Build OR conditions for batch query
         let interestedQuery = supabase
             .from('preferences')
-            .select('profile_id, circle_id, activity_id, profiles(id, name, avatar)');
+            .select('profile_id, circle_id, activity_id');
 
         // Add filters to match any circle+activity pair
         const orConditions = circleActivityPairs
@@ -8443,12 +9289,11 @@ async function loadMatches() {
             // Attach activity
             match.activity = activities.find(a => a.id === match.activity_id);
 
-            // Attach interested users for this specific circle+activity
+            // Get interested count for this specific circle+activity (anonymous count)
             const interested = (allInterested || []).filter(i =>
                 i.circle_id === match.circle_id && i.activity_id === match.activity_id
             );
-            match.interestedUsers = interested.map(i => i.profiles);
-            match.interestedCount = match.interestedUsers.length;
+            match.interestedCount = interested.length;
 
             // Attach chat participants for this match
             const chatParticipants = (allChatParticipants || []).filter(p =>
@@ -8457,6 +9302,9 @@ async function loadMatches() {
             match.chatParticipants = chatParticipants.map(p => p.profiles);
             match.inChatCount = match.chatParticipants.length;
             match.userInChat = chatParticipants.some(p => p.profile_id === currentUser.id);
+
+            // For display: only show names of people actually in chat
+            match.interestedUsers = match.chatParticipants;
         }
         
         await displayMatches();
@@ -8688,20 +9536,25 @@ if (!showPastEvents) {
         // Check for inactivity warning
         const hasWarning = warningsMap.has(match.id);
 
-        // Get interested users display
+        // Get interested users display (keep anonymous - just show count)
         const interestedCount = match.interestedCount || 0;
-        const interestedNames = match.interestedUsers?.slice(0, 2).map(u => u.name).join(', ') || '';
-        const moreCount = interestedCount > 2 ? interestedCount - 2 : 0;
-        
-        let interestedDisplay = '';
-        if (interestedCount === 1) {
-            interestedDisplay = 'Just you interested';
-        } else if (interestedCount === 2) {
-            interestedDisplay = interestedNames;
-        } else if (interestedCount > 2) {
-            const allNames = match.interestedUsers.map(u => u.name).join('\\n');
-            interestedDisplay = `${interestedNames}, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('People interested:\\n\\n${allNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${moreCount} other${moreCount > 1 ? 's' : ''}</a>`;
+
+        // Get in-chat users display (these are revealed)
+        const inChatNames = match.chatParticipants?.slice(0, 2).map(u => u.name).join(', ') || '';
+        const inChatMoreCount = match.inChatCount > 2 ? match.inChatCount - 2 : 0;
+
+        let inChatDisplay = '';
+        if (match.inChatCount === 1 && match.userInChat) {
+            inChatDisplay = 'Just you';
+        } else if (match.inChatCount === 1) {
+            inChatDisplay = match.chatParticipants[0]?.name || '1 person';
+        } else if (match.inChatCount === 2) {
+            inChatDisplay = inChatNames;
+        } else if (match.inChatCount > 2) {
+            const allChatNames = match.chatParticipants.map(u => u.name).join('\\n');
+            inChatDisplay = `${inChatNames}, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('In chat:\\n\\n${allChatNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${inChatMoreCount} other${inChatMoreCount > 1 ? 's' : ''}</a>`;
         }
+
         
         // Compare dates at midnight to include events happening today
 const now = new Date();
@@ -8730,11 +9583,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         ${activityEmoji} ${activityName}
     </h3>
             <p style="margin: 8px 0 0 0; font-size: 14px; line-height: 1.4;">
-                ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested${interestedDisplay ? ': ' + interestedDisplay : ''}
+                ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested
             </p>
             ${match.inChatCount > 0 ? `
                 <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px;">
-                    💬 ${match.inChatCount} in chat${match.userInChat ? ' (including you)' : ''}
+                    💬 ${match.inChatCount} in chat${inChatDisplay ? ': ' + inChatDisplay : ''}
                 </p>
             ` : ''}
         </div>
@@ -8871,21 +9724,23 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     
     document.querySelectorAll('.event-item').forEach(item => {
         item.addEventListener('mouseenter', function() {
-            this.style.background = '#e8e8e8';
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            this.style.background = isDarkMode ? '#2a2a2e' : '#e8e8e8';
         });
         item.addEventListener('mouseleave', function() {
+            const isDarkMode = document.body.classList.contains('dark-mode');
             if (this.style.opacity === '0.7') {
                 // Past events
-                this.style.background = '#fafafa';
+                this.style.background = isDarkMode ? '#1a1a1a' : '#fafafa';
             } else if (this.dataset.unread === 'true') {
                 // Unread events
-                this.style.background = '#ccfbf1';
+                this.style.background = isDarkMode ? '#134e4a' : '#ccfbf1';
             } else if (this.dataset.joined === 'true') {
                 // Joined events
-                this.style.background = '#f5f5f5';
+                this.style.background = isDarkMode ? '#1a1a1e' : '#f5f5f5';
             } else {
                 // Not joined events
-                this.style.background = '#fff8e1';
+                this.style.background = isDarkMode ? '#2a2415' : '#fff8e1';
             }
         });
     });
@@ -8895,22 +9750,25 @@ window.joinMatch = async function(matchId) {
     try {
         const match = matches.find(m => m.id === matchId);
         if (!match) return;
-        
+
         // Add user to match participants
         const { error } = await supabase
             .from('match_participants')
-            .insert([{ 
-                match_id: matchId, 
-                profile_id: currentUser.id 
+            .insert([{
+                match_id: matchId,
+                profile_id: currentUser.id
             }]);
-        
+
         if (error) throw error;
-        
+
         showNotification('Joined match! You can now chat and schedule events.');
-        
+
+        // Send notification to existing participants
+        await sendMatchJoinNotification(matchId);
+
         // Refresh matches to update UI
         await loadMatches();
-        
+
     } catch (error) {
         console.error('Error joining match:', error);
         showNotification('Error joining match', 'error');
@@ -8939,6 +9797,7 @@ window.joinEvent = async function(eventId) {
                 id,
                 match_id,
                 scheduled_date,
+                scheduled_time,
                 activity_id,
                 activities(name, emoji),
                 event_participants(profile_id)
@@ -9786,15 +10645,18 @@ async function createEvent(e) {
                 activity_id: match.activity_id,
                 circle_id: match.circle_id,
                 scheduled_date: document.getElementById('new-event-date').value,
+                scheduled_time: document.getElementById('new-event-time').value || null,
                 location: document.getElementById('new-event-location').value || null,
                 notes: document.getElementById('new-event-notes').value || null,
                 created_by: currentUser.id,
                 status: 'scheduled'
             })
-            .select()
+            .select('*')
             .single();
-        
+
         if (eventError) throw eventError;
+
+        console.log('✅ Created event:', newEvent);
         
         // Only add the event creator
         const { error: insertError } = await supabase
@@ -9814,11 +10676,14 @@ async function createEvent(e) {
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id);
 
+        // Send notification to other match participants
+        await sendEventCreatedNotification(matchId, newEvent);
+
         closeCreateEventModal();
-        
+
         // Refresh matches to show new event
         await loadMatches();
-        
+
         // Open the new event chat
         openEventChat(newEvent.id);
         
@@ -9869,7 +10734,7 @@ console.log('Result:', testQuery);
 // Now try with filters
 const { data: upcomingEvents, error: eventsError } = await supabase
     .from('events')
-    .select('id, scheduled_date, location, status')
+    .select('id, scheduled_date, scheduled_time, location, status')
     .eq('match_id', matchId)
     .eq('status', 'scheduled')
     .gte('scheduled_date', todayUTC.toISOString());
@@ -10003,17 +10868,9 @@ if (!activity) {
     }
 }
 
-// Format event date for header
-const headerEventDate = new Date(event.scheduled_date + 'T00:00:00');
-const headerDateStr = headerEventDate.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-});
-
-// Update header with activity name and date
-document.getElementById('event-activity-name').textContent = 
-    `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'} - ${headerDateStr}`;
+// Update header with activity name only (date is shown in banner below)
+document.getElementById('event-activity-name').textContent =
+    `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Unknown Activity'}`;
 
 const participants = event.event_participants.map(p => p.profiles.name);
 const participantCount = participants.length;
@@ -10033,14 +10890,24 @@ if (participantCount <= 3) {
         
         // Format and display event details
 const eventDate = new Date(event.scheduled_date);
-const dateStr = eventDate.toLocaleDateString('en-US', { 
+const dateStr = eventDate.toLocaleDateString('en-US', {
     weekday: 'long',
-    month: 'long', 
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
 });
-        
-        document.getElementById('event-date').textContent = `📅 ${dateStr}`;
+
+// Format time if available
+let timeStr = '';
+if (event.scheduled_time) {
+    const [hours, minutes] = event.scheduled_time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    timeStr = ` at ${displayHour}:${minutes} ${ampm}`;
+}
+
+        document.getElementById('event-date').textContent = `📅 ${dateStr}${timeStr}`;
         document.getElementById('event-location').textContent = 
             event.location ? `📍 ${event.location}` : '';
         document.getElementById('event-notes').textContent = 
@@ -10631,13 +11498,14 @@ function closeEventOptionsModal() {
 
 function editCurrentEvent() {
     closeEventOptionsModal();
-    
+
     // Populate edit form
     const date = new Date(currentEvent.scheduled_date);
     document.getElementById('edit-event-date').value = date.toISOString().slice(0, 10);
+    document.getElementById('edit-event-time').value = currentEvent.scheduled_time || '';
     document.getElementById('edit-event-location').value = currentEvent.location || '';
     document.getElementById('edit-event-notes').value = currentEvent.notes || '';
-    
+
     document.getElementById('edit-event-modal').style.display = 'flex';
 }
 
@@ -10647,24 +11515,25 @@ function closeEditEventModal() {
 
 async function saveEventEdits(e) {
     e.preventDefault();
-    
+
     try {
         const { error } = await supabase
             .from('events')
             .update({
                 scheduled_date: document.getElementById('edit-event-date').value,
+                scheduled_time: document.getElementById('edit-event-time').value || null,
                 location: document.getElementById('edit-event-location').value || null,
                 notes: document.getElementById('edit-event-notes').value || null
             })
             .eq('id', currentEvent.id);
-        
+
         if (error) throw error;
-        
+
         closeEditEventModal();
-        
+
         // Reload the event
         openEventChat(currentEvent.id);
-        
+
     } catch (error) {
         console.error('Error updating event:', error);
         alert('Failed to update event');
@@ -11058,10 +11927,25 @@ let currentMatchNotification = null;
 
 function showMatchNotification(activity, matchId, otherUsers) {
     currentMatchNotification = matchId;
-    
+
     // Set activity emoji
     document.getElementById('match-notification-activity').textContent = activity.emoji + ' ' + activity.name;
-    
+
+    // Set heading and button based on whether others are interested
+    const headingElement = document.getElementById('match-notification-heading');
+    const joinButton = document.getElementById('match-notification-join-btn');
+
+    if (otherUsers && otherUsers.length > 0) {
+        // Show "It's a Match!" for subsequent people
+        headingElement.textContent = "It's a Match!";
+        headingElement.style.display = 'block';
+        joinButton.textContent = '✓ Join Match';
+    } else {
+        // Hide heading for first person
+        headingElement.style.display = 'none';
+        joinButton.textContent = 'View Activity';
+    }
+
     // Set message based on whether others are interested
     let messageHTML = '';
     if (otherUsers && otherUsers.length > 0) {
@@ -11077,7 +11961,7 @@ function showMatchNotification(activity, matchId, otherUsers) {
     } else {
         messageHTML = `You're the first one interested! Others in your circle will see this and can join.`;
     }
-    
+
     document.getElementById('match-notification-text').innerHTML = messageHTML;
     document.getElementById('match-notification-modal').style.display = 'flex';
 }
@@ -11092,34 +11976,39 @@ window.joinMatchFromNotification = async function() {
         closeMatchNotification();
         return;
     }
-    
+
     showLoader('Joining match...');
-    
+
     try {
         // Add user to match participants
         const { error } = await supabase
             .from('match_participants')
-            .insert([{ 
-                match_id: currentMatchNotification, 
-                profile_id: currentUser.id 
+            .insert([{
+                match_id: currentMatchNotification,
+                profile_id: currentUser.id
             }]);
-        
+
         if (error) {
             // If error is duplicate key (user already joined), that's fine
             if (error.code !== '23505') {
                 throw error;
             }
         }
-        
+
+        // Send notification to existing participants (only if not a duplicate join)
+        if (!error || error.code !== '23505') {
+            await sendMatchJoinNotification(currentMatchNotification);
+        }
+
         closeMatchNotification();
         hideLoader();
-        
+
         // Reload matches and go to matches page
         await loadMatches();
         showPage('matches');
-        
+
         showNotification('Joined match! You can now chat and schedule events.');
-        
+
     } catch (error) {
         hideLoader();
         closeMatchNotification();
@@ -11643,6 +12532,8 @@ if (pageId !== 'chat') {
     
     if (pageId === 'circles') renderCircles();
 if (pageId === 'activities') {
+    // Scroll to top to ensure card is fully visible
+    document.getElementById('activities').scrollTop = 0;
     await populateCircleSelector();
     // If in swipe mode and circle is selected, initialize swipe view
     if (viewMode === 'swipe' && selectedCircle) {
@@ -11765,6 +12656,12 @@ if (pageId === 'settings') {
                 const arrow = document.getElementById('advanced-settings-arrow');
                 content.style.maxHeight = content.scrollHeight + 'px';
                 arrow.style.transform = 'rotate(180deg)';
+            }
+
+            // Show Samsung notification help if on Samsung Internet
+            const samsungHelpSection = document.getElementById('samsung-notification-help');
+            if (samsungHelpSection && isSamsungInternet()) {
+                samsungHelpSection.style.display = 'block';
             }
         };
         
