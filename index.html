@@ -5863,6 +5863,14 @@ window.viewUpcomingEvents = async function(circleId) {
             return;
         }
 
+        // Check if dark mode is enabled
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        const bgColor = isDarkMode ? '#1a1a1e' : 'white';
+        const textColor = isDarkMode ? '#e5e5e7' : '#1a1a1a';
+        const borderColor = isDarkMode ? '#2a2a2e' : '#ddd';
+        const cardBgColor = isDarkMode ? '#2a2a2e' : '#ffffff';
+        const mutedTextColor = isDarkMode ? '#9ca3af' : '#666';
+
         // Create a modal to display the events
         const modal = document.createElement('div');
         modal.style.cssText = `
@@ -5880,7 +5888,8 @@ window.viewUpcomingEvents = async function(circleId) {
 
         const modalContent = document.createElement('div');
         modalContent.style.cssText = `
-            background: white;
+            background: ${bgColor};
+            color: ${textColor};
             border-radius: 12px;
             padding: 20px;
             max-width: 500px;
@@ -5889,7 +5898,7 @@ window.viewUpcomingEvents = async function(circleId) {
             overflow-y: auto;
         `;
 
-        let eventsHtml = `<h2 style="margin-top: 0;">📅 Upcoming Events - ${circle.name}</h2>`;
+        let eventsHtml = `<h2 style="margin-top: 0; color: ${textColor};">📅 Upcoming Events - ${circle.name}</h2>`;
 
         events.forEach(event => {
             const activity = event.activities;
@@ -5906,10 +5915,10 @@ window.viewUpcomingEvents = async function(circleId) {
             const participantCount = event.event_participants?.length || 0;
 
             eventsHtml += `
-                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
-                    <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 5px;">${activityName}</div>
-                    <div style="color: #666; font-size: 0.9em; margin-bottom: 5px;">📅 ${eventDate} at ${eventTime}</div>
-                    <div style="color: #666; font-size: 0.9em; margin-bottom: 10px;">👥 ${participantCount} participant${participantCount !== 1 ? 's' : ''}</div>
+                <div style="border: 1px solid ${borderColor}; background: ${cardBgColor}; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                    <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 5px; color: ${textColor};">${activityName}</div>
+                    <div style="color: ${mutedTextColor}; font-size: 0.9em; margin-bottom: 5px;">📅 ${eventDate} at ${eventTime}</div>
+                    <div style="color: ${mutedTextColor}; font-size: 0.9em; margin-bottom: 10px;">👥 ${participantCount} participant${participantCount !== 1 ? 's' : ''}</div>
                     ${isUserJoined
                         ? '<div style="color: #10b981; font-weight: 500;">✓ You\'re joined</div>'
                         : `<button class="btn btn-small" onclick="joinEventFromModal('${event.id}')" style="width: 100%; background: #667eea;">Join Event</button>`
