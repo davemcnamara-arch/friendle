@@ -486,8 +486,8 @@
         }
 
         .match-summary-activity {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 20px;
+            font-weight: 700;
             color: var(--text-primary);
             display: flex;
             align-items: center;
@@ -497,20 +497,39 @@
         .match-summary-stats {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             font-size: 13px;
             color: var(--text-secondary);
             margin-left: auto;
+            flex-wrap: wrap;
         }
 
         .match-summary-stat {
             display: flex;
             align-items: center;
             gap: 4px;
-            padding: 4px 8px;
+            padding: 4px 10px;
             background: var(--bg-secondary);
             border-radius: 12px;
             white-space: nowrap;
+        }
+
+        .match-summary-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .match-summary-badge.unread {
+            background: #14b8a6;
+            color: white;
+        }
+
+        .match-summary-badge.warning {
+            background: #ff4d4f;
+            color: white;
         }
 
         .match-summary-circle {
@@ -523,9 +542,11 @@
         }
 
         .dropdown-indicator {
-            font-size: 12px;
-            color: var(--text-secondary);
+            font-size: 18px;
+            color: var(--text-primary);
+            font-weight: 700;
             transition: transform 0.2s ease;
+            margin-left: 8px;
         }
 
         .match-card[open] .dropdown-indicator {
@@ -539,7 +560,7 @@
             }
 
             .match-summary-activity {
-                font-size: 16px;
+                font-size: 18px;
             }
 
             .match-summary-stats {
@@ -556,6 +577,7 @@
 
             .dropdown-indicator {
                 order: 2;
+                font-size: 16px;
             }
         }
 
@@ -9764,8 +9786,10 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             <div class="match-summary-header">
                 <span class="match-summary-activity">${activityEmoji} ${activityName}</span>
                 <div class="match-summary-stats">
-                    ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount}</span>` : ''}
-                    ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length}</span>` : ''}
+                    ${hasWarning ? `<span class="match-summary-badge warning">⚠️ Still interested?</span>` : ''}
+                    ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread">💬 New message</span>` : ''}
+                    ${match.inChatCount > 0 ? `<span class="match-summary-stat">${match.inChatCount} in chat</span>` : ''}
+                    ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">${upcomingEvents.length} upcoming</span>` : ''}
                 </div>
                 <span class="match-summary-circle">${circleName}</span>
                 <span class="dropdown-indicator">▼</span>
