@@ -482,7 +482,8 @@
             display: flex;
             align-items: center;
             width: 100%;
-            gap: 20px;
+            gap: 16px;
+            justify-content: space-between;
         }
 
         .match-summary-activity {
@@ -501,9 +502,16 @@
             gap: 10px;
             font-size: 13px;
             color: var(--text-secondary);
-            margin-left: auto;
-            margin-right: auto;
             flex-wrap: wrap;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .match-summary-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
         }
 
         .match-summary-stat {
@@ -570,9 +578,13 @@
 
             .match-summary-stats {
                 order: 3;
-                margin-left: 0;
                 margin-top: 8px;
                 width: 100%;
+                justify-content: flex-start;
+            }
+
+            .match-summary-right {
+                gap: 8px;
             }
 
             .match-summary-circle {
@@ -581,7 +593,6 @@
             }
 
             .dropdown-indicator {
-                order: 2;
                 font-size: 16px;
             }
         }
@@ -9793,11 +9804,13 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                 <div class="match-summary-stats">
                     ${hasWarning ? `<span class="match-summary-badge warning">⚠️ Still interested?</span>` : ''}
                     ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread">💬 New message</span>` : ''}
-                    ${match.inChatCount > 0 ? `<span class="match-summary-stat">${match.inChatCount} in chat</span>` : ''}
-                    ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">${upcomingEvents.length} upcoming</span>` : ''}
+                    ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount} in chat</span>` : ''}
+                    ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
                 </div>
-                <span class="match-summary-circle">${circleName}</span>
-                <span class="dropdown-indicator">▼</span>
+                <div class="match-summary-right">
+                    <span class="match-summary-circle">${circleName}</span>
+                    <span class="dropdown-indicator">▼</span>
+                </div>
             </div>
         </summary>
         <div class="match-card-content">
