@@ -480,10 +480,17 @@
 
         .match-summary-header {
             display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 12px;
+        }
+
+        .match-summary-top-line {
+            display: flex;
             align-items: center;
             width: 100%;
-            gap: 16px;
             justify-content: space-between;
+            gap: 16px;
         }
 
         .match-summary-activity {
@@ -493,7 +500,9 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-shrink: 0;
+            flex: 1;
+            justify-content: center;
+            text-align: center;
         }
 
         .match-summary-stats {
@@ -503,8 +512,6 @@
             font-size: 13px;
             color: var(--text-secondary);
             flex-wrap: wrap;
-            flex: 1;
-            justify-content: center;
         }
 
         .match-summary-right {
@@ -573,23 +580,8 @@
 
         /* Responsive styles for mobile */
         @media (max-width: 768px) {
-            .match-summary-header {
-                flex-wrap: wrap;
-            }
-
             .match-summary-activity {
                 font-size: 18px;
-            }
-
-            .match-summary-stats {
-                order: 3;
-                margin-top: 8px;
-                width: 100%;
-                justify-content: flex-start;
-            }
-
-            .match-summary-right {
-                gap: 8px;
             }
 
             .match-summary-circle {
@@ -599,6 +591,10 @@
 
             .dropdown-indicator {
                 font-size: 16px;
+            }
+
+            .match-summary-stats {
+                gap: 8px;
             }
         }
 
@@ -9805,16 +9801,16 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     <details class="match-card${matchUnreadCount > 0 ? ' unread' : ''}${hasWarning ? ' has-warning' : ''}">
         <summary>
             <div class="match-summary-header">
-                <span class="match-summary-activity">${activityEmoji} ${activityName}</span>
+                <div class="match-summary-top-line">
+                    <span class="match-summary-circle">${circleName}</span>
+                    <span class="match-summary-activity">${activityEmoji} ${activityName}</span>
+                    <span class="dropdown-indicator">▼</span>
+                </div>
                 <div class="match-summary-stats">
                     ${hasWarning ? `<span class="match-summary-badge warning">⚠️ Still interested?</span>` : ''}
                     ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread" onclick="event.stopPropagation(); openMatchChatThreaded('${match.id}');" style="cursor: pointer;">💬 New message</span>` : ''}
                     ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount} in chat</span>` : ''}
                     ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
-                </div>
-                <div class="match-summary-right">
-                    <span class="match-summary-circle">${circleName}</span>
-                    <span class="dropdown-indicator">▼</span>
                 </div>
             </div>
         </summary>
