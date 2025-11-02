@@ -536,6 +536,11 @@
         .match-summary-badge.unread {
             background: #14b8a6;
             color: white;
+            transition: background 0.2s ease;
+        }
+
+        .match-summary-badge.unread:hover {
+            background: #0f9488;
         }
 
         .match-summary-badge.warning {
@@ -9803,7 +9808,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                 <span class="match-summary-activity">${activityEmoji} ${activityName}</span>
                 <div class="match-summary-stats">
                     ${hasWarning ? `<span class="match-summary-badge warning">⚠️ Still interested?</span>` : ''}
-                    ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread">💬 New message</span>` : ''}
+                    ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread" onclick="event.stopPropagation(); openMatchChatThreaded('${match.id}');" style="cursor: pointer;">💬 New message</span>` : ''}
                     ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount} in chat</span>` : ''}
                     ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
                 </div>
