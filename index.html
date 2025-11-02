@@ -429,7 +429,6 @@
         /* Match Cards */
         .match-card {
             margin-bottom: 25px;
-            padding: 20px;
             background: var(--card-bg);
             border-radius: 12px;
             box-shadow: var(--shadow-sm);
@@ -437,6 +436,130 @@
             border: 1px solid var(--border-color);
         }
 
+        /* Collapsible match card styles */
+        .match-card summary {
+            padding: 16px 20px;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.2s ease;
+        }
+
+        .match-card summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .match-card summary:hover {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+        }
+
+        .match-card[open] summary {
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .match-card-content {
+            padding: 20px;
+            animation: slideDown 0.2s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .match-summary-header {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            gap: 12px;
+        }
+
+        .match-summary-activity {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .match-summary-stats {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+
+        .match-summary-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+
+        .match-summary-circle {
+            font-size: 12px;
+            padding: 4px 10px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+
+        .dropdown-indicator {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: transform 0.2s ease;
+        }
+
+        .match-card[open] .dropdown-indicator {
+            transform: rotate(180deg);
+        }
+
+        /* Responsive styles for mobile */
+        @media (max-width: 768px) {
+            .match-summary-header {
+                flex-wrap: wrap;
+            }
+
+            .match-summary-activity {
+                font-size: 16px;
+            }
+
+            .match-summary-stats {
+                order: 3;
+                margin-left: 0;
+                margin-top: 8px;
+                width: 100%;
+            }
+
+            .match-summary-circle {
+                font-size: 11px;
+                padding: 3px 8px;
+            }
+
+            .dropdown-indicator {
+                order: 2;
+            }
+        }
+
+        /* Teal shading for unread messages */
         .match-card.unread {
             background: #ccfbf1;
             border: 2px solid #14b8a6;
@@ -445,6 +568,28 @@
         body.dark-mode .match-card.unread {
             background: #134e4a;
             border: 2px solid #14b8a6;
+        }
+
+        /* Red shading for inactivity warnings */
+        .match-card.has-warning {
+            background: #fff1f0;
+            border: 2px solid #ff4d4f;
+        }
+
+        body.dark-mode .match-card.has-warning {
+            background: #2a1a1a;
+            border: 2px solid #ff4d4f;
+        }
+
+        /* Both unread and warning - prioritize warning (red) */
+        .match-card.unread.has-warning {
+            background: #fff1f0;
+            border: 2px solid #ff4d4f;
+        }
+
+        body.dark-mode .match-card.unread.has-warning {
+            background: #2a1a1a;
+            border: 2px solid #ff4d4f;
         }
 
         .match-card h3 {
@@ -9611,8 +9756,22 @@ const pastEvents = events.filter(e =>
 
 console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
+        const circleName = circles.find(c => c.id === match.circle_id)?.name || 'Circle';
+
         return `
-    <div class="match-card${matchUnreadCount > 0 ? ' unread' : ''}">
+    <details class="match-card${matchUnreadCount > 0 ? ' unread' : ''}${hasWarning ? ' has-warning' : ''}">
+        <summary>
+            <div class="match-summary-header">
+                <span class="match-summary-activity">${activityEmoji} ${activityName}</span>
+                <div class="match-summary-stats">
+                    ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount}</span>` : ''}
+                    ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length}</span>` : ''}
+                </div>
+                <span class="match-summary-circle">${circleName}</span>
+                <span class="dropdown-indicator">▼</span>
+            </div>
+        </summary>
+        <div class="match-card-content">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
     <h3 style="display: flex; align-items: center; gap: 8px;">
@@ -9629,7 +9788,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         </div>
         <div style="display: flex; flex-direction: column; gap: 10px; min-width: 140px; align-items: flex-end;">
     <span class="circle-tag">
-        ${circles.find(c => c.id === match.circle_id)?.name || 'Circle'}
+        ${circleName}
     </span>
     ${isFirst ? `
         <div class="match-info-box">
@@ -9745,7 +9904,8 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                         </div>
                     </details>
                 ` : ''}
-            </div>
+        </div>
+    </details>
         `;
     }).join('');
 
