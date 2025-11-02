@@ -544,10 +544,10 @@
         }
 
         .match-summary-top-line {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
             width: 100%;
-            justify-content: space-between;
             gap: 16px;
         }
 
@@ -557,10 +557,8 @@
             color: var(--text-primary);
             display: flex;
             align-items: center;
+            justify-self: start;
             gap: 8px;
-            flex: 1;
-            justify-content: center;
-            text-align: center;
         }
 
         .match-summary-stats {
@@ -621,6 +619,7 @@
             border-radius: 12px;
             white-space: nowrap;
             flex-shrink: 0;
+            justify-self: center;
         }
 
         .dropdown-indicator {
@@ -628,8 +627,8 @@
             color: var(--text-primary);
             font-weight: 700;
             transition: transform 0.2s ease;
-            margin-left: 12px;
             flex-shrink: 0;
+            justify-self: end;
         }
 
         .match-card[open] .dropdown-indicator {
@@ -5782,6 +5781,22 @@ window.finalizeCircleCreation = async function() {
       unreadMap.set(circle.id, unreadCounts[index]);
     });
 
+    // Get upcoming events count for each circle
+    const today = new Date().toISOString().split('T')[0];
+    const { data: upcomingEvents, error: eventsError } = await supabase
+      .from('events')
+      .select('circle_id')
+      .in('circle_id', circleIds)
+      .gte('scheduled_date', today);
+
+    // Count upcoming events per circle
+    const upcomingEventCounts = {};
+    if (upcomingEvents) {
+      upcomingEvents.forEach(event => {
+        upcomingEventCounts[event.circle_id] = (upcomingEventCounts[event.circle_id] || 0) + 1;
+      });
+    }
+
     const list = document.getElementById('circles-list');
 
     if (circles.length === 0) {
@@ -5804,6 +5819,8 @@ window.finalizeCircleCreation = async function() {
       const memberText = memberCount === 1 ? '1 member' : `${memberCount} members`;
       const unreadCount = unreadMap.get(circle.id) || 0;
       const isExpanded = expandedCircles.has(circle.id);
+      const eventCount = upcomingEventCounts[circle.id] || 0;
+      const eventButtonText = eventCount > 0 ? `📅 Upcoming Events (${eventCount})` : '📅 Upcoming Events';
 
       // Escape single quotes in circle name and code for onclick handlers
       const escapedName = circle.name.replace(/'/g, "\\'");
@@ -5832,7 +5849,7 @@ window.finalizeCircleCreation = async function() {
                 <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
                 <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
               </div>
-              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewUpcomingEvents('${circle.id}')" style="width: 100%;">📅 Upcoming Events</button>
+              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewUpcomingEvents('${circle.id}')" style="width: 100%;">${eventButtonText}</button>
             </div>
           </div>
         </div>`;
@@ -9875,6 +9892,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
         const circleName = circles.find(c => c.id === match.circle_id)?.name || 'Circle';
 
+        // Calculate total interested people across all upcoming events
+        const totalInterestedInEvents = upcomingEvents.reduce((sum, event) => {
+            return sum + (event.event_participants?.length || 0);
+        }, 0);
+
         return `
     <details class="match-card${matchUnreadCount > 0 ? ' unread' : ''}${hasWarning ? ' has-warning' : ''}">
         <summary>
@@ -9889,6 +9911,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                     ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread" onclick="event.stopPropagation(); openMatchChatThreaded('${match.id}');" style="cursor: pointer;">💬 New message</span>` : ''}
                     ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount} in chat</span>` : ''}
                     ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
+                    ${totalInterestedInEvents > 0 ? `<span class="match-summary-stat">👥 ${totalInterestedInEvents} interested</span>` : ''}
                 </div>
             </div>
         </summary>
