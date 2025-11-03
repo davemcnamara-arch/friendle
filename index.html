@@ -13270,6 +13270,13 @@ if (pageId === 'settings') {
                         `;
                     }).join('');
                 }
+
+                // Recalculate container height if expanded
+                const content = document.getElementById('blocked-users-content');
+                if (content && content.style.maxHeight && content.style.maxHeight !== '0px') {
+                    // Section is expanded, update height to fit new content
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                }
             } catch (error) {
                 console.error('Error loading blocked users:', error);
                 showNotification('Failed to load blocked users');

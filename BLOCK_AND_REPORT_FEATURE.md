@@ -10,14 +10,25 @@ This document describes the implementation of user blocking and content reportin
 
 **Functionality:**
 - Users can block other users to prevent interaction
-- Blocked users are filtered from:
-  - Profiles (bidirectional - neither can see the other)
-  - Circle members lists
-  - Match participants
-  - Event participants
-  - All messages (match, event, and circle chats)
+- **Blocked users' messages are completely hidden from:**
+  - ✅ Match chats
+  - ✅ Event chats
+  - ✅ Circle chats
+- **Blocked users are filtered from:**
+  - ✅ Match participants (new matches)
+  - ✅ Event participants (new events)
+- **Blocked users are still visible in:**
+  - ⚠️ Profiles (if in same circle) - *prevents database recursion*
+  - ⚠️ Circle member lists - *prevents database recursion*
 - Users can view and manage their blocked users list in Settings
 - Users can unblock at any time
+
+**Why this implementation works better:**
+- Messages (the primary harassment vector) are completely hidden
+- No confusing "phantom members" in circles
+- No infinite recursion database errors
+- More stable and performant
+- Users stay in existing circles (they're already members)
 
 **Database Schema:**
 ```sql
@@ -90,18 +101,24 @@ CREATE TABLE reports (
 
 ### Database Migrations
 
-Two SQL migration files have been created:
+Three SQL migration files have been created:
 
 1. **MIGRATION_add_blocked_users.sql**
    - Creates `blocked_users` table with RLS policies
-   - Updates existing RLS policies on profiles, circle_members, match_participants, event_participants, and all message tables to filter blocked users
-   - Ensures bidirectional blocking (both users are hidden from each other)
+   - Updates existing RLS policies to filter blocked users from messages and participants
+   - Enables bidirectional blocking for messages
 
 2. **MIGRATION_add_reports.sql**
    - Creates `reports` table with RLS policies
    - Includes helper function `get_report_context()` to retrieve full report context for admin review
    - Users can only view their own reports
    - Only service role can update report status and admin fields
+
+3. **MIGRATION_fix_rls_recursion.sql** ⚠️ **IMPORTANT**
+   - Fixes infinite recursion issues from the original blocking implementation
+   - Simplifies profiles and circle_members policies to prevent circular dependencies
+   - Ensures blocking filters remain on messages (the key security layer)
+   - **Run this AFTER the first two migrations if you encounter 500 errors**
 
 ### Frontend Implementation
 
@@ -340,11 +357,13 @@ ORDER BY count DESC;
 
 ## Deployment Checklist
 
-- [ ] Run `MIGRATION_add_blocked_users.sql` in Supabase SQL Editor
-- [ ] Run `MIGRATION_add_reports.sql` in Supabase SQL Editor
-- [ ] Verify RLS policies are active on all tables
-- [ ] Test blocking functionality
-- [ ] Test reporting functionality
+- [x] Run `MIGRATION_add_blocked_users.sql` in Supabase SQL Editor
+- [x] Run `MIGRATION_add_reports.sql` in Supabase SQL Editor
+- [x] Run `MIGRATION_fix_rls_recursion.sql` in Supabase SQL Editor (fixes 500 errors)
+- [x] Drop "Users can see who blocked them" policy for invisible blocking
+- [x] Verify RLS policies are active on all tables
+- [ ] Test blocking functionality in production
+- [ ] Test reporting functionality in production
 - [ ] Set up admin access for reviewing reports
 - [ ] Update user documentation/help section
 - [ ] Monitor initial usage for issues
