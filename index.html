@@ -13351,7 +13351,9 @@ if (pageId === 'settings') {
                 if (error) throw error;
 
                 showNotification(`${userName} has been unblocked`);
-                loadBlockedUsers();
+
+                // Wait for blocked users list to refresh
+                await loadBlockedUsers();
 
                 // Refresh current page to show unblocked user
                 const currentPage = localStorage.getItem('friendle_current_page');
