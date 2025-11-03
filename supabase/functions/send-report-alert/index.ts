@@ -150,7 +150,7 @@ WHERE id = '${record.id}';
           'Authorization': `Bearer ${RESEND_API_KEY}`
         },
         body: JSON.stringify({
-          from: 'Friendle Reports <reports@friendle.app>',
+          from: 'Friendle Reports <onboarding@resend.dev>',
           to: [ADMIN_EMAIL],
           subject: emailSubject,
           text: emailBody,
