@@ -10,20 +10,22 @@ Friendle implements **unilateral (one-way) blocking**, matching the behavior of 
 
 ### When User A Blocks User B:
 
-| Action | User A (Blocker) | User B (Blocked) |
-|--------|------------------|------------------|
-| **Seeing messages** | ❌ Cannot see B's messages | ✅ Can still see A's messages |
-| **Sending messages** | ✅ Can send messages | ✅ Can send messages |
-| **Message visibility** | B's messages are hidden from A | A's messages are visible to B |
-| **Knows they're blocked?** | ✅ Yes (they initiated) | ❌ No (invisible blocking) |
-| **Participant lists** | B is hidden from A's view | A is visible to B |
+| Action | User A (Blocker) | User B (Blocked) | User C (Neutral) |
+|--------|------------------|------------------|------------------|
+| **Seeing messages** | ❌ Cannot see B's messages | ✅ Can see all messages | ✅ Can see all messages (including B's) |
+| **Sending messages** | ✅ Can send messages | ✅ Can send messages (no error!) | ✅ Can send messages |
+| **Message visibility** | B's messages are hidden from A | B's own messages appear normally | C sees B's messages (no block) |
+| **Knows they're blocked?** | ✅ Yes (they initiated) | ❌ No (no errors, messages send successfully) | ❌ No (unaffected) |
+| **Participant lists** | B is hidden from A's view | A is visible to B | Both A and B visible |
 
 ### Key Points:
 
 ✅ **Blocker is in control**: User A controls what THEY see
-✅ **Blocked user unaware**: User B doesn't get error messages or know they're blocked
-✅ **Asymmetric**: Blocking only affects what the blocker sees, not what the blocked user sees
-✅ **Safer**: Doesn't alert potential harassers that they've been blocked
+✅ **Blocked user unaware**: User B can send messages without errors - doesn't know they're blocked
+✅ **Fully asymmetric**: Blocking only affects what the blocker sees, nobody else is affected
+✅ **Other users unaffected**: User C sees User B's messages normally (no collateral filtering)
+✅ **Safer**: Doesn't alert potential harassers that they've been blocked (no error messages)
+✅ **True unilateral**: Only the blocker's experience changes, everyone else's stays the same
 
 ---
 
@@ -44,17 +46,19 @@ AND NOT EXISTS (
 ### INSERT Policies (Sending Messages)
 
 ```sql
--- Check if any RECIPIENT in the conversation has blocked the SENDER
-RETURN EXISTS (
-    SELECT 1
-    FROM blocked_users bu
-    JOIN match_participants mp ON mp.profile_id = bu.blocker_id
-    WHERE mp.match_id = check_match_id
-      AND bu.blocked_id = user_id
-);
+-- Allow all participants to send messages
+WITH CHECK (
+  sender_id = auth.uid()
+  AND EXISTS (
+    SELECT 1 FROM match_participants
+    WHERE match_id = match_messages.match_id
+    AND profile_id = auth.uid()
+  )
+  -- No blocking check! Everyone can send.
+)
 ```
 
-**Result**: User B cannot send messages if ANY participant in the conversation has blocked them.
+**Result**: User B CAN send messages even if blocked. Only SELECT filters who sees them.
 
 ---
 
@@ -83,7 +87,7 @@ RETURN EXISTS (
 
 ---
 
-### Example 2: Group Chat with Block
+### Example 2: Group Chat with Block (Fully Unilateral!)
 
 **Setup**: Alice, Bob, and Charlie are in a circle chat.
 
@@ -109,14 +113,15 @@ RETURN EXISTS (
    ```
    [Charlie]: Hey everyone!      ✅ Visible
    [Alice]: Hello Charlie!       ✅ Visible
-   [Bob]: Hi Alice!              ✅ Visible
+   [Bob]: Hi Alice!              ✅ Visible (Charlie hasn't blocked Bob!)
    [Charlie]: What's up Bob?     ✅ Visible
    ```
 
 5. **When Bob tries to send a message**:
-   - Gets **403 Forbidden** error (because Alice, a participant, has blocked him)
-   - Error message doesn't explicitly say "Alice blocked you" (privacy)
-   - Bob might infer he's blocked, but doesn't know by whom
+   - ✅ **SUCCESS** - Message sends without error!
+   - Alice doesn't see it (filtered by her SELECT policy)
+   - Charlie DOES see it (no block relationship)
+   - Bob has no idea Alice blocked him (no error, message appears for him)
 
 ---
 
@@ -145,17 +150,18 @@ RETURN EXISTS (
 
 ---
 
-## Comparison: Bidirectional vs Unilateral
+## Comparison: Bidirectional vs Unilateral vs Fully Unilateral
 
-| Feature | Bidirectional (Old) | Unilateral (New) |
-|---------|---------------------|------------------|
-| **A blocks B** | Both blocked | Only A hides B |
-| **B knows they're blocked?** | ✅ Yes (gets 403 immediately) | ❌ Not initially |
-| **B can send messages?** | ❌ No (403 error) | ❌ No (403 error) |
-| **B can see A's messages?** | ❌ No (hidden) | ✅ Yes (visible) |
-| **Escalation risk** | ⚠️ Higher (B knows immediately) | ✅ Lower (B doesn't realize) |
-| **User control** | ⚠️ Both users affected | ✅ Blocker has full control |
-| **Matches social platforms?** | ❌ No | ✅ Yes |
+| Feature | Bidirectional (Old) | Semi-Unilateral | Fully Unilateral (Current) |
+|---------|---------------------|-----------------|---------------------------|
+| **A blocks B** | Both blocked | A hides B, B gets 403 | Only A hides B |
+| **B knows they're blocked?** | ✅ Yes (403 immediately) | ✅ Yes (403 error) | ❌ No (no error!) |
+| **B can send messages?** | ❌ No (403 error) | ❌ No (403 error) | ✅ Yes (no error!) |
+| **B can see A's messages?** | ❌ No (hidden) | ✅ Yes (visible) | ✅ Yes (visible) |
+| **C sees B's messages?** | ❌ No (B can't send) | ❌ No (B can't send) | ✅ Yes (no collateral filtering!) |
+| **Escalation risk** | ⚠️ Higher (B knows) | ⚠️ Medium (B knows) | ✅ Lowest (B doesn't know) |
+| **User control** | ⚠️ Both affected | ⚠️ Multiple users affected | ✅ Only blocker affected |
+| **Matches social platforms?** | ❌ No | ⚠️ Partial | ✅ Yes (Twitter/X) |
 
 ---
 
@@ -208,14 +214,18 @@ CREATE TABLE blocked_users (
 
 ## Migration Path
 
-To migrate from bidirectional to unilateral blocking:
+To migrate to fully unilateral blocking:
 
-1. Run `MIGRATION_unilateral_blocking.sql`
-2. Test with the scenarios above
-3. Verify SELECT policies only check `blocker_id = auth.uid()`
-4. Verify INSERT functions check if recipient blocked sender
+1. Run `MIGRATION_unilateral_blocking.sql` - Changes to unilateral SELECT filtering
+2. Run `MIGRATION_fix_duplicate_policies.sql` - Removes duplicate policies
+3. Run `MIGRATION_fully_unilateral_blocking.sql` - Removes INSERT blocking checks
+4. Test with the scenarios above
+5. Verify SELECT policies only check `blocker_id = auth.uid()`
+6. Verify INSERT policies no longer check blocking
 
 **No data migration needed** - existing blocks work the same way from the blocker's perspective.
+
+**What Changes**: Blocked users can now send messages (no 403 errors), but blockers still don't see them.
 
 ---
 
