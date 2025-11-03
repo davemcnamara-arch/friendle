@@ -262,6 +262,20 @@
             transform: scale(1.05);
         }
 
+        .profile-picture-small {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+            background: var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            flex-shrink: 0;
+        }
+
         .profile-picture-overlay {
             position: absolute;
             bottom: 0;
@@ -2476,6 +2490,29 @@ body.dark-mode .custom-activity-item {
         </div>
     </div>
 
+    <!-- Blocked Users Section (Collapsible) -->
+    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div onclick="toggleBlockedUsers()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">🚫 Blocked Users</h3>
+            <span id="blocked-users-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
+        </div>
+
+        <div id="blocked-users-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+            <div style="padding: 0 20px 20px 20px;">
+                <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                    Blocked users cannot see your profile, send you messages, or interact with you in circles and matches.
+                </p>
+
+                <div id="blocked-users-list" style="margin-bottom: 15px;">
+                    <!-- Blocked users will be populated here -->
+                    <div id="no-blocked-users" style="text-align: center; padding: 20px; font-size: 0.85em; color: var(--text-tertiary);">
+                        No blocked users
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Advanced Settings Section (Collapsible) -->
     <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
         <div onclick="toggleAdvancedSettings()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
@@ -2590,7 +2627,71 @@ body.dark-mode .custom-activity-item {
         <div class="modal-overlay" id="suggest-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeSuggestModal()">×</span><div class="modal-header">Suggest an Activity</div><div class="form-group"><label for="suggest-name">Activity Name</label><input type="text" id="suggest-name" placeholder="e.g., Go Karting"></div><button class="btn" onclick="suggestActivity()">Suggest</button></div></div>
         <div class="modal-overlay" id="invite-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeInviteModal()">×</span><div class="modal-header">Share Invite Link</div><div class="form-group"><label for="invite-link">Copy this link and send it to a friend:</label><input type="text" id="invite-link" readonly></div><button class="btn" onclick="copyInviteLink()">Copy Link</button></div></div>
         <div class="modal-overlay" id="update-name-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeUpdateNameModal()">×</span><div class="modal-header">Update Display Name</div><div class="form-group"><label for="modal-new-username">Display Name</label><input type="text" id="modal-new-username" placeholder="Enter new name"></div><button class="btn" onclick="changeUsername()">Update Name</button></div></div>
-    
+
+<!-- Block User Modal -->
+<div class="modal-overlay" id="block-user-modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal-btn" onclick="closeBlockUserModal()">×</span>
+        <div class="modal-header">🚫 Block User</div>
+        <input type="hidden" id="block-user-id">
+        <p style="margin: 15px 0; font-size: 0.9em; color: var(--text-secondary); line-height: 1.4;">
+            <strong id="block-user-name"></strong> will no longer be able to:
+        </p>
+        <ul style="margin: 0 0 15px 20px; font-size: 0.85em; color: var(--text-secondary); line-height: 1.6;">
+            <li>See your profile</li>
+            <li>Send you messages</li>
+            <li>Interact with you in circles and matches</li>
+        </ul>
+        <p style="margin: 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+            You won't see their messages or profile either. You can unblock them later from Settings.
+        </p>
+        <div class="form-group">
+            <label for="block-reason">Reason (optional)</label>
+            <textarea id="block-reason" rows="2" placeholder="Why are you blocking this user?"></textarea>
+        </div>
+        <button class="btn" style="background: #dc3545;" onclick="confirmBlockUser()">Block User</button>
+        <button class="btn btn-secondary" onclick="closeBlockUserModal()">Cancel</button>
+    </div>
+</div>
+
+<!-- Report Content Modal -->
+<div class="modal-overlay" id="report-modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal-btn" onclick="closeReportModal()">×</span>
+        <div class="modal-header">⚠️ Report <span id="report-type-text">Content</span></div>
+        <input type="hidden" id="report-content-type">
+        <input type="hidden" id="report-content-id">
+        <input type="hidden" id="report-content-name">
+        <p style="margin: 15px 0; font-size: 0.9em; color: var(--text-secondary); line-height: 1.4;">
+            Help us keep Friendle safe. Your report will be reviewed by our team.
+        </p>
+        <div class="form-group">
+            <label for="report-category">Reason *</label>
+            <select id="report-category" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-primary); font-size: 1em;">
+                <option value="">Select a reason...</option>
+                <option value="harassment">Harassment or bullying</option>
+                <option value="spam">Spam or scam</option>
+                <option value="inappropriate_content">Inappropriate content</option>
+                <option value="fake_profile">Fake profile or impersonation</option>
+                <option value="threatening_behavior">Threatening behavior</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="report-details">Additional details (optional)</label>
+            <textarea id="report-details" rows="3" placeholder="Please provide more context..."></textarea>
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; font-size: 0.85em; color: var(--text-secondary); cursor: pointer;">
+                <input type="checkbox" id="report-also-block" style="margin-right: 8px;">
+                Also block this user
+            </label>
+        </div>
+        <button class="btn" onclick="submitReport()">Submit Report</button>
+        <button class="btn btn-secondary" onclick="closeReportModal()">Cancel</button>
+    </div>
+</div>
+
 <div class="undo-container" id="undo-container">
                     <span>Selection updated.</span>
                     <button class="undo-btn" onclick="undoLastActivityChange()">Undo</button>
@@ -8186,12 +8287,17 @@ async function loadOlderMessages(chatType) {
                         <div style="background: ${message.is_deleted ? 'var(--bg-secondary)' : (isOwnMessage ? '#4CAF50' : '#f0f0f0')}; color: ${message.is_deleted ? 'var(--text-secondary)' : (isOwnMessage ? 'white' : 'black')}; padding: 10px 14px; border-radius: 12px; max-width: 280px; word-wrap: break-word; overflow-wrap: break-word;">
                             ${sanitizedContent}
                         </div>
-                        ${isOwnMessage && !message.is_deleted ? `
+                        ${!message.is_deleted ? `
                             <div class="message-actions" style="position: relative;">
                                 <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
                                 <div id="event-menu-${message.id}" class="message-actions-menu">
-                                    ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
-                                    <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
+                                    ${isOwnMessage ? `
+                                        ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
+                                        <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
+                                    ` : `
+                                        <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}')">⚠️ Report</button>
+                                        <button onclick="openBlockUserModal('${message.sender_id}', '${sanitizedSenderName}')">🚫 Block User</button>
+                                    `}
                                 </div>
                             </div>
                         ` : ''}
@@ -11688,12 +11794,17 @@ function appendMessage(message) {
             <div style="background: ${message.is_deleted ? 'var(--bg-secondary)' : (isOwnMessage ? '#4CAF50' : '#f0f0f0')}; color: ${message.is_deleted ? 'var(--text-secondary)' : (isOwnMessage ? 'white' : 'black')}; padding: 10px 14px; border-radius: 12px; max-width: 280px; word-wrap: break-word; overflow-wrap: break-word;">
     ${sanitizedContent}
 </div>
-            ${isOwnMessage && !message.is_deleted ? `
+            ${!message.is_deleted ? `
     <div class="message-actions" style="position: relative;">
         <button onclick="toggleEventMessageActions('${message.id}')" style="background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 5px;">⋯</button>
         <div id="event-menu-${message.id}" class="message-actions-menu">
-            ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
-            <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
+            ${isOwnMessage ? `
+                ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
+                <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
+            ` : `
+                <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}')">⚠️ Report</button>
+                <button onclick="openBlockUserModal('${message.sender_id}', '${sanitizedSenderName}')">🚫 Block User</button>
+            `}
         </div>
     </div>
 ` : ''}
@@ -12887,6 +12998,7 @@ if (pageId === 'settings') {
     initNotificationSettings();
     initHelpTutorials();
     initAdvancedSettings();
+    initBlockedUsers();
 }
 
     // Check and show tutorial for first-time users
@@ -13070,7 +13182,255 @@ if (pageId === 'settings') {
                 samsungHelpSection.style.display = 'block';
             }
         };
-        
+
+        // Toggle Blocked Users section
+        window.toggleBlockedUsers = function() {
+            const content = document.getElementById('blocked-users-content');
+            const arrow = document.getElementById('blocked-users-arrow');
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+
+            if (isExpanded) {
+                // Collapse
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+                localStorage.setItem('blocked_users_expanded', 'false');
+            } else {
+                // Expand and load blocked users
+                loadBlockedUsers();
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+                localStorage.setItem('blocked_users_expanded', 'true');
+            }
+        };
+
+        // Initialize Blocked Users state on page load
+        window.initBlockedUsers = function() {
+            const isExpanded = localStorage.getItem('blocked_users_expanded') === 'true';
+            if (isExpanded) {
+                const content = document.getElementById('blocked-users-content');
+                const arrow = document.getElementById('blocked-users-arrow');
+                if (content && arrow) {
+                    loadBlockedUsers();
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                    arrow.style.transform = 'rotate(180deg)';
+                }
+            }
+        };
+
+        // Load blocked users list
+        window.loadBlockedUsers = async function() {
+            try {
+                const { data, error } = await supabase
+                    .from('blocked_users')
+                    .select(`
+                        id,
+                        blocked_id,
+                        reason,
+                        created_at,
+                        blocked_profile:profiles!blocked_users_blocked_id_fkey(id, name, avatar)
+                    `)
+                    .eq('blocker_id', currentUser.id)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const listContainer = document.getElementById('blocked-users-list');
+                const noBlockedUsers = document.getElementById('no-blocked-users');
+
+                if (!data || data.length === 0) {
+                    noBlockedUsers.style.display = 'block';
+                    listContainer.innerHTML = noBlockedUsers.outerHTML;
+                } else {
+                    noBlockedUsers.style.display = 'none';
+                    listContainer.innerHTML = data.map(block => {
+                        const profile = block.blocked_profile;
+                        const avatar = profile.avatar ?
+                            (profile.avatar.includes('supabase') ?
+                                profile.avatar :
+                                `<div class="avatar-emoji">${profile.avatar}</div>`) :
+                            '<div class="avatar-emoji">😊</div>';
+
+                        return `
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="profile-picture-small">
+                                        ${avatar.includes('supabase') ?
+                                            `<img src="${avatar}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` :
+                                            avatar}
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 600; color: var(--text-primary);">${profile.name}</div>
+                                        ${block.reason ? `<div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 2px;">${block.reason}</div>` : ''}
+                                    </div>
+                                </div>
+                                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85em;" onclick="unblockUser('${block.blocked_id}', '${profile.name}')">
+                                    Unblock
+                                </button>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading blocked users:', error);
+                showNotification('Failed to load blocked users');
+            }
+        };
+
+        // Open block user modal
+        window.openBlockUserModal = function(userId, userName) {
+            document.getElementById('block-user-id').value = userId;
+            document.getElementById('block-user-name').textContent = userName;
+            document.getElementById('block-reason').value = '';
+            document.getElementById('block-user-modal-overlay').style.display = 'flex';
+        };
+
+        // Close block user modal
+        window.closeBlockUserModal = function() {
+            document.getElementById('block-user-modal-overlay').style.display = 'none';
+        };
+
+        // Confirm block user
+        window.confirmBlockUser = async function() {
+            const userId = document.getElementById('block-user-id').value;
+            const userName = document.getElementById('block-user-name').textContent;
+            const reason = document.getElementById('block-reason').value.trim();
+
+            try {
+                const { error } = await supabase
+                    .from('blocked_users')
+                    .insert({
+                        blocker_id: currentUser.id,
+                        blocked_id: userId,
+                        reason: reason || null
+                    });
+
+                if (error) throw error;
+
+                showNotification(`${userName} has been blocked`);
+                closeBlockUserModal();
+
+                // Refresh current page to hide blocked user
+                const currentPage = localStorage.getItem('friendle_current_page');
+                if (currentPage === 'circles') renderCircles();
+                if (currentPage === 'matches') loadMatches();
+                if (currentPage === 'settings') loadBlockedUsers();
+
+            } catch (error) {
+                console.error('Error blocking user:', error);
+                if (error.code === '23505') {
+                    showNotification('User is already blocked');
+                } else {
+                    showNotification('Failed to block user');
+                }
+            }
+        };
+
+        // Unblock user
+        window.unblockUser = async function(userId, userName) {
+            if (!confirm(`Unblock ${userName}? They will be able to see your profile and interact with you again.`)) {
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('blocked_users')
+                    .delete()
+                    .eq('blocker_id', currentUser.id)
+                    .eq('blocked_id', userId);
+
+                if (error) throw error;
+
+                showNotification(`${userName} has been unblocked`);
+                loadBlockedUsers();
+
+                // Refresh current page to show unblocked user
+                const currentPage = localStorage.getItem('friendle_current_page');
+                if (currentPage === 'circles') renderCircles();
+                if (currentPage === 'matches') loadMatches();
+
+            } catch (error) {
+                console.error('Error unblocking user:', error);
+                showNotification('Failed to unblock user');
+            }
+        };
+
+        // Open report modal
+        window.openReportModal = function(contentType, contentId, contentName) {
+            document.getElementById('report-content-type').value = contentType;
+            document.getElementById('report-content-id').value = contentId;
+            document.getElementById('report-content-name').value = contentName;
+            document.getElementById('report-type-text').textContent = contentType.charAt(0).toUpperCase() + contentType.slice(1);
+            document.getElementById('report-category').value = '';
+            document.getElementById('report-details').value = '';
+            document.getElementById('report-also-block').checked = false;
+            document.getElementById('report-modal-overlay').style.display = 'flex';
+        };
+
+        // Close report modal
+        window.closeReportModal = function() {
+            document.getElementById('report-modal-overlay').style.display = 'none';
+        };
+
+        // Submit report
+        window.submitReport = async function() {
+            const contentType = document.getElementById('report-content-type').value;
+            const contentId = document.getElementById('report-content-id').value;
+            const contentName = document.getElementById('report-content-name').value;
+            const category = document.getElementById('report-category').value;
+            const details = document.getElementById('report-details').value.trim();
+            const alsoBlock = document.getElementById('report-also-block').checked;
+
+            if (!category) {
+                showNotification('Please select a reason for your report');
+                return;
+            }
+
+            try {
+                // Submit report
+                const { error: reportError } = await supabase
+                    .from('reports')
+                    .insert({
+                        reporter_id: currentUser.id,
+                        reported_type: contentType,
+                        reported_id: contentId,
+                        reason_category: category,
+                        reason_details: details || null,
+                        status: 'pending'
+                    });
+
+                if (reportError) throw reportError;
+
+                // If user wants to also block (and content type is user)
+                if (alsoBlock && contentType === 'user') {
+                    const { error: blockError } = await supabase
+                        .from('blocked_users')
+                        .insert({
+                            blocker_id: currentUser.id,
+                            blocked_id: contentId,
+                            reason: `Reported: ${category}`
+                        });
+
+                    if (blockError && blockError.code !== '23505') {
+                        console.error('Error blocking user:', blockError);
+                    }
+                }
+
+                showNotification('Thank you for your report. We will review it shortly.');
+                closeReportModal();
+
+                // Refresh current page if needed
+                if (alsoBlock && contentType === 'user') {
+                    const currentPage = localStorage.getItem('friendle_current_page');
+                    if (currentPage === 'circles') renderCircles();
+                    if (currentPage === 'matches') loadMatches();
+                }
+
+            } catch (error) {
+                console.error('Error submitting report:', error);
+                showNotification('Failed to submit report. Please try again.');
+            }
+        };
+
         // Invite System
         window.showInviteModal = function(circleId) {
             const baseUrl = window.location.href.split('?')[0];
