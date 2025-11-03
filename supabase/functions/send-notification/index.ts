@@ -157,6 +157,21 @@ serve(async (req) => {
       }
     }
 
+    // Filter out recipients who have blocked the sender (unilateral blocking)
+    const { data: blockingRecipients, error: blockError } = await supabaseClient
+      .from('blocked_users')
+      .select('blocker_id')
+      .eq('blocked_id', senderId)
+
+    if (blockError) {
+      console.error('Error checking blocked users:', blockError)
+      // Continue sending notifications even if block check fails
+    } else if (blockingRecipients && blockingRecipients.length > 0) {
+      const blockingProfileIds = new Set(blockingRecipients.map(b => b.blocker_id))
+      filteredRecipients = filteredRecipients.filter(r => !blockingProfileIds.has(r.id))
+      console.log(`Filtered out ${blockingRecipients.length} recipients who blocked the sender`)
+    }
+
     // Filter out null player IDs and get array of player IDs
     const playerIds = filteredRecipients
       ?.map(r => r.onesignal_player_id)
