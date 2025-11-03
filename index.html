@@ -13220,6 +13220,8 @@ if (pageId === 'settings') {
         // Load blocked users list
         window.loadBlockedUsers = async function() {
             try {
+                console.log('[loadBlockedUsers] Starting to load blocked users...');
+
                 const { data, error } = await supabase
                     .from('blocked_users')
                     .select(`
@@ -13234,14 +13236,19 @@ if (pageId === 'settings') {
 
                 if (error) throw error;
 
+                console.log('[loadBlockedUsers] Fetched data:', data);
+
                 const listContainer = document.getElementById('blocked-users-list');
-                const noBlockedUsers = document.getElementById('no-blocked-users');
 
                 if (!data || data.length === 0) {
-                    noBlockedUsers.style.display = 'block';
-                    listContainer.innerHTML = noBlockedUsers.outerHTML;
+                    console.log('[loadBlockedUsers] No blocked users, showing empty state');
+                    listContainer.innerHTML = `
+                        <div id="no-blocked-users" style="text-align: center; padding: 20px; font-size: 0.85em; color: var(--text-tertiary);">
+                            No blocked users
+                        </div>
+                    `;
                 } else {
-                    noBlockedUsers.style.display = 'none';
+                    console.log('[loadBlockedUsers] Found', data.length, 'blocked users');
                     listContainer.innerHTML = data.map(block => {
                         const profile = block.blocked_profile;
                         const avatar = profile.avatar ?
@@ -13271,15 +13278,22 @@ if (pageId === 'settings') {
                     }).join('');
                 }
 
+                // Force a reflow to ensure DOM updates
+                void listContainer.offsetHeight;
+
                 // Recalculate container height if expanded
                 const content = document.getElementById('blocked-users-content');
                 if (content && content.style.maxHeight && content.style.maxHeight !== '0px') {
                     // Section is expanded, update height to fit new content
                     // Use requestAnimationFrame to ensure DOM has updated
                     requestAnimationFrame(() => {
-                        content.style.maxHeight = content.scrollHeight + 'px';
+                        const newHeight = content.scrollHeight;
+                        console.log('[loadBlockedUsers] Updating height to:', newHeight);
+                        content.style.maxHeight = newHeight + 'px';
                     });
                 }
+
+                console.log('[loadBlockedUsers] Complete');
             } catch (error) {
                 console.error('Error loading blocked users:', error);
                 showNotification('Failed to load blocked users');
@@ -13342,6 +13356,8 @@ if (pageId === 'settings') {
             }
 
             try {
+                console.log('[unblockUser] Starting unblock for:', userId, userName);
+
                 const { error } = await supabase
                     .from('blocked_users')
                     .delete()
@@ -13350,10 +13366,13 @@ if (pageId === 'settings') {
 
                 if (error) throw error;
 
+                console.log('[unblockUser] Delete successful, showing notification');
                 showNotification(`${userName} has been unblocked`);
 
+                console.log('[unblockUser] Calling loadBlockedUsers...');
                 // Wait for blocked users list to refresh
                 await loadBlockedUsers();
+                console.log('[unblockUser] loadBlockedUsers completed');
 
                 // Refresh current page to show unblocked user
                 const currentPage = localStorage.getItem('friendle_current_page');
