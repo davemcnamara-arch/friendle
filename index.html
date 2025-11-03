@@ -13411,6 +13411,14 @@ if (pageId === 'settings') {
             const details = document.getElementById('report-details').value.trim();
             const alsoBlock = document.getElementById('report-also-block').checked;
 
+            console.log('[submitReport] Submitting report:', {
+                contentType,
+                contentId,
+                contentName,
+                category,
+                alsoBlock
+            });
+
             if (!category) {
                 showNotification('Please select a reason for your report');
                 return;
@@ -13431,8 +13439,12 @@ if (pageId === 'settings') {
 
                 if (reportError) throw reportError;
 
+                console.log('[submitReport] Report submitted successfully');
+
                 // If user wants to also block (and content type is user)
                 if (alsoBlock && contentType === 'user') {
+                    console.log('[submitReport] Also blocking user:', contentId);
+
                     const { error: blockError } = await supabase
                         .from('blocked_users')
                         .insert({
@@ -13441,8 +13453,14 @@ if (pageId === 'settings') {
                             reason: `Reported: ${category}`
                         });
 
-                    if (blockError && blockError.code !== '23505') {
-                        console.error('Error blocking user:', blockError);
+                    if (blockError) {
+                        if (blockError.code === '23505') {
+                            console.log('[submitReport] User already blocked');
+                        } else {
+                            console.error('[submitReport] Error blocking user:', blockError);
+                        }
+                    } else {
+                        console.log('[submitReport] User blocked successfully');
                     }
                 }
 
@@ -13451,9 +13469,11 @@ if (pageId === 'settings') {
 
                 // Refresh current page if needed
                 if (alsoBlock && contentType === 'user') {
+                    console.log('[submitReport] Refreshing page after block');
                     const currentPage = localStorage.getItem('friendle_current_page');
                     if (currentPage === 'circles') renderCircles();
                     if (currentPage === 'matches') loadMatches();
+                    if (currentPage === 'settings') await loadBlockedUsers();
                 }
 
             } catch (error) {
