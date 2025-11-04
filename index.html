@@ -2662,6 +2662,7 @@ body.dark-mode .custom-activity-item {
         <input type="hidden" id="report-content-type">
         <input type="hidden" id="report-content-id">
         <input type="hidden" id="report-content-name">
+        <input type="hidden" id="report-sender-id">
         <p style="margin: 15px 0; font-size: 0.9em; color: var(--text-secondary); line-height: 1.4;">
             Help us keep Friendle safe. Your report will be reviewed by our team.
         </p>
@@ -8295,7 +8296,7 @@ async function loadOlderMessages(chatType) {
                                         ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
                                         <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
                                     ` : `
-                                        <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}')">⚠️ Report</button>
+                                        <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}', '${message.sender_id}')">⚠️ Report</button>
                                         <button onclick="openBlockUserModal('${message.sender_id}', '${sanitizedSenderName}')">🚫 Block User</button>
                                     `}
                                 </div>
@@ -11802,7 +11803,7 @@ function appendMessage(message) {
                 ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
                 <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
             ` : `
-                <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}')">⚠️ Report</button>
+                <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}', '${message.sender_id}')">⚠️ Report</button>
                 <button onclick="openBlockUserModal('${message.sender_id}', '${sanitizedSenderName}')">🚫 Block User</button>
             `}
         </div>
@@ -13386,10 +13387,11 @@ if (pageId === 'settings') {
         };
 
         // Open report modal
-        window.openReportModal = function(contentType, contentId, contentName) {
+        window.openReportModal = function(contentType, contentId, contentName, senderId = null) {
             document.getElementById('report-content-type').value = contentType;
             document.getElementById('report-content-id').value = contentId;
             document.getElementById('report-content-name').value = contentName;
+            document.getElementById('report-sender-id').value = senderId || '';
             document.getElementById('report-type-text').textContent = contentType.charAt(0).toUpperCase() + contentType.slice(1);
             document.getElementById('report-category').value = '';
             document.getElementById('report-details').value = '';
@@ -13407,6 +13409,7 @@ if (pageId === 'settings') {
             const contentType = document.getElementById('report-content-type').value;
             const contentId = document.getElementById('report-content-id').value;
             const contentName = document.getElementById('report-content-name').value;
+            const senderId = document.getElementById('report-sender-id').value;
             const category = document.getElementById('report-category').value;
             const details = document.getElementById('report-details').value.trim();
             const alsoBlock = document.getElementById('report-also-block').checked;
@@ -13415,6 +13418,7 @@ if (pageId === 'settings') {
                 contentType,
                 contentId,
                 contentName,
+                senderId,
                 category,
                 alsoBlock
             });
@@ -13441,26 +13445,42 @@ if (pageId === 'settings') {
 
                 console.log('[submitReport] Report submitted successfully');
 
-                // If user wants to also block (and content type is user)
-                if (alsoBlock && contentType === 'user') {
-                    console.log('[submitReport] Also blocking user:', contentId);
+                // If user wants to also block
+                if (alsoBlock) {
+                    // Determine who to block:
+                    // - If reporting a user directly → block that user
+                    // - If reporting a message → block the message sender
+                    // - If reporting circle/event → skip blocking (no user to block)
+                    let userIdToBlock = null;
 
-                    const { error: blockError } = await supabase
-                        .from('blocked_users')
-                        .insert({
-                            blocker_id: currentUser.id,
-                            blocked_id: contentId,
-                            reason: `Reported: ${category}`
-                        });
+                    if (contentType === 'user') {
+                        userIdToBlock = contentId;
+                    } else if (contentType === 'message' && senderId) {
+                        userIdToBlock = senderId;
+                    }
 
-                    if (blockError) {
-                        if (blockError.code === '23505') {
-                            console.log('[submitReport] User already blocked');
+                    if (userIdToBlock) {
+                        console.log('[submitReport] Also blocking user:', userIdToBlock);
+
+                        const { error: blockError } = await supabase
+                            .from('blocked_users')
+                            .insert({
+                                blocker_id: currentUser.id,
+                                blocked_id: userIdToBlock,
+                                reason: `Reported: ${category}`
+                            });
+
+                        if (blockError) {
+                            if (blockError.code === '23505') {
+                                console.log('[submitReport] User already blocked');
+                            } else {
+                                console.error('[submitReport] Error blocking user:', blockError);
+                            }
                         } else {
-                            console.error('[submitReport] Error blocking user:', blockError);
+                            console.log('[submitReport] User blocked successfully');
                         }
                     } else {
-                        console.log('[submitReport] User blocked successfully');
+                        console.log('[submitReport] No user to block for contentType:', contentType);
                     }
                 }
 
@@ -13468,7 +13488,7 @@ if (pageId === 'settings') {
                 closeReportModal();
 
                 // Refresh current page if needed
-                if (alsoBlock && contentType === 'user') {
+                if (alsoBlock && (contentType === 'user' || (contentType === 'message' && senderId))) {
                     console.log('[submitReport] Refreshing page after block');
                     const currentPage = localStorage.getItem('friendle_current_page');
                     if (currentPage === 'circles') renderCircles();
