@@ -2430,6 +2430,41 @@ body.dark-mode .custom-activity-item {
                     </label>
                 </div>
 
+                <h4 style="margin: 20px 0 10px 0; font-size: 0.95em; color: var(--text-primary);">🎯 Activity Momentum Alerts</h4>
+                <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary);">Get notified when activities you're interested in reach key thresholds to help coordination happen</p>
+
+                <div class="toggle-container">
+                    <label class="toggle-label" for="notify-at-4-toggle">
+                        <div class="toggle-text">
+                            <div class="toggle-title">Notify at 4 interested</div>
+                            <div class="toggle-description">When a group becomes viable</div>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="notify-at-4-toggle" onchange="toggleNotifyAt4()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="toggle-container">
+                    <label class="toggle-label" for="notify-at-8-toggle">
+                        <div class="toggle-text">
+                            <div class="toggle-title">Notify at 8 interested</div>
+                            <div class="toggle-description">When momentum is strong</div>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="notify-at-8-toggle" onchange="toggleNotifyAt8()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="margin: 10px 0 0 0; padding: 10px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color);">
+                    <p style="margin: 0; font-size: 0.8em; color: var(--text-secondary); line-height: 1.4;">
+                        ℹ️ These help coordinate spontaneous group activities by notifying you when interest reaches critical thresholds
+                    </p>
+                </div>
+
                 <!-- Samsung Internet Notification Troubleshooting -->
                 <div id="samsung-notification-help" style="display: none; margin: 20px 0 0 0; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 3px solid #ffc107;">
                     <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #856404;">📱 Samsung Device Notification Help</h3>
@@ -4534,6 +4569,16 @@ async function loadMinimumGroupSize() {
         chatToggle.checked = currentUser.notify_chat_messages !== false; // Default true
     }
 
+    const notifyAt4Toggle = document.getElementById('notify-at-4-toggle');
+    if (notifyAt4Toggle) {
+        notifyAt4Toggle.checked = currentUser.notify_at_4 !== false; // Default true
+    }
+
+    const notifyAt8Toggle = document.getElementById('notify-at-8-toggle');
+    if (notifyAt8Toggle) {
+        notifyAt8Toggle.checked = currentUser.notify_at_8 !== false; // Default true
+    }
+
     // Load dark mode preference
     const darkModeToggle = document.getElementById('dark-mode-toggle');
     if (darkModeToggle) {
@@ -5320,6 +5365,58 @@ window.toggleChatMessages = async function() {
 
     } catch (error) {
         console.error('Error toggling chat notifications:', error);
+        showNotification('Error updating setting', 'error');
+        toggle.checked = !isEnabled;
+    }
+}
+
+window.toggleNotifyAt4 = async function() {
+    const toggle = document.getElementById('notify-at-4-toggle');
+    const isEnabled = toggle.checked;
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ notify_at_4: isEnabled })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.notify_at_4 = isEnabled;
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
+
+        showNotification(isEnabled ? '🎯 Notifications at 4 interested enabled!' : '🔕 Notifications at 4 interested disabled');
+
+    } catch (error) {
+        console.error('Error toggling notify at 4:', error);
+        showNotification('Error updating setting', 'error');
+        toggle.checked = !isEnabled;
+    }
+}
+
+window.toggleNotifyAt8 = async function() {
+    const toggle = document.getElementById('notify-at-8-toggle');
+    const isEnabled = toggle.checked;
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ notify_at_8: isEnabled })
+            .eq('id', currentUser.id);
+
+        if (error) throw error;
+
+        currentUser.notify_at_8 = isEnabled;
+        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
+        SecureStorage.setUserId(currentUser.id);
+        SecureStorage.setSessionData(currentUser);
+
+        showNotification(isEnabled ? '🎯 Notifications at 8 interested enabled!' : '🔕 Notifications at 8 interested disabled');
+
+    } catch (error) {
+        console.error('Error toggling notify at 8:', error);
         showNotification('Error updating setting', 'error');
         toggle.checked = !isEnabled;
     }
@@ -6467,6 +6564,112 @@ async function loadUserPreferences(circleId) {
     }
 }
 
+// Check if activity interest has reached critical mass thresholds (4 or 8)
+// and send notifications if threshold just crossed
+async function checkCriticalMassThresholds(circleId, activityId) {
+    try {
+        console.log('Checking critical mass thresholds for', { circleId, activityId });
+
+        // Get or create match for this activity + circle
+        let { data: match, error: matchError } = await supabase
+            .from('matches')
+            .select('id, notified_at_4, notified_at_8')
+            .eq('circle_id', circleId)
+            .eq('activity_id', activityId)
+            .single();
+
+        // If no match exists, create one
+        if (matchError && matchError.code === 'PGRST116') {
+            const { data: newMatch, error: createError } = await supabase
+                .from('matches')
+                .insert({
+                    circle_id: circleId,
+                    activity_id: activityId,
+                    created_at: new Date().toISOString()
+                })
+                .select('id, notified_at_4, notified_at_8')
+                .single();
+
+            if (createError) {
+                console.error('Error creating match:', createError);
+                return;
+            }
+
+            match = newMatch;
+        } else if (matchError) {
+            console.error('Error fetching match:', matchError);
+            return;
+        }
+
+        if (!match) {
+            console.error('No match found or created');
+            return;
+        }
+
+        // Count total interested users for this match
+        const { data: interestedUsers, error: countError } = await supabase
+            .from('preferences')
+            .select('profile_id')
+            .eq('circle_id', circleId)
+            .eq('activity_id', activityId)
+            .eq('selected', true);
+
+        if (countError) {
+            console.error('Error counting interested users:', countError);
+            return;
+        }
+
+        const interestedCount = interestedUsers?.length || 0;
+        console.log(`Interested count: ${interestedCount}, notified_at_4: ${match.notified_at_4}, notified_at_8: ${match.notified_at_8}`);
+
+        // Check if we just hit threshold 4
+        if (interestedCount >= 4 && !match.notified_at_4) {
+            console.log('Threshold 4 reached! Invoking Edge Function...');
+
+            // Invoke Edge Function asynchronously (don't block user flow)
+            supabase.functions.invoke('send-critical-mass-notification', {
+                body: {
+                    matchId: match.id,
+                    threshold: 4
+                }
+            }).then(({ data, error }) => {
+                if (error) {
+                    console.error('Error invoking critical mass notification (threshold 4):', error);
+                } else {
+                    console.log('Critical mass notification (threshold 4) sent:', data);
+                }
+            }).catch(error => {
+                console.error('Failed to invoke critical mass notification (threshold 4):', error);
+            });
+        }
+
+        // Check if we just hit threshold 8
+        if (interestedCount >= 8 && !match.notified_at_8) {
+            console.log('Threshold 8 reached! Invoking Edge Function...');
+
+            // Invoke Edge Function asynchronously (don't block user flow)
+            supabase.functions.invoke('send-critical-mass-notification', {
+                body: {
+                    matchId: match.id,
+                    threshold: 8
+                }
+            }).then(({ data, error }) => {
+                if (error) {
+                    console.error('Error invoking critical mass notification (threshold 8):', error);
+                } else {
+                    console.log('Critical mass notification (threshold 8) sent:', data);
+                }
+            }).catch(error => {
+                console.error('Failed to invoke critical mass notification (threshold 8):', error);
+            });
+        }
+
+    } catch (error) {
+        console.error('Error in checkCriticalMassThresholds:', error);
+        // Don't throw - we don't want to break the user flow
+    }
+}
+
         // In selectCircle, after filtering:
 window.selectCircle = async function(circleId) {
     selectedCircle = circles.find(c => c.id === circleId);
@@ -6820,7 +7023,10 @@ async function animateSwipeRight(card, activity) {
     const selectedActivityIds = activities.map(a => a.id);
     console.log('Saving to database:', selectedActivityIds.length, 'activities');
     await saveUserPreferences(selectedCircle.id, selectedActivityIds);
-    
+
+    // Check critical mass thresholds for this activity
+    await checkCriticalMassThresholds(selectedCircle.id, activity.id);
+
     // Update activity counts
     activityCounts[activity.id] = (activityCounts[activity.id] || 0) + 1;
     localStorage.setItem('friendle_activity_counts', JSON.stringify(activityCounts));
