@@ -14,3 +14,8 @@ verify_jwt = true
 # Hourly cron job to send timezone-aware 9am reminders for events scheduled today
 # Runs every hour and checks which users are currently in their 9am hour
 verify_jwt = false
+
+[functions.send-critical-mass-notification]
+# Sends push notifications when activities reach 4 or 8 interested users
+# Called by frontend when user swipes right and threshold is reached
+verify_jwt = false
