@@ -8027,7 +8027,9 @@ function createEventCard(event, matchId, isPast = false) {
         eventCard.className += ' pending';
     }
     if (isPast) {
-        eventCard.style.cssText = 'opacity: 0.7; background: #fafafa;';
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        const pastBgColor = isDarkMode ? '#1a1a1a' : '#fafafa';
+        eventCard.style.cssText = `opacity: 0.7; background: ${pastBgColor};`;
     }
 
     // Format date and time
