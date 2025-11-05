@@ -10237,6 +10237,49 @@ async function showEventAttendees(eventId) {
     }
 }
 
+// Show full list of match participants (people in chat)
+async function showMatchParticipants(matchId) {
+    try {
+        const { data: participants, error } = await supabase
+            .from('match_participants')
+            .select(`
+                profile_id,
+                profiles (
+                    id,
+                    name,
+                    avatar
+                )
+            `)
+            .eq('match_id', matchId);
+
+        if (error) throw error;
+
+        const participantsList = participants
+            ?.map(p => {
+                const name = p.profiles?.name || 'Someone';
+                const avatar = p.profiles?.avatar || '😊';
+                return `
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: var(--bg-secondary);">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 2px solid var(--border-color); background: var(--bg-primary);">
+                            ${avatar}
+                        </div>
+                        <div style="font-weight: 500;">${name}</div>
+                    </div>
+                `;
+            })
+            .join('') || '<div style="text-align: center; color: var(--text-secondary);">No one in chat yet</div>';
+
+        showModal('People in Chat', `
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+                ${participantsList}
+            </div>
+        `);
+    } catch (error) {
+        console.error('Error loading match participants:', error);
+        showToast('Failed to load participants', 'error');
+    }
+}
+
 // Helper functions for time period grouping
 function getNextWeekend(now) {
     const dayOfWeek = now.getDay();
@@ -10710,11 +10753,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         <div class="match-card-content">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
-            <p style="margin: 0; font-size: 14px; line-height: 1.4;">
+            <p style="margin: 0; font-size: 14px; line-height: 1.4; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showMatchParticipants('${match.id}')" title="Click to view who's in chat">
                 ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested
             </p>
             ${match.inChatCount > 0 ? `
-                <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px;">
+                <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showMatchParticipants('${match.id}')" title="Click to view who's in chat">
                     💬 ${match.inChatCount} in chat${inChatDisplay ? ': ' + inChatDisplay : ''}
                 </p>
             ` : ''}
