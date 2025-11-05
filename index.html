@@ -8245,12 +8245,12 @@ async function renderThreadedChat(matchId, events) {
     if (upcomingEvents.length > 0) {
         console.log('📌 Creating UPCOMING EVENTS section with', upcomingEvents.length, 'events');
         const upcomingSection = document.createElement('div');
-        upcomingSection.style.cssText = 'margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px;';
+        upcomingSection.style.cssText = 'margin-bottom: 20px; background: var(--bg-secondary); padding: 15px; border-radius: 10px;';
         upcomingSection.id = 'upcoming-events-section';
 
         // Create heading using createElement instead of innerHTML
         const heading = document.createElement('h4');
-        heading.style.cssText = 'margin: 0 0 12px 0; font-size: 14px; color: #666; font-weight: 600;';
+        heading.style.cssText = 'margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary); font-weight: 600;';
         heading.textContent = '📌 UPCOMING EVENTS';
         upcomingSection.appendChild(heading);
 
@@ -8276,9 +8276,9 @@ async function renderThreadedChat(matchId, events) {
     // PAST EVENTS SECOND (collapsed)
     if (pastEvents.length > 0) {
         const pastSection = document.createElement('details');
-        pastSection.style.cssText = 'margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 10px;';
+        pastSection.style.cssText = 'margin-bottom: 20px; padding: 10px; background: var(--bg-secondary); border-radius: 10px;';
         pastSection.innerHTML = `
-            <summary style="cursor: pointer; font-size: 14px; color: #666; font-weight: 600; padding: 5px;">
+            <summary style="cursor: pointer; font-size: 14px; color: var(--text-secondary); font-weight: 600; padding: 5px;">
                 📂 Past Events (${pastEvents.length})
             </summary>
         `;
@@ -8317,9 +8317,7 @@ function createEventCard(event, matchId, isPast = false) {
         eventCard.className += ' pending';
     }
     if (isPast) {
-        const isDarkMode = document.body.classList.contains('dark-mode');
-        const pastBgColor = isDarkMode ? '#1a1a1a' : '#fafafa';
-        eventCard.style.cssText = `opacity: 0.7; background: ${pastBgColor};`;
+        eventCard.style.cssText = `opacity: 0.7; background: var(--card-bg);`;
     }
 
     // Format date and time
@@ -8350,7 +8348,7 @@ function createEventCard(event, matchId, isPast = false) {
                     📅 ${dateStr}${timeStr}
                 </div>
                 ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
+                <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
             </div>
             ${isUserJoined ? `
                 <button class="event-chat-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
@@ -10131,6 +10129,9 @@ function renderEventCard(event) {
     if (!event.activity || !event.circle) return '';
 
     const isUserJoined = event.isUserJoined || false;
+    const activityEmoji = event.activity.emoji || '📅';
+    const activityName = event.activity.name || 'Event';
+    const circleName = event.circle.name || 'Circle';
 
     // Format date and time (match card style)
     const date = event.scheduled_date ? new Date(event.scheduled_date) : null;
@@ -10157,11 +10158,17 @@ function renderEventCard(event) {
         <div class="event-card">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                 <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px; display: flex; align-items: center; gap: 6px;">
+                        ${activityEmoji} ${activityName}
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;">
+                        👥 ${circleName}
+                    </div>
                     <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                         📅 ${dateStr}${timeStr}
                     </div>
                     ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                    <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
+                    <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
                 </div>
                 ${isUserJoined ? `
                     <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
