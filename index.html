@@ -416,6 +416,240 @@
             margin-top: 15px;
         }
 
+        /* Event Cards */
+        .event-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all var(--transition-speed);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .event-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .event-card.user-going {
+            border-left: 4px solid #10b981;
+        }
+
+        .event-card.popular {
+            position: relative;
+        }
+
+        .event-card-header {
+            padding: 15px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .event-card-header:hover {
+            background: var(--bg-secondary);
+        }
+
+        .event-card-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .event-card-title {
+            font-weight: 600;
+            font-size: 1.05em;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .event-card-expand-icon {
+            font-size: 1em;
+            transition: transform 0.2s ease;
+            color: var(--text-secondary);
+        }
+
+        .event-card.expanded .event-card-expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .event-card-meta {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 10px;
+        }
+
+        .event-card-attendees {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+        }
+
+        .event-card-badges {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+        }
+
+        .event-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .event-badge.going {
+            background: #10b981;
+            color: white;
+        }
+
+        .event-badge.popular {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .event-badge.soon {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .event-badge.unread {
+            background: #14b8a6;
+            color: white;
+        }
+
+        .event-badge.updated {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .event-card-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .event-card.expanded .event-card-content {
+            max-height: 800px;
+        }
+
+        .event-card-details {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .event-detail-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            color: var(--text-primary);
+            font-size: 0.9em;
+        }
+
+        .event-detail-icon {
+            font-size: 1.1em;
+            width: 20px;
+            flex-shrink: 0;
+        }
+
+        .event-attendees-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+        }
+
+        .event-attendee-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+        }
+
+        .event-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .event-actions .btn {
+            margin: 0;
+            flex: 1;
+        }
+
+        .event-actions .btn-small {
+            padding: 10px 16px;
+            font-size: 0.9em;
+        }
+
+        /* Time Period Sections */
+        .time-period-section {
+            margin-bottom: 25px;
+        }
+
+        .time-period-header {
+            padding: 12px 15px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            margin-bottom: 12px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .time-period-header:hover {
+            background: var(--border-hover);
+        }
+
+        .time-period-title {
+            font-weight: 600;
+            font-size: 1em;
+            color: var(--text-primary);
+        }
+
+        .time-period-expand-icon {
+            font-size: 1em;
+            transition: transform 0.2s ease;
+            color: var(--text-secondary);
+        }
+
+        .time-period-section.collapsed .time-period-expand-icon {
+            transform: rotate(-90deg);
+        }
+
+        .time-period-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .time-period-section.collapsed .time-period-content {
+            max-height: 0;
+        }
+
+        .time-period-empty {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 0.9em;
+        }
+
         .circle-new-message-badge {
             padding: 6px 12px;
             border-radius: 12px;
@@ -2300,6 +2534,24 @@ body.dark-mode .custom-activity-item {
         </div>
     </div>
 </div>
+            <div id="events" class="page">
+    <div class="header">
+        <div class="logo">📅 Events</div>
+        <div class="tagline">All upcoming events across your circles</div>
+    </div>
+    <div id="events-list"></div>
+    <div id="no-events-message" style="display: none; text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+        <div style="font-size: 3em; margin-bottom: 20px;">📅</div>
+        <h3 style="margin-bottom: 15px; color: var(--text-primary);">No Events Yet</h3>
+        <p style="margin-bottom: 25px; line-height: 1.6;">
+            Events will appear here when people in your circles schedule activities.
+        </p>
+        <p style="margin-bottom: 25px; line-height: 1.6;">
+            Swipe on activities you're interested in and create events with your matches!
+        </p>
+        <button class="btn" onclick="showPage('activities')">Browse Activities</button>
+    </div>
+</div>
             <div id="settings" class="page">
             <div class="header"><div class="logo">⚙️ Settings</div><div class="tagline">Manage your preferences</div></div>
     <div style="text-align: center; margin: 40px 0;">
@@ -2619,6 +2871,7 @@ body.dark-mode .custom-activity-item {
     <div class="nav-icon">💫</div>
     <div class="nav-label">Matches</div>
 </div>
+            <div class="nav-item" onclick="showPage('events')"><div class="nav-icon">📅</div><div class="nav-label">Events</div></div>
             <div class="nav-item" onclick="showPage('settings')"><div class="nav-icon">⚙️</div><div class="nav-label">Settings</div></div>
         </div>
         
@@ -6073,6 +6326,603 @@ window.toggleCircleExpand = function(circleId) {
     card.classList.add('expanded');
   }
 };
+
+// Events Page Functionality
+const expandedEvents = new Set();
+const collapsedTimePeriods = new Set();
+
+// Time period grouping logic
+function getTimePeriod(eventDate) {
+  const now = new Date();
+  const event = new Date(eventDate);
+  const diffMs = event - now;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+  // Today (same calendar day)
+  if (diffDays === 0 && diffHours >= 0) return 'today';
+
+  // Tomorrow (next calendar day)
+  if (diffDays === 1 || (diffDays === 0 && diffHours < 0 && diffHours > -24)) return 'tomorrow';
+
+  // This Weekend (Fri-Sun within next 3 days)
+  const dayOfWeek = event.getDay();
+  if (diffDays > 0 && diffDays <= 3 && (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0)) {
+    return 'thisWeekend';
+  }
+
+  // Next Week (within 7 days)
+  if (diffDays > 0 && diffDays <= 7) return 'nextWeek';
+
+  // Later (more than 7 days out)
+  if (diffDays > 7) return 'later';
+
+  return 'later';
+}
+
+function getTimePeriodLabel(period) {
+  const labels = {
+    'today': '🗓️ TODAY',
+    'tomorrow': '🗓️ TOMORROW',
+    'thisWeekend': '🗓️ THIS WEEKEND',
+    'nextWeek': '🗓️ NEXT WEEK',
+    'later': '🗓️ LATER'
+  };
+  return labels[period] || period;
+}
+
+function formatEventDate(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = date - now;
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  if (diffDays === 0 && diffHours >= 0) {
+    return `Today ${timeStr}`;
+  } else if (diffDays === 1 || (diffDays === 0 && diffHours < 0 && diffHours > -24)) {
+    return `Tomorrow ${timeStr}`;
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` ${timeStr}`;
+  }
+}
+
+async function renderEvents() {
+  showLoader('Loading events...');
+
+  try {
+    // Get all circles user is a member of
+    const { data: userCircles, error: circlesError } = await supabase
+      .from('circle_members')
+      .select('circle_id')
+      .eq('profile_id', currentUser.id);
+
+    if (circlesError) throw circlesError;
+
+    if (!userCircles || userCircles.length === 0) {
+      document.getElementById('events-list').innerHTML = '';
+      document.getElementById('no-events-message').style.display = 'block';
+      hideLoader();
+      return;
+    }
+
+    const circleIds = userCircles.map(c => c.circle_id);
+
+    // Get all upcoming events from user's circles
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select(`
+        id,
+        scheduled_date,
+        location,
+        notes,
+        status,
+        created_by,
+        activity_id,
+        circle_id,
+        circles(id, name),
+        activities(id, name, emoji)
+      `)
+      .in('circle_id', circleIds)
+      .gte('scheduled_date', new Date().toISOString())
+      .neq('status', 'cancelled')
+      .order('scheduled_date', { ascending: true })
+      .limit(100);
+
+    if (eventsError) throw eventsError;
+
+    if (!events || events.length === 0) {
+      document.getElementById('events-list').innerHTML = '';
+      document.getElementById('no-events-message').style.display = 'block';
+      hideLoader();
+      return;
+    }
+
+    document.getElementById('no-events-message').style.display = 'none';
+
+    // Get attendee counts and user participation for all events
+    const eventIds = events.map(e => e.id);
+    const { data: participants, error: participantsError } = await supabase
+      .from('event_participants')
+      .select('event_id, profile_id, status, profiles(id, name, avatar)')
+      .in('event_id', eventIds)
+      .eq('status', 'going');
+
+    if (participantsError) throw participantsError;
+
+    // Get unread message counts
+    const { data: userParticipation, error: userPartError } = await supabase
+      .from('event_participants')
+      .select('event_id, last_read_at')
+      .in('event_id', eventIds)
+      .eq('profile_id', currentUser.id);
+
+    const lastReadMap = new Map();
+    if (userParticipation) {
+      userParticipation.forEach(p => {
+        lastReadMap.set(p.event_id, p.last_read_at);
+      });
+    }
+
+    // Create maps for event data
+    const attendeeMap = new Map();
+    const userGoingMap = new Set();
+
+    if (participants) {
+      participants.forEach(p => {
+        if (!attendeeMap.has(p.event_id)) {
+          attendeeMap.set(p.event_id, []);
+        }
+        attendeeMap.set(p.event_id, [...attendeeMap.get(p.event_id), p.profiles]);
+
+        if (p.profile_id === currentUser.id) {
+          userGoingMap.add(p.event_id);
+        }
+      });
+    }
+
+    // Get unread counts for events
+    const unreadPromises = events.map(event =>
+      getEventUnreadCount(event.id, lastReadMap.get(event.id))
+    );
+    const unreadCounts = await Promise.all(unreadPromises);
+    const unreadMap = new Map();
+    events.forEach((event, index) => {
+      unreadMap.set(event.id, unreadCounts[index]);
+    });
+
+    // Group events by time period
+    const grouped = {
+      today: [],
+      tomorrow: [],
+      thisWeekend: [],
+      nextWeek: [],
+      later: []
+    };
+
+    events.forEach(event => {
+      const period = getTimePeriod(event.scheduled_date);
+      if (grouped[period]) {
+        grouped[period].push({
+          ...event,
+          attendees: attendeeMap.get(event.id) || [],
+          attendeeCount: (attendeeMap.get(event.id) || []).length,
+          userIsGoing: userGoingMap.has(event.id),
+          unreadCount: unreadMap.get(event.id) || 0
+        });
+      }
+    });
+
+    // Render grouped events
+    const eventsList = document.getElementById('events-list');
+    eventsList.innerHTML = '';
+
+    const periods = ['today', 'tomorrow', 'thisWeekend', 'nextWeek', 'later'];
+    periods.forEach(period => {
+      if (grouped[period].length > 0) {
+        const section = createTimePeriodSection(period, grouped[period]);
+        eventsList.appendChild(section);
+      }
+    });
+
+  } catch (error) {
+    console.error('Error loading events:', error);
+    showNotification('Error loading events', 'error');
+  } finally {
+    hideLoader();
+  }
+}
+
+async function getEventUnreadCount(eventId, lastReadAt) {
+  try {
+    const { count, error } = await supabase
+      .from('event_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .neq('sender_id', currentUser.id)
+      .gt('created_at', lastReadAt || '1970-01-01');
+
+    return count || 0;
+  } catch (error) {
+    console.error('Error getting unread count:', error);
+    return 0;
+  }
+}
+
+function createTimePeriodSection(period, events) {
+  const section = document.createElement('div');
+  section.className = 'time-period-section';
+  section.dataset.period = period;
+
+  const isCollapsed = collapsedTimePeriods.has(period);
+  if (isCollapsed) {
+    section.classList.add('collapsed');
+  }
+
+  const header = document.createElement('div');
+  header.className = 'time-period-header';
+  header.onclick = () => toggleTimePeriod(period);
+
+  const title = document.createElement('div');
+  title.className = 'time-period-title';
+  title.textContent = `${getTimePeriodLabel(period)} (${events.length})`;
+
+  const icon = document.createElement('span');
+  icon.className = 'time-period-expand-icon';
+  icon.textContent = '▼';
+
+  header.appendChild(title);
+  header.appendChild(icon);
+
+  const content = document.createElement('div');
+  content.className = 'time-period-content';
+  if (!isCollapsed) {
+    content.style.maxHeight = '10000px';
+  }
+
+  events.forEach(event => {
+    const card = createEventCard(event);
+    content.appendChild(card);
+  });
+
+  section.appendChild(header);
+  section.appendChild(content);
+
+  return section;
+}
+
+function toggleTimePeriod(period) {
+  const section = document.querySelector(`.time-period-section[data-period="${period}"]`);
+  if (!section) return;
+
+  const content = section.querySelector('.time-period-content');
+
+  if (collapsedTimePeriods.has(period)) {
+    collapsedTimePeriods.delete(period);
+    section.classList.remove('collapsed');
+    content.style.maxHeight = '10000px';
+  } else {
+    collapsedTimePeriods.add(period);
+    section.classList.add('collapsed');
+    content.style.maxHeight = '0';
+  }
+}
+
+function createEventCard(event) {
+  const card = document.createElement('div');
+  card.className = 'event-card';
+  card.dataset.eventId = event.id;
+
+  if (event.userIsGoing) {
+    card.classList.add('user-going');
+  }
+
+  if (event.attendeeCount >= 10) {
+    card.classList.add('popular');
+  }
+
+  const isExpanded = expandedEvents.has(event.id);
+  if (isExpanded) {
+    card.classList.add('expanded');
+  }
+
+  // Get activity info
+  const activityName = event.activities?.name || event.activity_id || 'Event';
+  const activityEmoji = event.activities?.emoji || '📅';
+  const circleName = event.circles?.name || 'Circle';
+
+  // Header (collapsed state)
+  const header = document.createElement('div');
+  header.className = 'event-card-header';
+  header.onclick = (e) => {
+    if (!e.target.closest('button')) {
+      toggleEventCard(event.id);
+    }
+  };
+
+  const titleRow = document.createElement('div');
+  titleRow.className = 'event-card-title-row';
+
+  const title = document.createElement('div');
+  title.className = 'event-card-title';
+  title.innerHTML = `<span>${activityEmoji}</span> ${activityName}`;
+
+  const expandIcon = document.createElement('span');
+  expandIcon.className = 'event-card-expand-icon';
+  expandIcon.textContent = '▼';
+
+  titleRow.appendChild(title);
+  titleRow.appendChild(expandIcon);
+
+  const meta = document.createElement('div');
+  meta.className = 'event-card-meta';
+  meta.innerHTML = `<span>${circleName}</span> • <span>${formatEventDate(event.scheduled_date)}</span>`;
+
+  const attendees = document.createElement('div');
+  attendees.className = 'event-card-attendees';
+  attendees.textContent = `👥 ${event.attendeeCount} going`;
+
+  // Badges
+  const badges = document.createElement('div');
+  badges.className = 'event-card-badges';
+
+  if (event.userIsGoing) {
+    const goingBadge = document.createElement('span');
+    goingBadge.className = 'event-badge going';
+    goingBadge.textContent = '✅ Going';
+    badges.appendChild(goingBadge);
+  }
+
+  if (event.attendeeCount >= 10) {
+    const popularBadge = document.createElement('span');
+    popularBadge.className = 'event-badge popular';
+    popularBadge.textContent = '🔥 Popular';
+    badges.appendChild(popularBadge);
+  }
+
+  // Check if happening soon (within 3 hours)
+  const diffMs = new Date(event.scheduled_date) - new Date();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  if (diffHours > 0 && diffHours <= 3) {
+    const soonBadge = document.createElement('span');
+    soonBadge.className = 'event-badge soon';
+    soonBadge.textContent = '⏰ Soon';
+    badges.appendChild(soonBadge);
+  }
+
+  if (event.unreadCount > 0) {
+    const unreadBadge = document.createElement('span');
+    unreadBadge.className = 'event-badge unread';
+    unreadBadge.textContent = `💬 ${event.unreadCount}`;
+    badges.appendChild(unreadBadge);
+  }
+
+  header.appendChild(titleRow);
+  header.appendChild(meta);
+  header.appendChild(attendees);
+  if (badges.children.length > 0) {
+    header.appendChild(badges);
+  }
+
+  // Content (expanded state)
+  const content = document.createElement('div');
+  content.className = 'event-card-content';
+
+  const details = document.createElement('div');
+  details.className = 'event-card-details';
+
+  if (event.location) {
+    const locationRow = document.createElement('div');
+    locationRow.className = 'event-detail-row';
+    locationRow.innerHTML = `<span class="event-detail-icon">📍</span><span>${event.location}</span>`;
+    details.appendChild(locationRow);
+  }
+
+  if (event.attendees && event.attendees.length > 0) {
+    const attendeesRow = document.createElement('div');
+    attendeesRow.className = 'event-detail-row';
+    attendeesRow.innerHTML = `<span class="event-detail-icon">👥</span><span>${event.attendeeCount} going:</span>`;
+
+    const attendeesList = document.createElement('div');
+    attendeesList.className = 'event-attendees-list';
+
+    event.attendees.slice(0, 10).forEach(attendee => {
+      const avatar = document.createElement('div');
+      avatar.className = 'event-attendee-avatar';
+      avatar.title = attendee.name;
+      avatar.textContent = attendee.avatar || '😊';
+      attendeesList.appendChild(avatar);
+    });
+
+    if (event.attendeeCount > 10) {
+      const more = document.createElement('div');
+      more.className = 'event-attendee-avatar';
+      more.textContent = `+${event.attendeeCount - 10}`;
+      more.style.fontSize = '0.7em';
+      attendeesList.appendChild(more);
+    }
+
+    details.appendChild(attendeesRow);
+    details.appendChild(attendeesList);
+  }
+
+  if (event.notes) {
+    const notesRow = document.createElement('div');
+    notesRow.className = 'event-detail-row';
+    notesRow.innerHTML = `<span class="event-detail-icon">📝</span><span>${event.notes}</span>`;
+    details.appendChild(notesRow);
+  }
+
+  // Action buttons
+  const actions = document.createElement('div');
+  actions.className = 'event-actions';
+
+  if (event.userIsGoing) {
+    const goingBtn = document.createElement('button');
+    goingBtn.className = 'btn btn-small';
+    goingBtn.style.background = '#10b981';
+    goingBtn.textContent = '✅ Going';
+    goingBtn.onclick = (e) => {
+      e.stopPropagation();
+      leaveEventFromCard(event.id);
+    };
+    actions.appendChild(goingBtn);
+  } else {
+    const joinBtn = document.createElement('button');
+    joinBtn.className = 'btn btn-small';
+    joinBtn.textContent = 'Join Event';
+    joinBtn.onclick = (e) => {
+      e.stopPropagation();
+      joinEventFromCard(event.id);
+    };
+    actions.appendChild(joinBtn);
+  }
+
+  const chatBtn = document.createElement('button');
+  chatBtn.className = 'btn btn-small btn-secondary';
+  chatBtn.textContent = '💬 View Event Chat';
+  chatBtn.onclick = (e) => {
+    e.stopPropagation();
+    openEventChat(event.id);
+  };
+  actions.appendChild(chatBtn);
+
+  details.appendChild(actions);
+  content.appendChild(details);
+
+  card.appendChild(header);
+  card.appendChild(content);
+
+  return card;
+}
+
+function toggleEventCard(eventId) {
+  const card = document.querySelector(`.event-card[data-event-id="${eventId}"]`);
+  if (!card) return;
+
+  // Collapse all other cards
+  document.querySelectorAll('.event-card').forEach(c => {
+    if (c !== card && c.classList.contains('expanded')) {
+      c.classList.remove('expanded');
+      const id = c.dataset.eventId;
+      expandedEvents.delete(id);
+    }
+  });
+
+  // Toggle this card
+  if (expandedEvents.has(eventId)) {
+    expandedEvents.delete(eventId);
+    card.classList.remove('expanded');
+  } else {
+    expandedEvents.add(eventId);
+    card.classList.add('expanded');
+  }
+}
+
+async function joinEventFromCard(eventId) {
+  try {
+    showLoader('Joining event...');
+
+    const { error } = await supabase
+      .from('event_participants')
+      .insert({
+        event_id: eventId,
+        profile_id: currentUser.id,
+        status: 'going'
+      });
+
+    if (error) throw error;
+
+    showNotification('You joined the event!');
+    await renderEvents();
+  } catch (error) {
+    console.error('Error joining event:', error);
+    showNotification('Error joining event', 'error');
+  } finally {
+    hideLoader();
+  }
+}
+
+async function leaveEventFromCard(eventId) {
+  if (!confirm('Are you sure you want to leave this event?')) return;
+
+  try {
+    showLoader('Leaving event...');
+
+    const { error } = await supabase
+      .from('event_participants')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('profile_id', currentUser.id);
+
+    if (error) throw error;
+
+    showNotification('You left the event');
+    await renderEvents();
+  } catch (error) {
+    console.error('Error leaving event:', error);
+    showNotification('Error leaving event', 'error');
+  } finally {
+    hideLoader();
+  }
+}
+
+// Real-time subscriptions for events page
+let eventsPageSubscription = null;
+
+async function setupEventsPageSubscriptions() {
+  // Clean up existing subscription
+  if (eventsPageSubscription) {
+    await supabase.removeChannel(eventsPageSubscription);
+    const index = allActiveSubscriptions.indexOf(eventsPageSubscription);
+    if (index > -1) allActiveSubscriptions.splice(index, 1);
+    eventsPageSubscription = null;
+  }
+
+  // Get user's circle IDs
+  const { data: userCircles } = await supabase
+    .from('circle_members')
+    .select('circle_id')
+    .eq('profile_id', currentUser.id);
+
+  if (!userCircles || userCircles.length === 0) return;
+
+  const circleIds = userCircles.map(c => c.circle_id);
+
+  // Subscribe to events and participants changes
+  eventsPageSubscription = supabase
+    .channel('events-page-updates')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'events',
+      filter: `circle_id=in.(${circleIds.join(',')})`
+    }, async (payload) => {
+      console.log('Event changed:', payload);
+      // Refresh events page if currently viewing it
+      const activePage = document.querySelector('.page.active');
+      if (activePage && activePage.id === 'events') {
+        await renderEvents();
+      }
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'event_participants'
+    }, async (payload) => {
+      console.log('Event participant changed:', payload);
+      // Refresh events page if currently viewing it
+      const activePage = document.querySelector('.page.active');
+      if (activePage && activePage.id === 'events') {
+        await renderEvents();
+      }
+    })
+    .subscribe();
+
+  allActiveSubscriptions.push(eventsPageSubscription);
+}
 
 window.leaveCircle = async function(circleId) {
   if (!confirm("Are you sure you want to leave this circle?")) return;
@@ -13191,6 +14041,10 @@ if (pageId !== 'chat') {
     document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
     
     if (pageId === 'circles') renderCircles();
+if (pageId === 'events') {
+    await renderEvents();
+    await setupEventsPageSubscriptions();
+}
 if (pageId === 'activities') {
     // Scroll to top to ensure card is fully visible
     document.getElementById('activities').scrollTop = 0;
