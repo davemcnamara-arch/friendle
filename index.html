@@ -10151,12 +10151,18 @@ function renderEventCard(event) {
         timeStr = `, ${displayHour}:${minutes} ${ampm}`;
     }
 
-    // Get participant count
+    // Get participant count and format display
     const participantCount = event.participantCount || 0;
+    const participantDisplay = formatParticipantNames(
+        event.event_participants || [],
+        event.id,
+        2,
+        isUserJoined ? 'going' : 'interested'
+    );
 
     return `
         <div class="event-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
                 <div style="flex: 1;">
                     <div style="font-weight: 600; margin-bottom: 6px; font-size: 16px; display: flex; align-items: center; gap: 6px;">
                         ${activityEmoji} ${activityName} <span style="font-size: 13px; color: var(--text-secondary); font-weight: 400; margin-left: 4px;">· 👥 ${circleName}</span>
@@ -10165,26 +10171,24 @@ function renderEventCard(event) {
                         📅 ${dateStr}${timeStr}
                     </div>
                     ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                    <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
+                    <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
                 </div>
+                <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
                 ${isUserJoined ? `
                     <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                         💬 Event Chat
                     </button>
-                ` : participantCount === 0 ? `
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        <button class="btn" onclick="joinEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
-                            ✓ Join Event
-                        </button>
-                        <button class="btn btn-secondary" onclick="deleteEmptyEvent('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
-                            🗑️ Delete
-                        </button>
-                    </div>
                 ` : `
                     <button class="btn" onclick="joinEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                         ✓ Join Event
                     </button>
                 `}
+                ${participantCount === 0 && !isUserJoined ? `
+                    <button class="btn btn-secondary" onclick="deleteEmptyEvent('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                        🗑️ Delete
+                    </button>
+                ` : ''}
+                </div>
             </div>
         </div>
     `;
@@ -10278,6 +10282,30 @@ async function showMatchParticipants(matchId) {
         console.error('Error loading match participants:', error);
         showToast('Failed to load participants', 'error');
     }
+}
+
+// Format participant names for display (e.g., "Alice, Bob and 3 more going")
+function formatParticipantNames(participants, eventId, maxNames = 2, verb = 'going') {
+    if (!participants || participants.length === 0) {
+        return `0 people ${verb}`;
+    }
+
+    const count = participants.length;
+
+    if (count === 1) {
+        const name = participants[0].profiles?.name || 'Someone';
+        return `${name} ${verb}`;
+    }
+
+    if (count <= maxNames) {
+        const names = participants.map(p => p.profiles?.name || 'Someone').join(', ');
+        return `${names} ${verb}`;
+    }
+
+    // More than maxNames - show first few and "x more" as clickable
+    const shownNames = participants.slice(0, maxNames).map(p => p.profiles?.name || 'Someone').join(', ');
+    const remaining = count - maxNames;
+    return `${shownNames} and <span style="cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${eventId}')" title="Click to view all attendees">${remaining} more</span> ${verb}`;
 }
 
 // Helper functions for time period grouping
@@ -10814,35 +10842,39 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             });
             
             const participantCount = event.event_participants?.length || 0;
-            
+            const participantDisplay = formatParticipantNames(
+                event.event_participants || [],
+                event.id,
+                2,
+                event.isUserJoined ? 'going' : 'interested'
+            );
+
             return `
                 <div class="event-item${event.unreadCount > 0 ? ' unread' : (event.isUserJoined ? '' : ' pending')}" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}">
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
                         <div style="flex: 1;">
     <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
         📅 ${dateStr}
     </div>
                             ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                            <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${event.isUserJoined ? 'going' : 'interested'}</div>
+                            <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
                         </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
                         ${event.isUserJoined ? `
                             <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                                 💬 Event Chat
                             </button>
-                        ` : participantCount === 0 ? `
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
-                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
-                                    ✓ Join Event
-                                </button>
-                                <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
-                                    🗑️ Delete
-                                </button>
-                            </div>
                         ` : `
                             <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                                 ✓ Join Event
                             </button>
                         `}
+                        ${participantCount === 0 && !event.isUserJoined ? `
+                            <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                                🗑️ Delete
+                            </button>
+                        ` : ''}
+                        </div>
                     </div>
                 </div>
             `;
