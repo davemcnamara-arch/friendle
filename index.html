@@ -889,6 +889,7 @@
 
         .event-card {
             margin: 0;
+            padding: 18px 20px;
             background: var(--card-bg);
             border-bottom: 1px solid var(--border-color);
             transition: all 0.2s ease;
@@ -899,32 +900,12 @@
             border-radius: 0 0 var(--radius-lg) var(--radius-lg);
         }
 
-        .event-card summary {
-            padding: 18px 20px;
-            cursor: pointer;
-            list-style: none;
-            user-select: none;
-            transition: background 0.2s ease;
-        }
-
-        .event-card summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .event-card summary:hover {
-            background: var(--bg-secondary);
-        }
-
-        .event-card[open] summary {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-color);
-        }
-
         .event-card-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             gap: 12px;
+            margin-bottom: 12px;
         }
 
         .event-card-left {
@@ -999,30 +980,37 @@
             color: white;
         }
 
-        .event-card-content {
-            padding: 20px;
-            animation: slideDown 0.2s ease;
+        .event-card-notes {
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            line-height: 1.5;
         }
 
-        .event-card-details {
-            margin-bottom: 16px;
-        }
-
-        .event-card-detail-row {
+        .event-card-attendees-compact {
             display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            margin-bottom: 10px;
-            color: var(--text-primary);
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .event-card-detail-icon {
-            font-size: 16px;
-            flex-shrink: 0;
+        .event-card-attendees-compact:hover {
+            background: var(--border-color);
+            transform: translateY(-1px);
         }
 
-        .event-card-attendees {
-            margin-bottom: 16px;
+        .event-attendees-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
         .event-attendees-list {
@@ -2539,7 +2527,7 @@ body.dark-mode .custom-activity-item {
 </div>
             <div id="events" class="page">
     <div class="header">
-        <div class="logo">📅 Events</div>
+        <div class="logo">⭕ Events</div>
         <div class="tagline">All upcoming events from your circles</div>
     </div>
     <div id="events-list"></div>
@@ -6304,8 +6292,6 @@ window.finalizeCircleCreation = async function() {
       const memberText = memberCount === 1 ? '1 member' : `${memberCount} members`;
       const unreadCount = unreadMap.get(circle.id) || 0;
       const isExpanded = expandedCircles.has(circle.id);
-      const eventCount = upcomingEventCounts[circle.id] || 0;
-      const eventButtonText = eventCount > 0 ? `📅 Upcoming Events (${eventCount})` : '📅 Upcoming Events';
 
       // Escape single quotes in circle name and code for onclick handlers
       const escapedName = circle.name.replace(/'/g, "\\'");
@@ -6334,7 +6320,6 @@ window.finalizeCircleCreation = async function() {
                 <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
                 <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
               </div>
-              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); viewUpcomingEvents('${circle.id}')" style="width: 100%;">${eventButtonText}</button>
             </div>
           </div>
         </div>`;
@@ -10362,100 +10347,123 @@ function renderEventCard(event) {
         }
     }
 
-    // Build attendee names list
-    const attendeeNames = event.event_participants?.map(p => p.profiles?.name || 'Someone').join(', ') || '';
-    const attendeeAvatars = event.event_participants?.slice(0, 3).map(p => {
+    // Build attendee avatars
+    const attendeeAvatars = event.event_participants?.slice(0, 5).map(p => {
         const avatar = p.profiles?.avatar || '😊';
         const name = p.profiles?.name || 'Someone';
         return `<div class="event-attendee-avatar" title="${name}">${avatar}</div>`;
     }).join('') || '';
 
-    const moreCount = event.participantCount > 3 ? event.participantCount - 3 : 0;
+    const moreCount = event.participantCount > 5 ? event.participantCount - 5 : 0;
 
     return `
-        <details class="event-card">
-            <summary>
-                <div class="event-card-header">
-                    <div class="event-card-left">
-                        <div class="event-card-title">
-                            <span>${activityEmoji}</span>
-                            <span>${activityName}</span>
-                        </div>
-                        <div class="event-card-meta">
-                            <div class="event-card-meta-item">
-                                <span>👥</span>
-                                <span>${circleName}</span>
-                            </div>
-                            <div class="event-card-meta-item">
-                                <span>📅</span>
-                                <span>${dateStr}${timeStr ? ' • ' + timeStr : ''}</span>
-                            </div>
-                            <div class="event-card-meta-item">
-                                <span>👤</span>
-                                <span>${event.participantCount} ${event.participantCount === 1 ? 'person' : 'people'}</span>
-                            </div>
-                        </div>
+        <div class="event-card">
+            <div class="event-card-header">
+                <div class="event-card-left">
+                    <div class="event-card-title">
+                        <span>${activityEmoji}</span>
+                        <span>${activityName}</span>
                     </div>
-                    <div class="event-card-right">
-                        <div class="event-card-badges">
-                            ${badges.join('')}
+                    <div class="event-card-meta">
+                        <div class="event-card-meta-item">
+                            <span>👥</span>
+                            <span>${circleName}</span>
                         </div>
-                        ${event.isUserJoined ? `
-                            <button class="event-action-btn primary" onclick="event.stopPropagation(); openEventChat('${event.id}')" style="margin-top: 8px; min-width: auto; padding: 8px 12px; font-size: 13px;">
-                                💬 Chat
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-            </summary>
-            <div class="event-card-content">
-                ${event.location || event.notes ? `
-                    <div class="event-card-details">
+                        <div class="event-card-meta-item">
+                            <span>📅</span>
+                            <span>${dateStr}${timeStr ? ' • ' + timeStr : ''}</span>
+                        </div>
                         ${event.location ? `
-                            <div class="event-card-detail-row">
-                                <span class="event-card-detail-icon">📍</span>
+                            <div class="event-card-meta-item">
+                                <span>📍</span>
                                 <span>${event.location}</span>
                             </div>
                         ` : ''}
-                        ${event.notes ? `
-                            <div class="event-card-detail-row">
-                                <span class="event-card-detail-icon">📝</span>
-                                <span>${event.notes}</span>
-                            </div>
-                        ` : ''}
                     </div>
-                ` : ''}
-                ${event.participantCount > 0 ? `
-                    <div class="event-card-attendees">
-                        <div style="font-weight: 600; font-size: 14px; margin-bottom: 10px; color: var(--text-primary);">Attendees (${event.participantCount})</div>
-                        <div class="event-attendees-list">
-                            ${attendeeAvatars}
-                            ${moreCount > 0 ? `<span class="event-attendees-count">+${moreCount} more</span>` : ''}
-                        </div>
-                        ${attendeeNames ? `
-                            <div style="font-size: 13px; color: var(--text-secondary); margin-top: 10px; line-height: 1.5;">
-                                ${attendeeNames}
-                            </div>
-                        ` : ''}
+                </div>
+                <div class="event-card-right">
+                    <div class="event-card-badges">
+                        ${badges.join('')}
                     </div>
-                ` : ''}
-                <div class="event-card-actions">
-                    ${event.isUserJoined ? `
-                        <button class="event-action-btn success" onclick="openEventChat('${event.id}')">
-                            View Event Chat
-                        </button>
-                    ` : `
-                        <button class="event-action-btn primary" onclick="joinEvent('${event.id}')">
-                            Join Event
-                        </button>
-                    `}
-                    <button class="event-action-btn menu" onclick="openEventMenu('${event.id}')">
-                        ⋯
-                    </button>
                 </div>
             </div>
-        </details>
+            ${event.notes ? `
+                <div class="event-card-notes">
+                    📝 ${event.notes}
+                </div>
+            ` : ''}
+            ${event.participantCount > 0 ? `
+                <div class="event-card-attendees-compact" onclick="showEventAttendees('${event.id}')" title="Click to view all attendees">
+                    <div class="event-attendees-list">
+                        ${attendeeAvatars}
+                        ${moreCount > 0 ? `<span class="event-attendees-count">+${moreCount}</span>` : ''}
+                    </div>
+                    <span class="event-attendees-label">${event.participantCount} ${event.participantCount === 1 ? 'person' : 'people'} going</span>
+                </div>
+            ` : ''}
+            <div class="event-card-actions">
+                ${event.isUserJoined ? `
+                    <button class="event-action-btn success" onclick="openEventChat('${event.id}')">
+                        💬 Event Chat
+                    </button>
+                ` : `
+                    <button class="event-action-btn primary" onclick="joinEvent('${event.id}')">
+                        ✓ Join Event
+                    </button>
+                `}
+                <button class="event-action-btn menu" onclick="openEventMenu('${event.id}')">
+                    ⋯
+                </button>
+            </div>
+        </div>
     `;
+}
+
+// Show full attendee list in a modal
+async function showEventAttendees(eventId) {
+    try {
+        const { data: event, error } = await supabase
+            .from('events')
+            .select(`
+                *,
+                event_participants (
+                    profile_id,
+                    profiles (
+                        id,
+                        name,
+                        avatar
+                    )
+                )
+            `)
+            .eq('id', eventId)
+            .single();
+
+        if (error) throw error;
+
+        const attendeesList = event.event_participants
+            ?.map(p => {
+                const name = p.profiles?.name || 'Someone';
+                const avatar = p.profiles?.avatar || '😊';
+                return `
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: var(--bg-secondary);">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 2px solid var(--border-color); background: var(--bg-primary);">
+                            ${avatar}
+                        </div>
+                        <div style="font-weight: 500;">${name}</div>
+                    </div>
+                `;
+            })
+            .join('') || '<div style="text-align: center; color: var(--text-secondary);">No attendees yet</div>';
+
+        showModal('Event Attendees', `
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+                ${attendeesList}
+            </div>
+        `);
+    } catch (error) {
+        console.error('Error loading attendees:', error);
+        showToast('Failed to load attendees', 'error');
+    }
 }
 
 // Helper functions for time period grouping
