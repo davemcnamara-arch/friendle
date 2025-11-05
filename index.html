@@ -8350,7 +8350,7 @@ function createEventCard(event, matchId, isPast = false) {
                     📅 ${dateStr}${timeStr}
                 </div>
                 ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
+                <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
             </div>
             ${isUserJoined ? `
                 <button class="event-chat-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
