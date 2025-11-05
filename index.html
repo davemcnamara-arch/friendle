@@ -10158,11 +10158,8 @@ function renderEventCard(event) {
         <div class="event-card">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                 <div style="flex: 1;">
-                    <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px; display: flex; align-items: center; gap: 6px;">
-                        ${activityEmoji} ${activityName}
-                    </div>
-                    <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;">
-                        👥 ${circleName}
+                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 16px; display: flex; align-items: center; gap: 6px;">
+                        ${activityEmoji} ${activityName} <span style="font-size: 13px; color: var(--text-secondary); font-weight: 400; margin-left: 4px;">· 👥 ${circleName}</span>
                     </div>
                     <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                         📅 ${dateStr}${timeStr}
@@ -10713,10 +10710,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         <div class="match-card-content">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
-    <h3 style="display: flex; align-items: center; gap: 8px;">
-        ${activityEmoji} ${activityName}
-    </h3>
-            <p style="margin: 8px 0 0 0; font-size: 14px; line-height: 1.4;">
+            <p style="margin: 0; font-size: 14px; line-height: 1.4;">
                 ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested
             </p>
             ${match.inChatCount > 0 ? `
@@ -10786,7 +10780,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         📅 ${dateStr}
     </div>
                             ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                            <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${event.isUserJoined ? 'going' : 'interested'}</div>
+                            <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${event.isUserJoined ? 'going' : 'interested'}</div>
                         </div>
                         ${event.isUserJoined ? `
                             <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
@@ -10819,7 +10813,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                 
                 ${pastEvents.length > 0 ? `
                     <details style="margin-top: 10px;">
-                        <summary style="cursor: pointer; color: #666; font-size: 14px;">Past Events (${pastEvents.length})</summary>
+                        <summary style="cursor: pointer; color: var(--text-secondary); font-size: 14px;">Past Events (${pastEvents.length})</summary>
                         <div style="margin-top: 8px;">
                             ${pastEvents.map(event => {
                                 const date = new Date(event.scheduled_date);
@@ -10830,7 +10824,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                                 const statusEmoji = event.status === 'completed' ? '✅' : event.status === 'cancelled' ? '❌' : '📅';
                                 
                                 return `
-    <div class="event-item" style="padding: 8px; margin-bottom: 4px; background: #fafafa; border-radius: 4px; opacity: 0.7; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+    <div class="event-item" style="padding: 8px; margin-bottom: 4px; background: var(--bg-secondary); border-radius: 4px; opacity: 0.7; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             ${statusEmoji} ${dateStr}${event.location ? ` · ${event.location}` : ''}
         </div>
