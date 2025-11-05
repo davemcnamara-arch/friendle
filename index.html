@@ -900,193 +900,6 @@
             border-radius: 0 0 var(--radius-lg) var(--radius-lg);
         }
 
-        .event-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .event-card-left {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .event-card-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .event-card-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .event-card-meta-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .event-card-right {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 6px;
-        }
-
-        .event-card-badges {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-
-        .event-badge {
-            padding: 4px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .event-badge.going {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .event-badge.unread {
-            background: #14b8a6;
-            color: white;
-        }
-
-        .event-badge.popular {
-            background: #ff9800;
-            color: white;
-        }
-
-        .event-badge.soon {
-            background: #f44336;
-            color: white;
-        }
-
-        .event-card-notes {
-            padding: 10px 12px;
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-bottom: 12px;
-            line-height: 1.5;
-        }
-
-        .event-card-attendees-compact {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            margin-bottom: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .event-card-attendees-compact:hover {
-            background: var(--border-color);
-            transform: translateY(-1px);
-        }
-
-        .event-attendees-label {
-            font-size: 13px;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        .event-attendees-list {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .event-attendee-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            border: 2px solid var(--border-color);
-            background: var(--bg-secondary);
-        }
-
-        .event-attendees-count {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-left: 4px;
-        }
-
-        .event-card-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .event-action-btn {
-            flex: 1;
-            min-width: 120px;
-            padding: 10px 16px;
-            border-radius: 8px;
-            border: none;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .event-action-btn.primary {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .event-action-btn.primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        .event-action-btn.secondary {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        .event-action-btn.secondary:hover {
-            background: var(--border-color);
-        }
-
-        .event-action-btn.success {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .event-action-btn.menu {
-            min-width: auto;
-            flex: 0;
-            padding: 10px 14px;
-        }
-
         .events-empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -10317,103 +10130,57 @@ function renderEvents(events) {
 function renderEventCard(event) {
     if (!event.activity || !event.circle) return '';
 
-    const activityName = event.activity.name;
-    const activityEmoji = event.activity.emoji;
-    const circleName = event.circle.name;
+    const isUserJoined = event.isUserJoined || false;
 
-    // Format date and time
-    const eventDate = new Date(event.scheduled_date);
-    const dateStr = formatEventDate(eventDate);
-    const timeStr = event.scheduled_time ? formatTime(event.scheduled_time) : '';
+    // Format date and time (match card style)
+    const date = event.scheduled_date ? new Date(event.scheduled_date) : null;
+    const dateStr = date ? date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+    }) : 'Date TBD';
 
-    // Calculate badges
-    const badges = [];
-    if (event.isUserJoined) {
-        badges.push('<span class="event-badge going">✅ Going</span>');
-    }
-    if (event.unreadCount > 0) {
-        badges.push('<span class="event-badge unread">💬 Unread</span>');
-    }
-    if (event.participantCount >= 10) {
-        badges.push('<span class="event-badge popular">🔥 Popular</span>');
-    }
-
-    // Check if event is soon (within 3 hours)
-    if (timeStr) {
-        const eventDateTime = new Date(`${event.scheduled_date}T${event.scheduled_time}`);
-        const hoursUntil = (eventDateTime - new Date()) / (1000 * 60 * 60);
-        if (hoursUntil > 0 && hoursUntil <= 3) {
-            badges.push('<span class="event-badge soon">⏰ Soon</span>');
-        }
+    // Format time if available (convert 24h to 12h format)
+    let timeStr = '';
+    if (event.scheduled_time) {
+        const [hours, minutes] = event.scheduled_time.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+        timeStr = `, ${displayHour}:${minutes} ${ampm}`;
     }
 
-    // Build attendee avatars
-    const attendeeAvatars = event.event_participants?.slice(0, 5).map(p => {
-        const avatar = p.profiles?.avatar || '😊';
-        const name = p.profiles?.name || 'Someone';
-        return `<div class="event-attendee-avatar" title="${name}">${avatar}</div>`;
-    }).join('') || '';
-
-    const moreCount = event.participantCount > 5 ? event.participantCount - 5 : 0;
+    // Get participant count
+    const participantCount = event.participantCount || 0;
 
     return `
         <div class="event-card">
-            <div class="event-card-header">
-                <div class="event-card-left">
-                    <div class="event-card-title">
-                        <span>${activityEmoji}</span>
-                        <span>${activityName}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+                        📅 ${dateStr}${timeStr}
                     </div>
-                    <div class="event-card-meta">
-                        <div class="event-card-meta-item">
-                            <span>👥</span>
-                            <span>${circleName}</span>
-                        </div>
-                        <div class="event-card-meta-item">
-                            <span>📅</span>
-                            <span>${dateStr}${timeStr ? ' • ' + timeStr : ''}</span>
-                        </div>
-                        ${event.location ? `
-                            <div class="event-card-meta-item">
-                                <span>📍</span>
-                                <span>${event.location}</span>
-                            </div>
-                        ` : ''}
-                    </div>
+                    ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
+                    <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
                 </div>
-                <div class="event-card-right">
-                    <div class="event-card-badges">
-                        ${badges.join('')}
-                    </div>
-                </div>
-            </div>
-            ${event.notes ? `
-                <div class="event-card-notes">
-                    📝 ${event.notes}
-                </div>
-            ` : ''}
-            ${event.participantCount > 0 ? `
-                <div class="event-card-attendees-compact" onclick="showEventAttendees('${event.id}')" title="Click to view all attendees">
-                    <div class="event-attendees-list">
-                        ${attendeeAvatars}
-                        ${moreCount > 0 ? `<span class="event-attendees-count">+${moreCount}</span>` : ''}
-                    </div>
-                    <span class="event-attendees-label">${event.participantCount} ${event.participantCount === 1 ? 'person' : 'people'} going</span>
-                </div>
-            ` : ''}
-            <div class="event-card-actions">
-                ${event.isUserJoined ? `
-                    <button class="event-action-btn success" onclick="openEventChat('${event.id}')">
+                ${isUserJoined ? `
+                    <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                         💬 Event Chat
                     </button>
+                ` : participantCount === 0 ? `
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <button class="btn" onclick="joinEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                            ✓ Join Event
+                        </button>
+                        <button class="btn btn-secondary" onclick="deleteEmptyEvent('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                            🗑️ Delete
+                        </button>
+                    </div>
                 ` : `
-                    <button class="event-action-btn primary" onclick="joinEvent('${event.id}')">
+                    <button class="btn" onclick="joinEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                         ✓ Join Event
                     </button>
                 `}
-                <button class="event-action-btn menu" onclick="openEventMenu('${event.id}')">
-                    ⋯
-                </button>
             </div>
         </div>
     `;
