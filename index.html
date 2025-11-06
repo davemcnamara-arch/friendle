@@ -883,6 +883,16 @@
             border-radius: var(--radius-lg) var(--radius-lg) 0 0;
         }
 
+        .event-period-chevron {
+            display: inline-block;
+            transition: transform 0.2s ease;
+            font-size: 10px;
+        }
+
+        .event-period[open] .event-period-chevron {
+            transform: rotate(90deg);
+        }
+
         .event-period-content {
             padding: 0;
         }
@@ -10110,9 +10120,12 @@ function renderEvents(events) {
         if (periodEvents.length === 0) continue;
 
         html += `
-            <details class="event-period" open>
+            <details class="event-period">
                 <summary class="event-period-header">
-                    <span>${periodName}</span>
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span class="event-period-chevron">▶</span>
+                        ${periodName}
+                    </span>
                     <span>${periodEvents.length} ${periodEvents.length === 1 ? 'event' : 'events'}</span>
                 </summary>
                 <div class="event-period-content">
