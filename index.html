@@ -12806,15 +12806,29 @@ async function saveEventEdits(e) {
     e.preventDefault();
 
     try {
-        const { error } = await supabase
+        console.log('🔍 Debug - Event update attempt:', {
+            eventId: currentEvent.id,
+            eventCreator: currentEvent.created_by,
+            currentUserId: currentUser.id,
+            isCreator: currentEvent.created_by === currentUser.id
+        });
+
+        const updateData = {
+            scheduled_date: document.getElementById('edit-event-date').value,
+            scheduled_time: document.getElementById('edit-event-time').value || null,
+            location: document.getElementById('edit-event-location').value || null,
+            notes: document.getElementById('edit-event-notes').value || null
+        };
+
+        console.log('📝 Update data:', updateData);
+
+        const { data, error } = await supabase
             .from('events')
-            .update({
-                scheduled_date: document.getElementById('edit-event-date').value,
-                scheduled_time: document.getElementById('edit-event-time').value || null,
-                location: document.getElementById('edit-event-location').value || null,
-                notes: document.getElementById('edit-event-notes').value || null
-            })
-            .eq('id', currentEvent.id);
+            .update(updateData)
+            .eq('id', currentEvent.id)
+            .select();
+
+        console.log('✅ Update result:', { data, error });
 
         if (error) throw error;
 
@@ -12825,7 +12839,7 @@ async function saveEventEdits(e) {
 
     } catch (error) {
         console.error('Error updating event:', error);
-        alert('Failed to update event');
+        alert(`Failed to update event: ${error.message || JSON.stringify(error)}`);
     }
 }
 
