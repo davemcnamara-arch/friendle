@@ -12780,6 +12780,12 @@ function closeEventOptionsModal() {
 }
 
 function editCurrentEvent() {
+    // Only event creator can edit
+    if (currentEvent.created_by !== currentUser.id) {
+        alert('Only the event creator can edit this event');
+        return;
+    }
+
     closeEventOptionsModal();
 
     // Populate edit form
@@ -12825,7 +12831,13 @@ async function saveEventEdits(e) {
 
 async function cancelEvent() {
     if (!confirm('Cancel this event? This will notify all participants.')) return;
-    
+
+    // Only event creator can cancel
+    if (currentEvent.created_by !== currentUser.id) {
+        alert('Only the event creator can cancel this event');
+        return;
+    }
+
     try {
         const { error } = await supabase
             .from('events')
