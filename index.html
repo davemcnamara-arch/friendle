@@ -3867,9 +3867,16 @@ async function processInviteCode() {
             .insert([{ circle_id: circle.id, profile_id: currentUser.id }]);
         
         if (joinError) throw joinError;
-        
+
         showNotification('Successfully joined "' + circle.name + '"!');
-        renderCircles(); // Refresh circles display
+        await renderCircles(); // Refresh circles display
+
+        // Refresh the activities page if user is on it
+        const currentPage = localStorage.getItem('friendle_current_page');
+        if (currentPage === 'activities') {
+            await populateCircleSelector();
+        }
+
         sessionStorage.removeItem('pending_invite_code');
         
     } catch (error) {
@@ -5993,8 +6000,14 @@ window.finalizeCircleCreation = async function() {
         
         closeCircleModal();
         hideLoader();
-        renderCircles();
-        
+        await renderCircles();
+
+        // Refresh the activities page if user is on it
+        const currentPage = localStorage.getItem('friendle_current_page');
+        if (currentPage === 'activities') {
+            await populateCircleSelector();
+        }
+
         showNotification(`Circle created! Share code: ${circle.code}`);
         
     } catch (error) {
@@ -6025,7 +6038,14 @@ window.finalizeCircleCreation = async function() {
 
   circles.push(circle);
   closeCircleModal();
-  renderCircles();
+  await renderCircles();
+
+  // Refresh the activities page if user is on it
+  const currentPage = localStorage.getItem('friendle_current_page');
+  if (currentPage === 'activities') {
+    await populateCircleSelector();
+  }
+
   showNotification(`Joined Circle!`);
 
   // Mark that user joined their first circle for PWA prompt
