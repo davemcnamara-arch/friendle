@@ -10729,8 +10729,7 @@ if (!showPastEvents) {
         } else if (match.inChatCount === 2) {
             inChatDisplay = inChatNames;
         } else if (match.inChatCount > 2) {
-            const allChatNames = match.chatParticipants.map(u => u.name).join('\\n');
-            inChatDisplay = `${inChatNames}, and <a href="#" onclick="event.preventDefault(); event.stopPropagation(); alert('In chat:\\n\\n${allChatNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${inChatMoreCount} other${inChatMoreCount > 1 ? 's' : ''}</a>`;
+            inChatDisplay = `${inChatNames} and <span onclick="event.preventDefault(); event.stopPropagation(); showMatchParticipants('${match.id}');" style="color: var(--primary-color); text-decoration: underline; cursor: pointer;">${inChatMoreCount} more</span>`;
         }
 
         
@@ -10781,12 +10780,12 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         <div class="match-card-content">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
-            <p style="margin: 0; font-size: 14px; line-height: 1.4; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showMatchParticipants('${match.id}')" title="Click to view who's in chat">
+            <p style="margin: 0; font-size: 14px; line-height: 1.4;">
                 ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested
             </p>
             ${match.inChatCount > 0 ? `
-                <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showMatchParticipants('${match.id}')" title="Click to view who's in chat">
-                    💬 ${match.inChatCount} in chat${inChatDisplay ? ': ' + inChatDisplay : ''}
+                <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px;">
+                    💬 ${inChatDisplay} in chat
                 </p>
             ` : ''}
         </div>
