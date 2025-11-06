@@ -1084,6 +1084,18 @@
             to { opacity: 1; transform: scale(1); }
         }
 
+        .btn-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
         /* Mobile Optimizations */
         @media (max-width: 480px) {
             .btn, .btn-secondary {
@@ -11841,10 +11853,17 @@ function openCreateEventModalFromHeader() {
 // Create new event
 async function createEvent(e) {
     e.preventDefault();
-    
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+
+    // Disable button and show loading spinner
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="btn-spinner"></span>Creating...';
+
     const matchId = document.getElementById('new-event-match-id').value;
     const match = matches.find(m => m.id === matchId);
-    
+
     try {
         // Create the event
         const { data: newEvent, error: eventError } = await supabase
@@ -11866,7 +11885,7 @@ async function createEvent(e) {
         if (eventError) throw eventError;
 
         console.log('✅ Created event:', newEvent);
-        
+
         // Only add the event creator
         const { error: insertError } = await supabase
             .from('event_participants')
@@ -11901,10 +11920,14 @@ async function createEvent(e) {
 
         // Open the new event chat
         openEventChat(newEvent.id);
-        
+
     } catch (error) {
         console.error('Error creating event:', error);
         alert('Failed to create event. Please try again.');
+    } finally {
+        // Re-enable button and restore original text
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
     }
 }
 
