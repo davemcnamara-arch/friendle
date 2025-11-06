@@ -11955,11 +11955,11 @@ async function createEvent(e) {
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id);
 
-        // Send notification to other match participants
-        console.log('🔵 CREATE EVENT: Sending notifications...');
-        const notifStart = Date.now();
-        await sendEventCreatedNotification(matchId, newEvent);
-        console.log(`🔵 CREATE EVENT: Notifications sent in ${Date.now() - notifStart}ms`);
+        // Send notification to other match participants (non-blocking - fire and forget)
+        console.log('🔵 CREATE EVENT: Sending notifications (async, non-blocking)...');
+        sendEventCreatedNotification(matchId, newEvent).catch(err => {
+            console.error('Error sending event notifications:', err);
+        });
 
         closeCreateEventModal();
 
