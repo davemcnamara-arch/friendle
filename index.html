@@ -11893,6 +11893,7 @@ function openCreateEventModalFromHeader() {
 // Create new event
 async function createEvent(e) {
     e.preventDefault();
+    console.log('🔵 CREATE EVENT: Starting...');
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.innerHTML;
@@ -11904,8 +11905,12 @@ async function createEvent(e) {
     const matchId = document.getElementById('new-event-match-id').value;
     const match = matches.find(m => m.id === matchId);
 
+    console.log('🔵 CREATE EVENT: Match ID:', matchId);
+    console.log('🔵 CREATE EVENT: Match found:', match);
+
     try {
         // Create the event
+        console.log('🔵 CREATE EVENT: Inserting event into database...');
         const { data: newEvent, error: eventError } = await supabase
             .from('events')
             .insert({
@@ -11922,11 +11927,14 @@ async function createEvent(e) {
             .select('*')
             .single();
 
+        console.log('🔵 CREATE EVENT: Insert result:', { newEvent, eventError });
+
         if (eventError) throw eventError;
 
         console.log('✅ Created event:', newEvent);
 
         // Only add the event creator
+        console.log('🔵 CREATE EVENT: Adding creator as participant...');
         const { error: insertError } = await supabase
             .from('event_participants')
             .insert([{
@@ -11935,9 +11943,12 @@ async function createEvent(e) {
                 status: 'accepted'
             }]);
 
+        console.log('🔵 CREATE EVENT: Participant insert result:', insertError);
+
         if (insertError) throw insertError;
 
         // Update last_interaction_at for inactivity tracking
+        console.log('🔵 CREATE EVENT: Updating last interaction...');
         await supabase
             .from('match_participants')
             .update({ last_interaction_at: new Date().toISOString() })
@@ -11945,25 +11956,39 @@ async function createEvent(e) {
             .eq('profile_id', currentUser.id);
 
         // Send notification to other match participants
+        console.log('🔵 CREATE EVENT: Sending notifications...');
+        const notifStart = Date.now();
         await sendEventCreatedNotification(matchId, newEvent);
+        console.log(`🔵 CREATE EVENT: Notifications sent in ${Date.now() - notifStart}ms`);
 
         closeCreateEventModal();
 
         // Refresh matches to show new event
+        console.log('🔵 CREATE EVENT: Loading matches...');
+        const matchesStart = Date.now();
         await loadMatches();
+        console.log(`🔵 CREATE EVENT: Matches loaded in ${Date.now() - matchesStart}ms`);
 
         // Refresh events page if currently viewing it
         const currentPage = document.querySelector('.page.active')?.id;
         if (currentPage === 'events') {
+            console.log('🔵 CREATE EVENT: Loading events page...');
+            const eventsStart = Date.now();
             await loadEvents();
+            console.log(`🔵 CREATE EVENT: Events page loaded in ${Date.now() - eventsStart}ms`);
         }
 
         // Open the new event chat
+        console.log('🔵 CREATE EVENT: Opening event chat...');
+        const chatStart = Date.now();
         openEventChat(newEvent.id);
+        console.log(`🔵 CREATE EVENT: Event chat opened in ${Date.now() - chatStart}ms`);
+
+        console.log('✅ CREATE EVENT: Complete!');
 
     } catch (error) {
-        console.error('Error creating event:', error);
-        alert('Failed to create event. Please try again.');
+        console.error('❌ CREATE EVENT: Error:', error);
+        alert(`Failed to create event: ${error.message || JSON.stringify(error)}`);
     } finally {
         // Re-enable button and restore original text
         submitBtn.disabled = false;
