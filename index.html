@@ -10818,7 +10818,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                     ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread" onclick="event.stopPropagation(); openMatchChatThreaded('${match.id}');" style="cursor: pointer;">💬 New message</span>` : ''}
                     ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount} in chat</span>` : ''}
                     ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
-                    ${totalInterestedInEvents > 0 ? `<span class="match-summary-stat">👥 ${totalInterestedInEvents} interested</span>` : ''}
+                    ${match.interestedCount > 0 ? `<span class="match-summary-stat">👥 ${match.interestedCount} interested</span>` : ''}
                 </div>
             </div>
         </summary>
