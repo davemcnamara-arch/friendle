@@ -6900,10 +6900,11 @@ window.switchToGridView = async function() {
     document.getElementById('grid-view-container').style.display = 'block';
 
     // Update button styles
+    const isDarkMode = document.body.classList.contains('dark-mode');
     document.getElementById('grid-view-btn').style.background = '#667eea';
     document.getElementById('grid-view-btn').style.color = 'white';
-    document.getElementById('swipe-view-btn').style.background = '#f8f9fa';
-    document.getElementById('swipe-view-btn').style.color = '#333';
+    document.getElementById('swipe-view-btn').style.background = isDarkMode ? '#2a2a2e' : '#f8f9fa';
+    document.getElementById('swipe-view-btn').style.color = isDarkMode ? '#e5e5e7' : '#333';
 
     // Show save button in grid mode
     document.getElementById('grid-save-button').style.display = 'block';
@@ -6915,16 +6916,17 @@ window.switchToSwipeView = async function() {
     viewMode = 'swipe';
     document.getElementById('grid-view-container').style.display = 'none';
     document.getElementById('swipe-view-container').style.display = 'block';
-    
+
     // Update button styles
+    const isDarkMode = document.body.classList.contains('dark-mode');
     document.getElementById('swipe-view-btn').style.background = '#667eea';
     document.getElementById('swipe-view-btn').style.color = 'white';
-    document.getElementById('grid-view-btn').style.background = '#f8f9fa';
-    document.getElementById('grid-view-btn').style.color = '#333';
-    
+    document.getElementById('grid-view-btn').style.background = isDarkMode ? '#2a2a2e' : '#f8f9fa';
+    document.getElementById('grid-view-btn').style.color = isDarkMode ? '#e5e5e7' : '#333';
+
     // Hide save button in swipe mode
     document.getElementById('grid-save-button').style.display = 'none';
-    
+
     await initializeSwipeView(); // Initialize swipe cards
 }
 
@@ -14719,7 +14721,8 @@ function initPullToRefresh() {
                 icon.textContent = '↓';
                 icon.style.transform = 'rotate(0deg)';
                 text.textContent = 'Pull to refresh';
-                text.style.color = '#666';
+                const isDarkMode = document.body.classList.contains('dark-mode');
+                text.style.color = isDarkMode ? '#9ca3af' : '#666';
             }
         }
     }, { passive: false });
@@ -14777,13 +14780,14 @@ function resetPullIndicator() {
     const indicator = document.getElementById('pull-refresh-indicator');
     const icon = document.getElementById('pull-refresh-icon');
     const text = document.getElementById('pull-refresh-text');
-    
+
     indicator.style.top = '-60px';
     icon.textContent = '↓';
     icon.style.transform = 'rotate(0deg)';
     icon.style.animation = 'none';
     text.textContent = 'Pull to refresh';
-    text.style.color = '#666';
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    text.style.color = isDarkMode ? '#9ca3af' : '#666';
 }
 
 // Global error handlers - catch unexpected errors
