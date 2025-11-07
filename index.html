@@ -2371,7 +2371,7 @@ body.dark-mode .custom-activity-item {
     <div class="chat-container">
         <div class="chat-header">
     <div style="display: flex; align-items: center; margin-bottom: 8px;">
-        <button onclick="showPage('matches')" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">← Back</button>
+        <button onclick="goToPreviousPage()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">← Back</button>
         <div style="flex: 1; text-align: center;">
             <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
             <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
@@ -12927,10 +12927,9 @@ async function leaveEvent() {
             .eq('profile_id', currentUser.id);
         
         if (error) throw error;
-        
+
         closeEventOptionsModal();
-        showPage('matches');
-        await loadMatches();
+        await goToPreviousPage();
         
     } catch (error) {
         console.error('Error leaving event:', error);
@@ -12956,9 +12955,7 @@ async function deleteEvent() {
         if (error) throw error;
 
         closeEventOptionsModal();
-        showPage('matches');
-
-        await loadMatches();
+        await goToPreviousPage();
         
     } catch (error) {
         console.error('Error deleting event:', error);
@@ -13846,7 +13843,16 @@ async function getCircleUnreadCount(circleId, lastReadAt) {
     }
 }
 
+        // Track navigation history for proper back button behavior
+        let previousPage = 'matches'; // Default to matches page
+
         window.showPage = async function(pageId) {
+    // Track current page before navigating
+    const currentPage = document.querySelector('.page.active')?.id;
+    if (currentPage && currentPage !== pageId) {
+        previousPage = currentPage;
+    }
+
     // Clean up subscriptions when leaving chat
 if (pageId !== 'chat') {
     if (eventMessageSubscription) {
@@ -13899,6 +13905,12 @@ if (pageId === 'settings') {
     // Check and show tutorial for first-time users
     await checkAndShowTutorial(pageId);
 }
+
+        // Navigate back to the previous page (used from chat back button and event completion)
+        window.goToPreviousPage = async function() {
+            await showPage(previousPage);
+        }
+
         // Export user data for GDPR compliance
         window.exportData = async function() {
             try {
