@@ -7987,8 +7987,10 @@ window.joinMatchChatFirst = async function(matchId) {
         hideLoader();
         showNotification('You\'re in! Others can now see and join.');
 
-        // Send notification to existing participants
-        await sendMatchJoinNotification(matchId);
+        // Send notification to existing participants (non-blocking - fire and forget)
+        sendMatchJoinNotification(matchId).catch(err => {
+            console.error('Error sending match join notification:', err);
+        });
 
         await loadMatches();
     } else {
@@ -8090,8 +8092,10 @@ window.joinMatchChatNormal = async function(matchId) {
         hideLoader();
         showNotification('Joined chat!');
 
-        // Send notification to existing participants
-        await sendMatchJoinNotification(matchId);
+        // Send notification to existing participants (non-blocking - fire and forget)
+        sendMatchJoinNotification(matchId).catch(err => {
+            console.error('Error sending match join notification:', err);
+        });
 
         await loadMatches();
     } else {
@@ -9173,8 +9177,10 @@ window.joinEventFromChat = async function(eventId, matchId) {
         await joinMatchChat(matchId);
 
         if (!wasAlreadyInChat) {
-            // User just joined the match chat, notify existing participants
-            await sendMatchJoinNotification(matchId);
+            // User just joined the match chat, notify existing participants (non-blocking - fire and forget)
+            sendMatchJoinNotification(matchId).catch(err => {
+                console.error('Error sending match join notification:', err);
+            });
         }
 
         // Get event details for notification
@@ -9194,12 +9200,14 @@ window.joinEventFromChat = async function(eventId, matchId) {
         if (eventError) {
             console.error('Error loading event details:', eventError);
         }
-        
-        // Send notification to existing participants
+
+        // Send notification to existing participants (non-blocking - fire and forget)
         if (event) {
-            await sendEventJoinNotification(event);
+            sendEventJoinNotification(event).catch(err => {
+                console.error('Error sending event join notification:', err);
+            });
         }
-        
+
         hideLoader();
         showNotification('Joined event! You can now access the event chat.');
         
@@ -11018,8 +11026,10 @@ window.joinMatch = async function(matchId) {
 
         showNotification('Joined match! You can now chat and schedule events.');
 
-        // Send notification to existing participants
-        await sendMatchJoinNotification(matchId);
+        // Send notification to existing participants (non-blocking - fire and forget)
+        sendMatchJoinNotification(matchId).catch(err => {
+            console.error('Error sending match join notification:', err);
+        });
 
         // Refresh matches to update UI
         await loadMatches();
@@ -11073,11 +11083,13 @@ window.joinEvent = async function(eventId) {
                 .eq('profile_id', currentUser.id);
         }
 
-        // Send notification to existing participants
+        // Send notification to existing participants (non-blocking - fire and forget)
         if (event) {
-            await sendEventJoinNotification(event);
+            sendEventJoinNotification(event).catch(err => {
+                console.error('Error sending event join notification:', err);
+            });
         }
-        
+
         hideLoader();
         showNotification('Joined event! You can now access the event chat.');
 
@@ -12942,13 +12954,10 @@ async function deleteEvent() {
             .eq('id', currentEvent.id);
         
         if (error) throw error;
-        
+
         closeEventOptionsModal();
         showPage('matches');
-        
-        // Small delay to ensure database update propagates
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         await loadMatches();
         
     } catch (error) {
