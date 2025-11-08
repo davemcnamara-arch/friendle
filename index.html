@@ -4463,8 +4463,8 @@ function shouldShowPWAPrompt() {
 
     console.log('PWA prompt check:', { visitCount, hasJoinedCircle });
 
-    // Show if user has joined their first circle OR on their second visit
-    return hasJoinedCircle || visitCount >= 2;
+    // Show if user has joined their first circle OR on their first visit
+    return hasJoinedCircle || visitCount >= 1;
 }
 
 // Track page visits
@@ -4523,11 +4523,13 @@ function showPWAPrompt() {
 
     document.body.insertAdjacentHTML('beforeend', bannerHTML);
 
-    // Animate in immediately
-    const banner = document.getElementById('pwa-install-banner');
-    if (banner) {
-        banner.classList.add('show');
-    }
+    // Animate in after brief delay for smooth transition
+    setTimeout(() => {
+        const banner = document.getElementById('pwa-install-banner');
+        if (banner) {
+            banner.classList.add('show');
+        }
+    }, 150);
 
     console.log('✅ PWA install banner shown');
 }
@@ -6100,8 +6102,10 @@ window.finalizeCircleCreation = async function() {
   // Mark that user joined their first circle for PWA prompt
   markCircleJoined();
 
-  // Show PWA install prompt immediately
-  showPWAPrompt();
+  // Show PWA install prompt after brief delay to avoid interrupting the success moment
+  setTimeout(() => {
+    showPWAPrompt();
+  }, 500);
 }
 
         async function renderCircles() {
@@ -14838,8 +14842,10 @@ if (pageId === 'settings') {
             // Track visit for PWA install prompt
             trackPWAVisit();
 
-            // Show PWA install prompt immediately (if conditions are met)
-            showPWAPrompt();
+            // Show PWA install prompt after brief delay to let app load (if conditions are met)
+            setTimeout(() => {
+                showPWAPrompt();
+            }, 800);
             
         } catch (error) {
             console.error('Error loading profile:', error);
