@@ -7425,32 +7425,36 @@ window.undoSwipe = async function() {
 
 async function loadActivities(circleId) {
     try {
-        const { data: customActivities, error: activitiesError } = await supabase
-            .from('activities')
-            .select('*')
-            .eq('circle_id', circleId);
-        
-        if (activitiesError) throw activitiesError;
-        
-        const { data: circleActivities, error: visibilityError } = await supabase
-            .from('circle_activities')
-            .select('activity_id, is_visible')
-            .eq('circle_id', circleId);
-        
-        if (visibilityError) throw visibilityError;
-        
+        // Load custom activities and visibility settings in parallel
+        const [customResult, visibilityResult] = await Promise.all([
+            supabase
+                .from('activities')
+                .select('*')
+                .eq('circle_id', circleId),
+            supabase
+                .from('circle_activities')
+                .select('activity_id, is_visible')
+                .eq('circle_id', circleId)
+        ]);
+
+        if (customResult.error) throw customResult.error;
+        if (visibilityResult.error) throw visibilityResult.error;
+
+        const customActivities = customResult.data;
+        const circleActivities = visibilityResult.data;
+
         const visibilityMap = {};
         circleActivities?.forEach(ca => {
             visibilityMap[ca.activity_id] = ca.is_visible;
         });
-        
+
         const visibleDefaultActivities = defaultActivities.filter(a => {
             if (visibilityMap.hasOwnProperty(a.id)) {
                 return visibilityMap[a.id];
             }
             return coreActivityIds.includes(a.id);
         });
-        
+
         return [...visibleDefaultActivities, ...customActivities];
     } catch (error) {
         console.error('Error loading activities:', error);
