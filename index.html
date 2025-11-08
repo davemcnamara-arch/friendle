@@ -7519,53 +7519,104 @@ async function loadDefaultActivities() {
     
     const sortedCounts = Object.entries(activityCounts).sort(([,a],[,b]) => b-a);
     const frequentIds = sortedCounts.slice(0, 4).map(([id]) => parseInt(id));
-    
-    // Load activities from both default + Supabase
-    const allPossibleActivities = await loadActivities(selectedCircle.id);
-    
-    const filteredActivities = allPossibleActivities.filter(a => 
+
+    // Load activities and availability data in parallel
+    const [allPossibleActivities, availabilityMap] = await Promise.all([
+        loadActivities(selectedCircle.id),
+        loadAllActivityAvailability()
+    ]);
+
+    const filteredActivities = allPossibleActivities.filter(a =>
         a.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const frequentActivities = filteredActivities.filter(a => frequentIds.includes(a.id));
-    document.getElementById('frequent-section').style.display = 
+    document.getElementById('frequent-section').style.display =
         frequentActivities.length > 0 && !searchTerm ? 'block' : 'none';
     for (const activity of frequentActivities) {
-    await createActivityCard(activity, frequentGrid);
-}
+        createActivityCard(activity, frequentGrid, availabilityMap);
+    }
 
     const nonFrequentActivities = filteredActivities.filter(a => !frequentIds.includes(a.id));
     for (const activity of nonFrequentActivities) {
-    await createActivityCard(activity, activitiesGrid);
+        createActivityCard(activity, activitiesGrid, availabilityMap);
+    }
 }
-}
-        async function createActivityCard(activity, grid) {
+        function createActivityCard(activity, grid, availabilityMap) {
     const card = document.createElement('div');
     card.className = 'activity-card';
     card.dataset.activityId = activity.id;
-    
+
     const isSelected = activities.some(a => a.id === activity.id);
     if (isSelected) card.classList.add('selected');
-    
-    // Check if marked as "today"
-    const isToday = await isActivityAvailableToday(activity.id);
-    
+
+    // Check if marked as "today" using the pre-loaded availability map
+    const isToday = availabilityMap && availabilityMap.has(activity.id);
+
     card.innerHTML = `
         <div class="activity-emoji">${activity.emoji}</div>
         <div class="activity-name">${activity.name}</div>
     `;
-    
+
     card.onclick = (event) => {
         event.stopPropagation();
         toggleActivity(card, activity);
     };
-    
+
     grid.appendChild(card);
+}
+
+// Batch load all activity availability data for the current circle
+async function loadAllActivityAvailability() {
+    if (!selectedCircle || !currentUser) return new Map();
+
+    try {
+        const { data, error } = await supabase
+            .from('activity_availability')
+            .select('activity_id, available_until')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', selectedCircle.id);
+
+        if (error) throw error;
+
+        const availabilityMap = new Map();
+        const now = new Date();
+        const toDelete = [];
+
+        if (data) {
+            for (const item of data) {
+                const availableUntil = new Date(item.available_until);
+                if (availableUntil > now) {
+                    availabilityMap.set(parseInt(item.activity_id), true);
+                } else {
+                    // Mark expired items for deletion
+                    toDelete.push(item.activity_id);
+                }
+            }
+
+            // Clean up expired items in the background
+            if (toDelete.length > 0) {
+                supabase
+                    .from('activity_availability')
+                    .delete()
+                    .eq('profile_id', currentUser.id)
+                    .eq('circle_id', selectedCircle.id)
+                    .in('activity_id', toDelete)
+                    .then(() => {})
+                    .catch(err => console.error('Error cleaning up expired availability:', err));
+            }
+        }
+
+        return availabilityMap;
+    } catch (error) {
+        console.error('Error loading activity availability:', error);
+        return new Map();
+    }
 }
 
 async function isActivityAvailableToday(activityId) {
     if (!selectedCircle || !currentUser) return false;
-    
+
     try {
         const { data, error } = await supabase
             .from('activity_availability')
@@ -7574,14 +7625,14 @@ async function isActivityAvailableToday(activityId) {
             .eq('circle_id', selectedCircle.id)
             .eq('activity_id', activityId.toString())
             .maybeSingle();
-        
+
         if (error) throw error;
-        
+
         // Check if still valid
         if (data && new Date(data.available_until) > new Date()) {
             return true;
         }
-        
+
         // If expired, clean it up
         if (data) {
             await supabase
@@ -7591,7 +7642,7 @@ async function isActivityAvailableToday(activityId) {
                 .eq('circle_id', selectedCircle.id)
                 .eq('activity_id', activityId.toString());
         }
-        
+
         return false;
     } catch (error) {
         console.error('Error checking activity availability:', error);
