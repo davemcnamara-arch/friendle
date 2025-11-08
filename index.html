@@ -3004,6 +3004,18 @@ body.dark-mode .custom-activity-item {
     </div>
 </div>
 
+<!-- First to Choose Modal -->
+<div class="modal-overlay" id="first-to-choose-modal" style="z-index: 10000;">
+    <div class="modal-content" style="max-width: 350px; text-align: center; animation: slideUp 0.3s ease-out;">
+        <div style="font-size: 4em; margin-bottom: 15px; animation: bounce 0.6s ease-in-out;">🎉</div>
+        <div style="font-size: 1.5em; font-weight: 700; color: #667eea; margin-bottom: 10px;">You're First!</div>
+        <div id="first-to-choose-activity" style="font-size: 2em; margin-bottom: 15px;">🎯</div>
+        <div style="color: #666; margin-bottom: 20px; line-height: 1.6;">Want to put it out there? Others will see and can join.</div>
+        <button id="first-to-choose-join-btn" class="btn" onclick="joinMatchFromFirstToChoose()" style="margin-bottom: 10px; background: #4CAF50;">Join Chat & Coordinate</button>
+        <button class="btn btn-secondary" onclick="closeFirstToChooseModal()">Keep Swiping</button>
+    </div>
+</div>
+
 <!-- Tutorial Modals -->
 <!-- Activities Tutorial Modal -->
 <div class="modal-overlay" id="tutorial-activities-modal" style="z-index: 9999;">
@@ -7236,7 +7248,7 @@ async function animateSwipeRight(card, activity) {
         .eq('circle_id', selectedCircle.id)
         .eq('activity_id', activity.id)
         .single();
-    
+
     if (existingMatch) {
         // Get other users in the chat (not just interested - keeps users anonymous until they join)
         const { data: otherParticipants } = await supabase
@@ -7247,12 +7259,43 @@ async function animateSwipeRight(card, activity) {
 
         const otherUsers = otherParticipants?.map(p => p.profiles) || [];
 
-        // Show match notification only if there are others in the chat
+        // Show match notification if there are others in the chat
         if (otherUsers.length > 0) {
             showMatchNotification(activity, existingMatch.id, otherUsers);
+        } else {
+            // User is first to choose this activity - show "You're First!" popup
+            showFirstToChoosePopup(activity, existingMatch.id);
         }
+    } else {
+        // No match exists yet - it will be created in checkForMatches
+        // We'll show the "first to choose" popup after that
+        console.log('Calling checkForMatches...');
+        await checkForMatches();
+
+        // Now get the newly created match
+        const { data: newMatch } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('circle_id', selectedCircle.id)
+            .eq('activity_id', activity.id)
+            .single();
+
+        if (newMatch) {
+            showFirstToChoosePopup(activity, newMatch.id);
+        }
+
+        // Continue to load matches
+        console.log('Calling loadMatches...');
+        await loadMatches();
+
+        setTimeout(() => {
+            currentCardIndex++;
+            showNextCard();
+        }, 300);
+
+        return; // Exit early since we already handled everything
     }
-    
+
     console.log('Calling checkForMatches...');
     // Check for new matches and send notifications
     await checkForMatches();
@@ -13479,6 +13522,65 @@ window.joinMatchFromNotification = async function() {
         closeMatchNotification();
         console.error('Error joining match:', error);
         showNotification('Error joining match', 'error');
+    }
+}
+
+// First to Choose modal functions
+let currentFirstToChooseMatch = null;
+
+function showFirstToChoosePopup(activity, matchId) {
+    currentFirstToChooseMatch = matchId;
+
+    // Set activity emoji and name
+    document.getElementById('first-to-choose-activity').textContent = activity.emoji + ' ' + activity.name;
+
+    // Show the modal
+    document.getElementById('first-to-choose-modal').style.display = 'flex';
+}
+
+window.closeFirstToChooseModal = function() {
+    document.getElementById('first-to-choose-modal').style.display = 'none';
+    currentFirstToChooseMatch = null;
+}
+
+window.joinMatchFromFirstToChoose = async function() {
+    if (!currentFirstToChooseMatch) {
+        closeFirstToChooseModal();
+        return;
+    }
+
+    showLoader('Joining chat...');
+
+    try {
+        // Add user to match participants
+        const { error } = await supabase
+            .from('match_participants')
+            .insert([{
+                match_id: currentFirstToChooseMatch,
+                profile_id: currentUser.id
+            }]);
+
+        if (error) {
+            // If error is duplicate key (user already joined), that's fine
+            if (error.code !== '23505') {
+                throw error;
+            }
+        }
+
+        closeFirstToChooseModal();
+        hideLoader();
+
+        // Reload matches and go to matches page
+        await loadMatches();
+        showPage('matches');
+
+        showNotification('You\'re in the chat! Others will see and can join.');
+
+    } catch (error) {
+        hideLoader();
+        closeFirstToChooseModal();
+        console.error('Error joining match:', error);
+        showNotification('Error joining chat', 'error');
     }
 }
 
