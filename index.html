@@ -2333,7 +2333,7 @@ body.dark-mode .custom-activity-item {
 
 <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
     <button id="grid-view-btn" class="btn btn-secondary btn-small" onclick="switchToGridView()">📋 Grid View</button>
-    <button id="swipe-view-btn" class="btn btn-secondary btn-small" onclick="switchToSwipeView()" style="background: #667eea; color: white;">👆 Swipe View</button>
+    <button id="swipe-view-btn" class="btn btn-secondary btn-small" onclick="switchToSwipeView()" style="background: var(--primary-color); color: white;">👆 Swipe View</button>
 </div>
 
                 <!-- Swipe View Container -->
@@ -6907,11 +6907,13 @@ window.switchToGridView = async function() {
     document.getElementById('swipe-view-container').style.display = 'none';
     document.getElementById('grid-view-container').style.display = 'block';
 
-    // Update button styles
-    document.getElementById('grid-view-btn').style.background = '#667eea';
-    document.getElementById('grid-view-btn').style.color = 'white';
-    document.getElementById('swipe-view-btn').style.background = '#f8f9fa';
-    document.getElementById('swipe-view-btn').style.color = '#333';
+    // Update button styles using CSS variables for dark mode compatibility
+    const gridBtn = document.getElementById('grid-view-btn');
+    const swipeBtn = document.getElementById('swipe-view-btn');
+    gridBtn.style.background = 'var(--primary-color)';
+    gridBtn.style.color = 'white';
+    swipeBtn.style.background = 'var(--bg-secondary)';
+    swipeBtn.style.color = 'var(--text-primary)';
 
     // Show save button in grid mode
     document.getElementById('grid-save-button').style.display = 'block';
@@ -6923,16 +6925,18 @@ window.switchToSwipeView = async function() {
     viewMode = 'swipe';
     document.getElementById('grid-view-container').style.display = 'none';
     document.getElementById('swipe-view-container').style.display = 'block';
-    
-    // Update button styles
-    document.getElementById('swipe-view-btn').style.background = '#667eea';
-    document.getElementById('swipe-view-btn').style.color = 'white';
-    document.getElementById('grid-view-btn').style.background = '#f8f9fa';
-    document.getElementById('grid-view-btn').style.color = '#333';
-    
+
+    // Update button styles using CSS variables for dark mode compatibility
+    const swipeBtn = document.getElementById('swipe-view-btn');
+    const gridBtn = document.getElementById('grid-view-btn');
+    swipeBtn.style.background = 'var(--primary-color)';
+    swipeBtn.style.color = 'white';
+    gridBtn.style.background = 'var(--bg-secondary)';
+    gridBtn.style.color = 'var(--text-primary)';
+
     // Hide save button in swipe mode
     document.getElementById('grid-save-button').style.display = 'none';
-    
+
     await initializeSwipeView(); // Initialize swipe cards
 }
 
@@ -15217,7 +15221,7 @@ window.saveActivityVisibility = async function() {
 
 // Edge-based swipe navigation between pages
 (function initEdgeSwipeNavigation() {
-    const pageOrder = ['circles', 'activities', 'matches', 'settings'];
+    const pageOrder = ['circles', 'activities', 'matches', 'events', 'settings'];
     const EDGE_THRESHOLD = 50; // pixels from edge to initiate swipe
     const SWIPE_THRESHOLD = 80; // minimum swipe distance to trigger navigation
 
