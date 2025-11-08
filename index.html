@@ -6965,16 +6965,27 @@ window.initializeSwipeView = async function() {
 }
 
 async function loadActivitiesForSwiping(circleId) {
-    // Load activities and preferences in parallel
-    const [allActivities, userPrefs, circlePrefResult] = await Promise.all([
+    // Load activities and all circle preferences in parallel (single query for all prefs)
+    const [allActivities, allPrefsResult] = await Promise.all([
         loadActivities(circleId),
-        loadUserPreferences(circleId),
         supabase
             .from('preferences')
-            .select('activity_id, profile_id')
+            .select('activity_id, profile_id, selected')
             .eq('circle_id', circleId)
-            .neq('profile_id', currentUser.id)
     ]);
+
+    if (allPrefsResult.error) {
+        console.error('Error loading preferences:', allPrefsResult.error);
+    }
+
+    const allPrefs = allPrefsResult.data || [];
+
+    // Split into user prefs and others' prefs
+    const userPrefs = allPrefs
+        .filter(p => p.profile_id === currentUser.id && p.selected)
+        .map(p => p.activity_id);
+
+    const circlePrefs = allPrefs.filter(p => p.profile_id !== currentUser.id);
 
     // Convert all IDs to strings for consistent comparison
     const alreadySelectedIds = new Set(userPrefs.map(id => id.toString()));
@@ -6984,9 +6995,6 @@ async function loadActivitiesForSwiping(circleId) {
     const availableActivities = allActivities.filter(activity =>
         !alreadySelectedIds.has(activity.id.toString())
     );
-
-    // Extract circle preferences data
-    const circlePrefs = circlePrefResult.data;
     
     // Count popularity
     const popularityCounts = {};
