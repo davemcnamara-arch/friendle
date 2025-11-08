@@ -6946,21 +6946,18 @@ window.initializeSwipeView = async function() {
         document.getElementById('card-stack').innerHTML = '<div style="text-align: center; padding: 60px; color: #666;">Please select a circle first</div>';
         return;
     }
-    
-    // Load and sort activities
+
+    // Load and sort activities (keep old card visible during loading)
     sortedActivities = await loadActivitiesForSwiping(selectedCircle.id);
     currentCardIndex = 0;
     swipeHistory = [];
-    
-    // Clear card stack
-    document.getElementById('card-stack').innerHTML = '';
-    
+
     if (sortedActivities.length === 0) {
         document.getElementById('card-stack').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">No Activities Available</div><div class="empty-state-description">Add some activities to your circle to get started!</div></div>';
         return;
     }
-    
-    // Show first card
+
+    // Show first card (showNextCard will clear and replace content)
     showNextCard();
 }
 
@@ -7067,8 +7064,8 @@ function showNextCard() {
     
     const activity = sortedActivities[currentCardIndex];
     const card = renderSwipeCard(activity);
-    document.getElementById('card-stack').innerHTML = '';
-    document.getElementById('card-stack').appendChild(card);
+    // Replace card atomically to avoid flashing/delay
+    document.getElementById('card-stack').replaceChildren(card);
     updateProgress();
 }
 
