@@ -6965,26 +6965,28 @@ window.initializeSwipeView = async function() {
 }
 
 async function loadActivitiesForSwiping(circleId) {
-    // Get all visible activities
-    const allActivities = await loadActivities(circleId);
-    
-    // Get user's current preferences to filter out already selected
-    const userPrefs = await loadUserPreferences(circleId);
+    // Load activities and preferences in parallel
+    const [allActivities, userPrefs, circlePrefResult] = await Promise.all([
+        loadActivities(circleId),
+        loadUserPreferences(circleId),
+        supabase
+            .from('preferences')
+            .select('activity_id, profile_id')
+            .eq('circle_id', circleId)
+            .neq('profile_id', currentUser.id)
+    ]);
+
     // Convert all IDs to strings for consistent comparison
-const alreadySelectedIds = new Set(userPrefs.map(id => id.toString()));
-    
+    const alreadySelectedIds = new Set(userPrefs.map(id => id.toString()));
+
     // Filter out activities user has already selected
-// Convert both to strings for comparison since IDs might be mixed types
-const availableActivities = allActivities.filter(activity => 
-    !alreadySelectedIds.has(activity.id.toString())
-);
-    
-    // Get what others in circle have selected
-    const { data: circlePrefs } = await supabase
-        .from('preferences')
-        .select('activity_id, profile_id')
-        .eq('circle_id', circleId)
-        .neq('profile_id', currentUser.id);
+    // Convert both to strings for comparison since IDs might be mixed types
+    const availableActivities = allActivities.filter(activity =>
+        !alreadySelectedIds.has(activity.id.toString())
+    );
+
+    // Extract circle preferences data
+    const circlePrefs = circlePrefResult.data;
     
     // Count popularity
     const popularityCounts = {};
@@ -14799,14 +14801,19 @@ function initPullToRefresh() {
             
             // Determine which page to refresh
             const activePage = document.querySelector('.page.active').id;
-            
+
             try {
                 if (activePage === 'matches') {
                     await loadMatches();
                 } else if (activePage === 'circles') {
                     await renderCircles();
                 } else if (activePage === 'activities') {
-                    await renderActivities();
+                    // Check if in swipe or grid view mode
+                    if (viewMode === 'swipe') {
+                        await initializeSwipeView();
+                    } else {
+                        await renderActivities();
+                    }
                 }
                 
                 // Brief success state
