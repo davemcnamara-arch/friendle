@@ -6940,24 +6940,41 @@ window.switchToSwipeView = async function() {
 let currentCardIndex = 0;
 let swipeHistory = [];
 let sortedActivities = [];
+let cachedSwipeState = null; // Cache for instant refresh
 
-window.initializeSwipeView = async function() {
+window.initializeSwipeView = async function(useCache = true) {
     if (!selectedCircle) {
         document.getElementById('card-stack').innerHTML = '<div style="text-align: center; padding: 60px; color: #666;">Please select a circle first</div>';
         return;
     }
 
-    // Load and sort activities (keep old card visible during loading)
-    sortedActivities = await loadActivitiesForSwiping(selectedCircle.id);
+    // If we have cached state and useCache is true, show it immediately
+    if (useCache && cachedSwipeState && cachedSwipeState.circleId === selectedCircle.id) {
+        sortedActivities = cachedSwipeState.sortedActivities;
+        currentCardIndex = cachedSwipeState.currentCardIndex;
+        swipeHistory = [];
+        showNextCard();
+    }
+
+    // Load and sort activities in background
+    const newActivities = await loadActivitiesForSwiping(selectedCircle.id);
+    sortedActivities = newActivities;
     currentCardIndex = 0;
     swipeHistory = [];
+
+    // Cache the new state
+    cachedSwipeState = {
+        circleId: selectedCircle.id,
+        sortedActivities: newActivities,
+        currentCardIndex: 0
+    };
 
     if (sortedActivities.length === 0) {
         document.getElementById('card-stack').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">No Activities Available</div><div class="empty-state-description">Add some activities to your circle to get started!</div></div>';
         return;
     }
 
-    // Show first card (showNextCard will clear and replace content)
+    // Update card with fresh data
     showNextCard();
 }
 
@@ -7061,12 +7078,17 @@ function showNextCard() {
     document.getElementById('swipe-progress').textContent = 'Complete!';
     return;
 }
-    
+
     const activity = sortedActivities[currentCardIndex];
     const card = renderSwipeCard(activity);
     // Replace card atomically to avoid flashing/delay
     document.getElementById('card-stack').replaceChildren(card);
     updateProgress();
+
+    // Update cache with current position
+    if (cachedSwipeState && cachedSwipeState.circleId === selectedCircle?.id) {
+        cachedSwipeState.currentCardIndex = currentCardIndex;
+    }
 }
 
 function updateProgress() {
