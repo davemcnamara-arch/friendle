@@ -1442,6 +1442,36 @@
             background: var(--border-color);
         }
 
+        .attachment-btn.loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .attachment-btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: attachment-spinner 0.8s linear infinite;
+        }
+
+        body.dark-mode .attachment-btn.loading::after {
+            border-color: var(--border-color);
+            border-top-color: #3498db;
+        }
+
+        @keyframes attachment-spinner {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
         .send-btn {
             margin: 0;
         }
@@ -2409,9 +2439,9 @@ body.dark-mode .custom-activity-item {
         <div class="chat-input">
             <div class="chat-input-top-row">
                 <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleMessageKeyPress(event)">
-                <button class="attachment-btn" onclick="sharePhoto()">📷</button>
-                <button class="attachment-btn" onclick="shareLocation()">📍</button>
-                <button class="attachment-btn" onclick="findNearbyPlaces()">🔍</button>
+                <button class="attachment-btn" id="photo-btn" onclick="sharePhoto()">📷</button>
+                <button class="attachment-btn" id="location-btn" onclick="shareLocation()">📍</button>
+                <button class="attachment-btn" id="search-btn" onclick="findNearbyPlaces()">🔍</button>
             </div>
             <button class="btn send-btn" onclick="sendMessage()">Send</button>
         </div>
@@ -13500,27 +13530,31 @@ async function checkLocationPermission() {
     if (!navigator.geolocation) {
         return showNotification('Geolocation not supported on this device', 'error');
     }
-    
+
     const context = getCurrentChatContext();
-    
+
     if (context.type === 'none') {
         return showNotification('No active chat to share location', 'error');
     }
-    
+
     const permission = await checkLocationPermission();
-    
+
     if (permission === 'denied') {
         alert('Location access is blocked. Please enable it in your browser settings:\n\n1. Click the lock/info icon in the address bar\n2. Find "Location" permissions\n3. Change to "Allow"\n4. Reload the page');
         return;
     }
-    
+
     if (permission === 'prompt') {
         openLocationPermissionModal();
         return;
     }
-    
+
     console.log('📍 Sharing location in context:', context.type);
-    
+
+    // Show loading state
+    const locationBtn = document.getElementById('location-btn');
+    if (locationBtn) locationBtn.classList.add('loading');
+
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const lat = pos.coords.latitude;
@@ -13617,15 +13651,23 @@ async function checkLocationPermission() {
                         }
                     });
                 }
-                
+
                 showNotification('Location shared!');
-                
+
             } catch (error) {
                 console.error('Error sharing location:', error);
                 showNotification('Failed to share location. Please try again.', 'error');
+            } finally {
+                // Remove loading state
+                if (locationBtn) locationBtn.classList.remove('loading');
             }
         },
-        () => showNotification('Could not get location', 'error')
+        (error) => {
+            // Remove loading state
+            if (locationBtn) locationBtn.classList.remove('loading');
+            showNotification('Could not get location', 'error');
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
     );
 }
         window.openImageModal = src => { document.getElementById('modal-image').src = src; document.getElementById('image-modal-overlay').style.display = 'flex'; };
@@ -13635,29 +13677,33 @@ window.findNearbyPlaces = async function() {
             if (!navigator.geolocation) {
                 return showNotification('Geolocation not supported on this device', 'error');
             }
-            
+
             const context = getCurrentChatContext();
-            
+
             if (context.type === 'none') {
                 return showNotification('This feature is only available in chats', 'error');
             }
-            
+
             const permission = await checkLocationPermission();
-            
+
             if (permission === 'denied') {
                 alert('Location access is blocked. Please enable it in your browser settings:\n\n1. Click the lock/info icon in the address bar\n2. Find "Location" permissions\n3. Change to "Allow"\n4. Reload the page');
                 return;
             }
-            
+
             if (permission === 'prompt') {
                 openLocationPermissionModal();
                 return;
             }
-            
+
             console.log('🔍 Finding nearby places in context:', context.type);
-            
+
+            // Show loading state
+            const searchBtn = document.getElementById('search-btn');
+            if (searchBtn) searchBtn.classList.add('loading');
+
             showNotification('Finding nearby places...');
-            
+
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
                     const lat = pos.coords.latitude;
@@ -13758,14 +13804,20 @@ window.findNearbyPlaces = async function() {
             }
         });
     }
-    
+
     showNotification('Search link shared!');
 } catch (error) {
                         console.error('Error sharing nearby places:', error);
                         showNotification('Failed to share search. Please try again.', 'error');
+                    } finally {
+                        // Remove loading state
+                        if (searchBtn) searchBtn.classList.remove('loading');
                     }
                 },
                 (error) => {
+                    // Remove loading state
+                    if (searchBtn) searchBtn.classList.remove('loading');
+
                     let errorMessage = 'Could not get location';
                     if (error.code === error.PERMISSION_DENIED) {
                         errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
@@ -13776,7 +13828,7 @@ window.findNearbyPlaces = async function() {
                     }
                     showNotification(errorMessage, 'error');
                 },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
             );
         }
         
