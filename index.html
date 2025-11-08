@@ -11020,8 +11020,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         <div class="match-info-box">
             <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500;">🎉 You're first!</p>
             <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;">Want to put it out there? Others will see and can join.</p>
-            <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0; width: 100%;">
+            <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0 0 8px 0; width: 100%;">
                 Join Chat & Coordinate
+            </button>
+            <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; width: 100%; margin: 0; background: #6c757d; opacity: 0.7;">
+                🚫 No Longer Interested
             </button>
         </div>
     ` : match.userInChat ? `
