@@ -6946,35 +6946,43 @@ window.initializeSwipeView = async function() {
         document.getElementById('card-stack').innerHTML = '<div style="text-align: center; padding: 60px; color: #666;">Please select a circle first</div>';
         return;
     }
-    
-    // Load and sort activities
+
+    // Load and sort activities (keep old card visible during loading)
     sortedActivities = await loadActivitiesForSwiping(selectedCircle.id);
     currentCardIndex = 0;
     swipeHistory = [];
-    
-    // Clear card stack
-    document.getElementById('card-stack').innerHTML = '';
-    
+
     if (sortedActivities.length === 0) {
         document.getElementById('card-stack').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">No Activities Available</div><div class="empty-state-description">Add some activities to your circle to get started!</div></div>';
         return;
     }
-    
-    // Show first card
+
+    // Show first card (showNextCard will clear and replace content)
     showNextCard();
 }
 
 async function loadActivitiesForSwiping(circleId) {
-    // Load activities and preferences in parallel
-    const [allActivities, userPrefs, circlePrefResult] = await Promise.all([
+    // Load activities and all circle preferences in parallel (single query for all prefs)
+    const [allActivities, allPrefsResult] = await Promise.all([
         loadActivities(circleId),
-        loadUserPreferences(circleId),
         supabase
             .from('preferences')
-            .select('activity_id, profile_id')
+            .select('activity_id, profile_id, selected')
             .eq('circle_id', circleId)
-            .neq('profile_id', currentUser.id)
     ]);
+
+    if (allPrefsResult.error) {
+        console.error('Error loading preferences:', allPrefsResult.error);
+    }
+
+    const allPrefs = allPrefsResult.data || [];
+
+    // Split into user prefs and others' prefs
+    const userPrefs = allPrefs
+        .filter(p => p.profile_id === currentUser.id && p.selected)
+        .map(p => p.activity_id);
+
+    const circlePrefs = allPrefs.filter(p => p.profile_id !== currentUser.id);
 
     // Convert all IDs to strings for consistent comparison
     const alreadySelectedIds = new Set(userPrefs.map(id => id.toString()));
@@ -6984,9 +6992,6 @@ async function loadActivitiesForSwiping(circleId) {
     const availableActivities = allActivities.filter(activity =>
         !alreadySelectedIds.has(activity.id.toString())
     );
-
-    // Extract circle preferences data
-    const circlePrefs = circlePrefResult.data;
     
     // Count popularity
     const popularityCounts = {};
@@ -7059,8 +7064,8 @@ function showNextCard() {
     
     const activity = sortedActivities[currentCardIndex];
     const card = renderSwipeCard(activity);
-    document.getElementById('card-stack').innerHTML = '';
-    document.getElementById('card-stack').appendChild(card);
+    // Replace card atomically to avoid flashing/delay
+    document.getElementById('card-stack').replaceChildren(card);
     updateProgress();
 }
 
