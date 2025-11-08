@@ -2710,14 +2710,14 @@ body.dark-mode .custom-activity-item {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: white;
+            background: var(--bg-color);
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             transition: top 0.3s ease;
             z-index: 9998;
         ">
             <div style="text-align: center;">
-                <div id="pull-refresh-icon" style="font-size: 1.5em; margin-bottom: 5px;">↓</div>
-                <div id="pull-refresh-text" style="font-size: 0.85em; color: #666;">Pull to refresh</div>
+                <div id="pull-refresh-icon" style="font-size: 1.5em; margin-bottom: 5px; color: var(--text-primary);">↓</div>
+                <div id="pull-refresh-text" style="font-size: 0.85em; color: var(--text-secondary);">Pull to refresh</div>
             </div>
         </div>
 
@@ -14717,13 +14717,10 @@ function initPullToRefresh() {
                 icon.textContent = '↻';
                 icon.style.transform = 'rotate(180deg)';
                 text.textContent = 'Release to refresh';
-                text.style.color = '#667eea';
             } else {
                 icon.textContent = '↓';
                 icon.style.transform = 'rotate(0deg)';
                 text.textContent = 'Pull to refresh';
-                const isDarkMode = document.body.classList.contains('dark-mode');
-                text.style.color = isDarkMode ? '#9ca3af' : '#666';
             }
         }
     }, { passive: false });
@@ -14787,8 +14784,6 @@ function resetPullIndicator() {
     icon.style.transform = 'rotate(0deg)';
     icon.style.animation = 'none';
     text.textContent = 'Pull to refresh';
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    text.style.color = isDarkMode ? '#9ca3af' : '#666';
 }
 
 // Global error handlers - catch unexpected errors
