@@ -4523,13 +4523,11 @@ function showPWAPrompt() {
 
     document.body.insertAdjacentHTML('beforeend', bannerHTML);
 
-    // Animate in after a brief delay
-    setTimeout(() => {
-        const banner = document.getElementById('pwa-install-banner');
-        if (banner) {
-            banner.classList.add('show');
-        }
-    }, 300);
+    // Animate in immediately
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) {
+        banner.classList.add('show');
+    }
 
     console.log('✅ PWA install banner shown');
 }
@@ -6102,10 +6100,8 @@ window.finalizeCircleCreation = async function() {
   // Mark that user joined their first circle for PWA prompt
   markCircleJoined();
 
-  // Show PWA install prompt after a short delay
-  setTimeout(() => {
-    showPWAPrompt();
-  }, 1500);
+  // Show PWA install prompt immediately
+  showPWAPrompt();
 }
 
         async function renderCircles() {
@@ -14842,10 +14838,8 @@ if (pageId === 'settings') {
             // Track visit for PWA install prompt
             trackPWAVisit();
 
-            // Show PWA install prompt after a delay (if conditions are met)
-            setTimeout(() => {
-                showPWAPrompt();
-            }, 2000);
+            // Show PWA install prompt immediately (if conditions are met)
+            showPWAPrompt();
             
         } catch (error) {
             console.error('Error loading profile:', error);
