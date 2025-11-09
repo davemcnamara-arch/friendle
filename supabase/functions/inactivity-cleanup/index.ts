@@ -77,16 +77,14 @@ serve(async (req) => {
       if (participantsToWarn.length > 0) {
         console.log(`Sending warnings to ${participantsToWarn.length} participants`)
 
-        // Batch send notifications (max 2000 at a time per OneSignal docs)
-        const batchSize = 2000
-        for (let i = 0; i < participantsToWarn.length; i += batchSize) {
-          const batch = participantsToWarn.slice(i, i + batchSize)
-          const playerIds = batch
-            .map((p: any) => p.profiles.onesignal_player_id)
-            .filter((id: string | null) => id !== null)
+        // Send individual notifications with match-specific data for proper navigation
+        const warningsToInsert: Array<{ match_id: string; profile_id: string; status: string }> = []
 
-          if (playerIds.length > 0) {
-            // Send push notification via OneSignal
+        for (const participant of participantsToWarn) {
+          const playerId = participant.profiles.onesignal_player_id
+
+          if (playerId) {
+            // Send push notification via OneSignal with match_id for navigation
             try {
               const response = await fetch('https://onesignal.com/api/v1/notifications', {
                 method: 'POST',
@@ -96,35 +94,41 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                   app_id: ONESIGNAL_APP_ID,
-                  include_player_ids: playerIds,
+                  include_player_ids: [playerId],
                   headings: { en: 'Still interested?' },
                   contents: {
                     en: "We noticed you haven't been active in your match lately. Tap to let us know you're still interested!"
                   },
                   data: {
                     type: 'inactivity_warning',
-                    action: 'stay_interested'
+                    action: 'stay_interested',
+                    chatType: 'match',
+                    chatId: participant.match_id,
+                    match_id: participant.match_id
                   }
                 })
               })
 
               if (!response.ok) {
-                console.error('OneSignal API error:', await response.text())
+                console.error(`OneSignal API error for ${participant.profile_id}:`, await response.text())
               } else {
-                console.log(`Sent ${playerIds.length} notifications successfully`)
+                console.log(`Sent notification to ${participant.profiles.name}`)
               }
             } catch (notifError) {
-              console.error('Error sending notifications:', notifError)
+              console.error(`Error sending notification to ${participant.profile_id}:`, notifError)
             }
           }
 
-          // Record warnings in database
-          const warningsToInsert = batch.map((p: any) => ({
-            match_id: p.match_id,
-            profile_id: p.profile_id,
+          // Add to warnings batch
+          warningsToInsert.push({
+            match_id: participant.match_id,
+            profile_id: participant.profile_id,
             status: 'pending'
-          }))
+          })
+        }
 
+        // Record all warnings in database
+        if (warningsToInsert.length > 0) {
           const { error: insertError } = await supabaseClient
             .from('inactivity_warnings')
             .insert(warningsToInsert)

@@ -401,7 +401,9 @@ serve(async (req) => {
           type: 'event_reminder',
           event_id: firstEvent.event_id,
           match_id: firstEvent.match_id,
-          event_count: eventCount
+          event_count: eventCount,
+          chatType: 'event',
+          chatId: firstEvent.event_id
         }
       }
 
