@@ -2811,6 +2811,17 @@ body.dark-mode .custom-activity-item {
         <div class="modal-overlay" id="invite-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeInviteModal()">×</span><div class="modal-header">Share Invite Link</div><div class="form-group"><label for="invite-link">Copy this link and send it to a friend:</label><input type="text" id="invite-link" readonly></div><button class="btn" onclick="copyInviteLink()">Copy Link</button></div></div>
         <div class="modal-overlay" id="update-name-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeUpdateNameModal()">×</span><div class="modal-header">Update Display Name</div><div class="form-group"><label for="modal-new-username">Display Name</label><input type="text" id="modal-new-username" placeholder="Enter new name"></div><button class="btn" onclick="changeUsername()">Update Name</button></div></div>
 
+<!-- Circle Members Modal -->
+<div class="modal-overlay" id="circle-members-modal-overlay" onclick="if(event.target === this) closeCircleMembersModal()">
+    <div class="modal-content">
+        <span class="close-modal-btn" onclick="closeCircleMembersModal()">×</span>
+        <div class="modal-header" id="circle-members-modal-title">Circle Members</div>
+        <div id="circle-members-list" style="margin-top: 15px;">
+            <!-- Members will be populated here -->
+        </div>
+    </div>
+</div>
+
 <!-- Block User Modal -->
 <div class="modal-overlay" id="block-user-modal-overlay">
     <div class="modal-content">
@@ -6224,7 +6235,7 @@ window.finalizeCircleCreation = async function() {
           <div class="circle-card-header" onclick="toggleCircleExpand('${circle.id}')">
             <div class="circle-card-header-left">
               <div class="circle-name">${circle.name}</div>
-              <div class="circle-members">${memberText}</div>
+              <div class="circle-members" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="cursor: pointer; text-decoration: underline;" title="Click to view members">${memberText}</div>
             </div>
             <div class="circle-card-header-right">
               ${unreadCount > 0 ? `<span class="circle-new-message-badge" onclick="event.stopPropagation(); openCircleChat('${circle.id}')">💬 New message</span>` : ''}
@@ -6503,26 +6514,40 @@ window.viewCircleMembers = async function(circleId) {
         hideLoader();
 
         if (!members || members.length === 0) {
-            alert('No members found in this circle.');
+            showNotification('No members found in this circle.', 'error');
             return;
         }
 
-        const membersList = members
+        // Update modal title
+        document.getElementById('circle-members-modal-title').textContent = `Members of ${circle.name}`;
+
+        // Build members list HTML
+        const membersHTML = members
             .map(m => {
                 // Only show emoji avatars, not URLs
                 const avatar = m.profiles.avatar && !m.profiles.avatar.startsWith('http')
                     ? `${m.profiles.avatar} `
                     : '';
-                return `${avatar}${m.profiles.name}`;
+                return `<div style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 1em;">
+                    ${avatar}${m.profiles.name}
+                </div>`;
             })
-            .join('\n');
+            .join('');
 
-        alert(`Members of ${circle.name}:\n\n${membersList}`);
+        // Populate members list
+        document.getElementById('circle-members-list').innerHTML = membersHTML;
+
+        // Show modal
+        document.getElementById('circle-members-modal-overlay').style.display = 'flex';
     } catch (error) {
         hideLoader();
         console.error('Error loading circle members:', error);
         showNotification('Error loading members', 'error');
     }
+}
+
+window.closeCircleMembersModal = function() {
+    document.getElementById('circle-members-modal-overlay').style.display = 'none';
 }
 
 window.viewUpcomingEvents = async function(circleId) {
