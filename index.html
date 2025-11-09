@@ -3920,6 +3920,10 @@ async function processInviteCode() {
         if (joinError) throw joinError;
 
         showNotification('Successfully joined "' + circle.name + '"!');
+
+        // Mark that user joined their first circle for PWA prompt
+        markCircleJoined();
+
         await renderCircles(); // Refresh circles display
 
         // Refresh the activities page if user is on it
@@ -4500,6 +4504,12 @@ function showPWAPrompt() {
         return;
     }
 
+    // Don't show if banner already exists
+    if (document.getElementById('pwa-install-banner')) {
+        console.log('❌ PWA prompt: Banner already visible');
+        return;
+    }
+
     const bannerHTML = `
         <div class="pwa-install-banner" id="pwa-install-banner">
             <button class="pwa-banner-close" onclick="dismissPWAPrompt()" aria-label="Close">×</button>
@@ -4536,6 +4546,12 @@ function showPWAPrompt() {
 
 // Show iOS installation instructions in modal
 function showIOSInstallInstructions() {
+    // Don't show if modal already exists
+    if (document.getElementById('pwa-ios-modal')) {
+        console.log('❌ PWA iOS prompt: Modal already visible');
+        return;
+    }
+
     const modalHTML = `
         <div class="modal-overlay" id="pwa-ios-modal" style="display: flex;">
             <div class="modal-content" style="max-width: 400px;">
