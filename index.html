@@ -13151,24 +13151,39 @@ async function leaveEvent() {
 
 async function deleteEvent() {
     if (!confirm('Delete this event permanently? This will remove it for all participants and cannot be undone.')) return;
-    
-    // Only event creator can delete
-    if (currentEvent.created_by !== currentUser.id) {
-        alert('Only the event creator can delete this event');
-        return;
-    }
-    
+
     try {
+        // Check if user is event creator
+        const isEventCreator = currentEvent.created_by === currentUser.id;
+
+        // Check if user is circle creator
+        let isCircleCreator = false;
+        if (currentEvent.circle_id) {
+            const { data: circle } = await supabase
+                .from('circles')
+                .select('created_by')
+                .eq('id', currentEvent.circle_id)
+                .single();
+
+            isCircleCreator = circle?.created_by === currentUser.id;
+        }
+
+        // Allow deletion if user is either event creator or circle creator
+        if (!isEventCreator && !isCircleCreator) {
+            alert('Only the event creator or circle admin can delete this event');
+            return;
+        }
+
         const { error } = await supabase
             .from('events')
             .delete()
             .eq('id', currentEvent.id);
-        
+
         if (error) throw error;
 
         closeEventOptionsModal();
         await goToPreviousPage();
-        
+
     } catch (error) {
         console.error('Error deleting event:', error);
         alert('Failed to delete event');
