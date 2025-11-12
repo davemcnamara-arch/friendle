@@ -13153,40 +13153,60 @@ async function deleteEvent() {
     if (!confirm('Delete this event permanently? This will remove it for all participants and cannot be undone.')) return;
 
     try {
+        console.log('🔍 Debug - Delete event attempt:', {
+            eventId: currentEvent.id,
+            eventCreator: currentEvent.created_by,
+            currentUserId: currentUser.id,
+            circleId: currentEvent.circle_id
+        });
+
         // Check if user is event creator
         const isEventCreator = currentEvent.created_by === currentUser.id;
+        console.log('🔍 Is event creator:', isEventCreator);
 
         // Check if user is circle creator
         let isCircleCreator = false;
         if (currentEvent.circle_id) {
-            const { data: circle } = await supabase
+            const { data: circle, error: circleError } = await supabase
                 .from('circles')
                 .select('created_by')
                 .eq('id', currentEvent.circle_id)
                 .single();
 
-            isCircleCreator = circle?.created_by === currentUser.id;
+            if (circleError) {
+                console.error('Error fetching circle:', circleError);
+            } else {
+                console.log('🔍 Circle data:', circle);
+                isCircleCreator = circle?.created_by === currentUser.id;
+                console.log('🔍 Is circle creator:', isCircleCreator);
+            }
         }
 
         // Allow deletion if user is either event creator or circle creator
         if (!isEventCreator && !isCircleCreator) {
+            console.log('❌ User not authorized to delete');
             alert('Only the event creator or circle admin can delete this event');
             return;
         }
 
+        console.log('✅ User authorized, attempting delete...');
         const { error } = await supabase
             .from('events')
             .delete()
             .eq('id', currentEvent.id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Database delete error:', error);
+            throw error;
+        }
 
+        console.log('✅ Event deleted successfully');
         closeEventOptionsModal();
         await goToPreviousPage();
 
     } catch (error) {
         console.error('Error deleting event:', error);
-        alert('Failed to delete event');
+        alert('Failed to delete event: ' + (error.message || 'Unknown error'));
     }
 }
 
