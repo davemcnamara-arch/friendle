@@ -1396,17 +1396,24 @@
         .chat-input-top-row {
             display: flex;
             gap: 10px;
-            align-items: center;
+            align-items: flex-end;
             margin-bottom: 10px;
         }
 
-        .chat-input input[type="text"] {
+        .chat-input textarea {
             flex: 1;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 20px;
             outline: none;
             min-width: 50px;
+            min-height: 42px;
+            max-height: 150px;
+            resize: none;
+            overflow-y: auto;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: 1.5;
         }
         
         .attachment-btn {
@@ -1428,7 +1435,7 @@
             border-top: 1px solid var(--border-color);
         }
 
-        body.dark-mode .chat-input input[type="text"] {
+        body.dark-mode .chat-input textarea {
             background: var(--bg-color);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
@@ -2438,7 +2445,7 @@ body.dark-mode .custom-activity-item {
         
         <div class="chat-input">
             <div class="chat-input-top-row">
-                <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleMessageKeyPress(event)">
+                <textarea id="message-input" placeholder="Type a message..." onkeydown="handleMessageKeyPress(event)" rows="1"></textarea>
                 <button class="attachment-btn" id="photo-btn" onclick="sharePhoto()">📷</button>
                 <button class="attachment-btn" id="location-btn" onclick="shareLocation()">📍</button>
                 <button class="attachment-btn" id="search-btn" onclick="findNearbyPlaces()">🔍</button>
@@ -11617,14 +11624,37 @@ window.markActivityAsToday = async function(activityId, matchId) {
         
         // Clear input LAST
         input.value = '';
-        
+        input.style.height = 'auto'; // Reset height after sending
+
     } catch (error) {
         console.error('Error sending message:', error);
         showNotification('Failed to send message', 'error');
     }
 }
         
-        window.handleMessageKeyPress = e => { if (e.key === 'Enter') sendMessage(); };
+        window.handleMessageKeyPress = function(e) {
+            // Auto-resize textarea as user types
+            const textarea = e.target;
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+
+            // Send message on Enter, allow Shift+Enter for new lines
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        };
+
+        // Initialize textarea auto-resize on page load
+        window.initMessageInput = function() {
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+                });
+            }
+        };
         
 window.toggleEventMessageActions = function(msgId) {
     const menu = document.getElementById(`event-menu-${msgId}`);
@@ -15188,9 +15218,12 @@ window.addEventListener('offline', () => {
 // ✅ Run after DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   console.log("DOM ready, attaching avatar clicks...");
-  
+
   // Initialize pull-to-refresh
   initPullToRefresh();
+
+  // Initialize auto-expanding chat input
+  initMessageInput();
 
   const avatars = document.querySelectorAll(".avatar-option");
   console.log("Found avatars:", avatars.length);
