@@ -48,7 +48,8 @@ serve(async (req) => {
         match_id,
         profile_id,
         last_interaction_at,
-        profiles!inner(id, name, onesignal_player_id, notify_inactivity_warnings)
+        profiles!inner(id, name, onesignal_player_id, notify_inactivity_warnings),
+        matches!inner(id, activity_id, circle_id)
       `)
       .lte('last_interaction_at', fiveDaysAgo.toISOString())
       .not('profiles.onesignal_player_id', 'is', null) // Has push notification enabled
@@ -58,6 +59,39 @@ serve(async (req) => {
       console.error('Error fetching day 5 participants:', day5Error)
     } else if (day5Participants && day5Participants.length > 0) {
       console.log(`Found ${day5Participants.length} participants to warn`)
+
+      // Get all user preferences to filter out matches they're no longer interested in
+      const uniqueProfileIds = [...new Set(day5Participants.map((p: any) => p.profile_id))]
+      const { data: userPreferences } = await supabaseClient
+        .from('preferences')
+        .select('profile_id, activity_id, circle_id')
+        .in('profile_id', uniqueProfileIds)
+
+      // Create a map of profile_id -> Set of "circle_id|activity_id"
+      const preferenceMap = new Map<string, Set<string>>()
+      userPreferences?.forEach(pref => {
+        if (!preferenceMap.has(pref.profile_id)) {
+          preferenceMap.set(pref.profile_id, new Set())
+        }
+        preferenceMap.get(pref.profile_id)!.add(`${pref.circle_id}|${pref.activity_id}`)
+      })
+
+      // Filter out participants who no longer have that preference active
+      const participantsWithActivePreferences = day5Participants.filter((p: any) => {
+        const userPrefs = preferenceMap.get(p.profile_id)
+        if (!userPrefs) {
+          console.log(`No preferences found for ${p.profile_id} - skipping warning`)
+          return false
+        }
+        const prefKey = `${p.matches.circle_id}|${p.matches.activity_id}`
+        const hasActivePreference = userPrefs.has(prefKey)
+        if (!hasActivePreference) {
+          console.log(`User ${p.profile_id} no longer has preference for ${prefKey} - skipping warning`)
+        }
+        return hasActivePreference
+      })
+
+      console.log(`${participantsWithActivePreferences.length} participants with active preferences`)
 
       // Filter out those who already have pending warnings
       const { data: existingWarnings } = await supabaseClient
@@ -69,7 +103,7 @@ serve(async (req) => {
         existingWarnings?.map(w => `${w.match_id}:${w.profile_id}`) || []
       )
 
-      const participantsToWarn = day5Participants.filter((p: any) => {
+      const participantsToWarn = participantsWithActivePreferences.filter((p: any) => {
         const key = `${p.match_id}:${p.profile_id}`
         return !warningSet.has(key)
       })
