@@ -10453,6 +10453,7 @@ async function loadEvents() {
 function renderEvents(events, pastEvents = []) {
     const eventsList = document.getElementById('events-list');
 
+    // Show empty state if no events at all
     if ((!events || events.length === 0) && (!pastEvents || pastEvents.length === 0)) {
         eventsList.innerHTML = `
             <div class="events-empty-state">
@@ -10466,6 +10467,18 @@ function renderEvents(events, pastEvents = []) {
     }
 
     let html = '';
+
+    // Show empty state for upcoming events if none, but continue to render past events below
+    if (!events || events.length === 0) {
+        html += `
+            <div class="events-empty-state">
+                <div class="events-empty-icon">📅</div>
+                <div class="events-empty-title">No Upcoming Events</div>
+                <div class="events-empty-message">Events from your circles will appear here. Create an event from a match to get started!</div>
+                <button class="btn" onclick="showPage('matches')" style="margin-top: 20px;">View Matches</button>
+            </div>
+        `;
+    }
 
     // Render upcoming events
     if (events && events.length > 0) {
