@@ -10295,32 +10295,52 @@ async function loadEvents() {
         const userCircles = circles.map(c => c.id);
 
         if (userCircles.length === 0) {
-            renderEvents([]);
+            renderEvents([], []);
             return;
         }
 
-        // Get all events from user's circles
-        const { data: allEvents, error } = await supabase
+        const today = new Date().toISOString().split('T')[0];
+
+        // Get upcoming events from user's circles
+        const { data: upcomingEvents, error: upcomingError } = await supabase
             .from('events')
             .select(`
                 *,
                 event_participants(profile_id, status, profiles(id, name, avatar))
             `)
             .in('circle_id', userCircles)
-            .gte('scheduled_date', new Date().toISOString().split('T')[0])
+            .gte('scheduled_date', today)
             .neq('status', 'cancelled')
             .order('scheduled_date', { ascending: true })
             .order('scheduled_time', { ascending: true });
 
-        if (error) throw error;
+        if (upcomingError) throw upcomingError;
 
-        if (!allEvents || allEvents.length === 0) {
-            renderEvents([]);
+        // Get past events from user's circles
+        const { data: pastEvents, error: pastError } = await supabase
+            .from('events')
+            .select(`
+                *,
+                event_participants(profile_id, status, profiles(id, name, avatar))
+            `)
+            .in('circle_id', userCircles)
+            .lt('scheduled_date', today)
+            .neq('status', 'cancelled')
+            .order('scheduled_date', { ascending: false })
+            .order('scheduled_time', { ascending: false });
+
+        if (pastError) throw pastError;
+
+        const allEvents = upcomingEvents || [];
+        const allPastEvents = pastEvents || [];
+
+        if (allEvents.length === 0 && allPastEvents.length === 0) {
+            renderEvents([], []);
             return;
         }
 
         // Batch fetch activities, matches, and unread counts
-        const matchIds = [...new Set(allEvents.map(e => e.match_id))];
+        const matchIds = [...new Set([...allEvents.map(e => e.match_id), ...allPastEvents.map(e => e.match_id)])];
         const activityIds = new Set();
 
         // Get matches to get activity IDs and circle info
@@ -10351,7 +10371,7 @@ async function loadEvents() {
         }
 
         // Batch fetch event participations for unread counts
-        const eventIds = allEvents.map(e => e.id);
+        const eventIds = [...allEvents.map(e => e.id), ...allPastEvents.map(e => e.id)];
         let eventParticipationMap = new Map();
         let latestEventMessageMap = new Map();
 
@@ -10382,7 +10402,7 @@ async function loadEvents() {
         }
 
         // Process events with all enriched data
-        const processedEvents = allEvents.map(event => {
+        const processEvent = (event) => {
             const match = matchMap.get(event.match_id);
             const activity = activities.find(a => a.id === match?.activity_id);
             const circle = circles.find(c => c.id === match?.circle_id);
@@ -10415,22 +10435,25 @@ async function loadEvents() {
                 unreadCount,
                 participantCount
             };
-        });
+        };
 
-        renderEvents(processedEvents);
+        const processedEvents = allEvents.map(processEvent);
+        const processedPastEvents = allPastEvents.map(processEvent);
+
+        renderEvents(processedEvents, processedPastEvents);
 
     } catch (error) {
         console.error('Error loading events:', error);
-        renderEvents([]);
+        renderEvents([], []);
     } finally {
         hideLoader();
     }
 }
 
-function renderEvents(events) {
+function renderEvents(events, pastEvents = []) {
     const eventsList = document.getElementById('events-list');
 
-    if (!events || events.length === 0) {
+    if ((!events || events.length === 0) && (!pastEvents || pastEvents.length === 0)) {
         eventsList.innerHTML = `
             <div class="events-empty-state">
                 <div class="events-empty-icon">📅</div>
@@ -10442,55 +10465,121 @@ function renderEvents(events) {
         return;
     }
 
-    // Group events by time periods
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const thisWeekend = getNextWeekend(now);
-    const nextWeek = getNextWeekRange(now);
-
-    const periods = {
-        'TODAY': [],
-        'TOMORROW': [],
-        'THIS WEEKEND': [],
-        'NEXT WEEK': [],
-        'LATER': []
-    };
-
-    events.forEach(event => {
-        const eventDate = new Date(event.scheduled_date);
-        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
-
-        if (eventDay.getTime() === today.getTime()) {
-            periods['TODAY'].push(event);
-        } else if (eventDay.getTime() === tomorrow.getTime()) {
-            periods['TOMORROW'].push(event);
-        } else if (thisWeekend && eventDay >= thisWeekend.start && eventDay <= thisWeekend.end) {
-            periods['THIS WEEKEND'].push(event);
-        } else if (nextWeek && eventDay >= nextWeek.start && eventDay <= nextWeek.end) {
-            periods['NEXT WEEK'].push(event);
-        } else {
-            periods['LATER'].push(event);
-        }
-    });
-
-    // Render periods
     let html = '';
-    for (const [periodName, periodEvents] of Object.entries(periods)) {
-        if (periodEvents.length === 0) continue;
 
+    // Render upcoming events
+    if (events && events.length > 0) {
+        // Group events by time periods
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const thisWeekend = getNextWeekend(now);
+        const nextWeek = getNextWeekRange(now);
+
+        const periods = {
+            'TODAY': [],
+            'TOMORROW': [],
+            'THIS WEEKEND': [],
+            'NEXT WEEK': [],
+            'LATER': []
+        };
+
+        events.forEach(event => {
+            const eventDate = new Date(event.scheduled_date);
+            const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+            if (eventDay.getTime() === today.getTime()) {
+                periods['TODAY'].push(event);
+            } else if (eventDay.getTime() === tomorrow.getTime()) {
+                periods['TOMORROW'].push(event);
+            } else if (thisWeekend && eventDay >= thisWeekend.start && eventDay <= thisWeekend.end) {
+                periods['THIS WEEKEND'].push(event);
+            } else if (nextWeek && eventDay >= nextWeek.start && eventDay <= nextWeek.end) {
+                periods['NEXT WEEK'].push(event);
+            } else {
+                periods['LATER'].push(event);
+            }
+        });
+
+        // Render periods
+        for (const [periodName, periodEvents] of Object.entries(periods)) {
+            if (periodEvents.length === 0) continue;
+
+            html += `
+                <details class="event-period">
+                    <summary class="event-period-header">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="event-period-chevron">▶</span>
+                            ${periodName}
+                        </span>
+                        <span>${periodEvents.length} ${periodEvents.length === 1 ? 'event' : 'events'}</span>
+                    </summary>
+                    <div class="event-period-content">
+                        ${periodEvents.map(event => renderEventCard(event)).join('')}
+                    </div>
+                </details>
+            `;
+        }
+    }
+
+    // Render past events grouped by month
+    if (pastEvents && pastEvents.length > 0) {
+        // Group past events by month
+        const monthGroups = {};
+
+        pastEvents.forEach(event => {
+            const eventDate = new Date(event.scheduled_date);
+            const monthKey = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}`;
+            const monthName = eventDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long'
+            });
+
+            if (!monthGroups[monthKey]) {
+                monthGroups[monthKey] = {
+                    name: monthName,
+                    events: []
+                };
+            }
+            monthGroups[monthKey].events.push(event);
+        });
+
+        // Render past events section (collapsed by default)
+        const totalPastEvents = pastEvents.length;
         html += `
-            <details class="event-period">
+            <details class="event-period" style="margin-top: 30px;">
                 <summary class="event-period-header">
                     <span style="display: flex; align-items: center; gap: 8px;">
                         <span class="event-period-chevron">▶</span>
-                        ${periodName}
+                        PAST EVENTS
                     </span>
-                    <span>${periodEvents.length} ${periodEvents.length === 1 ? 'event' : 'events'}</span>
+                    <span>${totalPastEvents} ${totalPastEvents === 1 ? 'event' : 'events'}</span>
                 </summary>
                 <div class="event-period-content">
-                    ${periodEvents.map(event => renderEventCard(event)).join('')}
+        `;
+
+        // Render each month group within past events
+        const sortedMonthKeys = Object.keys(monthGroups).sort().reverse();
+        sortedMonthKeys.forEach(monthKey => {
+            const group = monthGroups[monthKey];
+            html += `
+                <details class="event-period" style="margin: 10px; border: 1px solid var(--border-color);">
+                    <summary class="event-period-header" style="padding: 12px 16px;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="event-period-chevron">▶</span>
+                            ${group.name}
+                        </span>
+                        <span>${group.events.length} ${group.events.length === 1 ? 'event' : 'events'}</span>
+                    </summary>
+                    <div class="event-period-content">
+                        ${group.events.map(event => renderEventCard(event)).join('')}
+                    </div>
+                </details>
+            `;
+        });
+
+        html += `
                 </div>
             </details>
         `;
