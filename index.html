@@ -9040,6 +9040,11 @@ async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, sa
             }
         }, 50);
 
+        // Mark all visible messages as read
+        setTimeout(() => {
+            markAllVisibleMessagesAsRead('match');
+        }, 500);
+
     } catch (error) {
         console.error('Error loading general messages:', error);
     }
@@ -9103,10 +9108,43 @@ async function setupMatchChatSubscription(matchId) {
             await fetchMessageReactions(messageId, 'match');
             updateReactionDisplay(messageId, 'match');
         })
+        .on('broadcast', { event: 'message_read' }, async (payload) => {
+            console.log('👁️ Match message read:', payload);
+            const messageId = payload.payload.messageId;
+            // Find the message and update its read count if it's the current user's message
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                // Get the sender_id from the message element or refetch
+                const { data: message } = await supabase
+                    .from('match_messages')
+                    .select('sender_id')
+                    .eq('id', messageId)
+                    .single();
+                if (message) {
+                    updateReadCountDisplay(messageId, 'match', message.sender_id);
+                }
+            }
+        })
+        .on('broadcast', { event: 'messages_read' }, async (payload) => {
+            console.log('👁️ Match messages read by user:', payload.payload.userId);
+            // Refresh read counts for all user's own messages
+            const messageElements = document.querySelectorAll('[data-message-id]');
+            for (const messageElement of messageElements) {
+                const messageId = messageElement.getAttribute('data-message-id');
+                const { data: message } = await supabase
+                    .from('match_messages')
+                    .select('sender_id')
+                    .eq('id', messageId)
+                    .single();
+                if (message && message.sender_id === currentUser.id) {
+                    updateReadCountDisplay(messageId, 'match', message.sender_id);
+                }
+            }
+        })
         .subscribe((status) => {
             console.log('Match chat subscription status:', status);
         });
-    
+
     allActiveSubscriptions.push(matchMessageSubscription);
 }
 
@@ -9278,6 +9316,11 @@ async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, sa
             }
         }, 50);
 
+        // Mark all visible messages as read
+        setTimeout(() => {
+            markAllVisibleMessagesAsRead('circle');
+        }, 500);
+
     } catch (error) {
         console.error('Error loading circle messages:', error);
     }
@@ -9340,6 +9383,39 @@ async function setupCircleChatSubscription(circleId) {
             const messageId = payload.payload.messageId;
             await fetchMessageReactions(messageId, 'circle');
             updateReactionDisplay(messageId, 'circle');
+        })
+        .on('broadcast', { event: 'message_read' }, async (payload) => {
+            console.log('👁️ Circle message read:', payload);
+            const messageId = payload.payload.messageId;
+            // Find the message and update its read count if it's the current user's message
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                // Get the sender_id from the message element or refetch
+                const { data: message } = await supabase
+                    .from('circle_messages')
+                    .select('sender_id')
+                    .eq('id', messageId)
+                    .single();
+                if (message) {
+                    updateReadCountDisplay(messageId, 'circle', message.sender_id);
+                }
+            }
+        })
+        .on('broadcast', { event: 'messages_read' }, async (payload) => {
+            console.log('👁️ Circle messages read by user:', payload.payload.userId);
+            // Refresh read counts for all user's own messages
+            const messageElements = document.querySelectorAll('[data-message-id]');
+            for (const messageElement of messageElements) {
+                const messageId = messageElement.getAttribute('data-message-id');
+                const { data: message } = await supabase
+                    .from('circle_messages')
+                    .select('sender_id')
+                    .eq('id', messageId)
+                    .single();
+                if (message && message.sender_id === currentUser.id) {
+                    updateReadCountDisplay(messageId, 'circle', message.sender_id);
+                }
+            }
         })
         .subscribe((status) => {
             console.log('Circle chat subscription status:', status);
@@ -12135,6 +12211,172 @@ window.updateReactionDisplay = function(messageId, messageType) {
 
 // ========== END MESSAGE REACTIONS ==========
 
+// ========== MESSAGE READ COUNTS ==========
+
+// Store read counts for messages in memory
+const messageReadCounts = new Map(); // messageId -> { count, readers: [] }
+
+// Fetch read count for a specific message
+window.fetchMessageReadCount = async function(messageId, messageType) {
+    const tableName = messageType === 'event' ? 'event_message_reads' :
+                      messageType === 'match' ? 'match_message_reads' :
+                      'circle_message_reads';
+
+    try {
+        const { data, error } = await supabase
+            .from(tableName)
+            .select('id, profile_id, read_at')
+            .eq('message_id', messageId);
+
+        if (error) throw error;
+
+        const count = data ? data.length : 0;
+        // Store in cache
+        messageReadCounts.set(messageId, {
+            count: count,
+            readers: data || []
+        });
+        return count;
+    } catch (error) {
+        console.error('Error fetching read count:', error);
+        return 0;
+    }
+}
+
+// Update read count display for a specific message (only for user's own messages)
+window.updateReadCountDisplay = async function(messageId, messageType, senderId) {
+    // Only show read count on user's own messages
+    if (senderId !== currentUser.id) return;
+
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!messageElement) return;
+
+    // Fetch the read count
+    const count = await fetchMessageReadCount(messageId, messageType);
+
+    // Find or create read count container
+    let readCountContainer = messageElement.querySelector('.message-read-count');
+    if (!readCountContainer) {
+        readCountContainer = document.createElement('div');
+        readCountContainer.className = 'message-read-count';
+        readCountContainer.style.cssText = `
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+            padding-left: 4px;
+        `;
+
+        // Insert after the reactions wrapper
+        const reactionsWrapper = messageElement.querySelector('.message-reactions-wrapper');
+        if (reactionsWrapper) {
+            reactionsWrapper.parentNode.insertBefore(readCountContainer, reactionsWrapper.nextSibling);
+        } else {
+            messageElement.appendChild(readCountContainer);
+        }
+    }
+
+    // Update the text
+    if (count === 0) {
+        readCountContainer.textContent = '';
+    } else if (count === 1) {
+        readCountContainer.textContent = 'Read by 1 person';
+    } else {
+        readCountContainer.textContent = `Read by ${count} people`;
+    }
+}
+
+// Mark a single message as read
+window.markMessageAsRead = async function(messageId, messageType) {
+    const tableName = messageType === 'event' ? 'event_message_reads' :
+                      messageType === 'match' ? 'match_message_reads' :
+                      'circle_message_reads';
+
+    try {
+        // Insert or ignore if already exists (UNIQUE constraint)
+        const { error } = await supabase
+            .from(tableName)
+            .upsert({
+                message_id: messageId,
+                profile_id: currentUser.id,
+                read_at: new Date().toISOString()
+            }, {
+                onConflict: 'message_id,profile_id',
+                ignoreDuplicates: true
+            });
+
+        if (error && !error.message.includes('duplicate')) {
+            throw error;
+        }
+
+        // Broadcast read event
+        const context = getCurrentChatContext();
+        const channelName = messageType === 'event' ? `event_${context.id}` :
+                           messageType === 'match' ? `match_chat_${context.id}` :
+                           `circle_chat_${context.id}`;
+
+        const channel = supabase.channel(channelName);
+        await channel.send({
+            type: 'broadcast',
+            event: 'message_read',
+            payload: { messageId }
+        });
+
+    } catch (error) {
+        console.error('Error marking message as read:', error);
+    }
+}
+
+// Mark all visible messages as read in the current chat
+window.markAllVisibleMessagesAsRead = async function(messageType) {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+
+    const messageElements = messagesContainer.querySelectorAll('[data-message-id]');
+
+    for (const messageElement of messageElements) {
+        const messageId = messageElement.getAttribute('data-message-id');
+        if (messageId) {
+            // Mark as read without broadcasting (to avoid spam)
+            const tableName = messageType === 'event' ? 'event_message_reads' :
+                              messageType === 'match' ? 'match_message_reads' :
+                              'circle_message_reads';
+
+            try {
+                await supabase
+                    .from(tableName)
+                    .upsert({
+                        message_id: messageId,
+                        profile_id: currentUser.id,
+                        read_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'message_id,profile_id',
+                        ignoreDuplicates: true
+                    });
+            } catch (error) {
+                // Ignore duplicate errors
+                if (!error.message?.includes('duplicate')) {
+                    console.error('Error marking message as read:', error);
+                }
+            }
+        }
+    }
+
+    // Broadcast a single read event for efficiency
+    const context = getCurrentChatContext();
+    const channelName = messageType === 'event' ? `event_${context.id}` :
+                       messageType === 'match' ? `match_chat_${context.id}` :
+                       `circle_chat_${context.id}`;
+
+    const channel = supabase.channel(channelName);
+    await channel.send({
+        type: 'broadcast',
+        event: 'messages_read',
+        payload: { userId: currentUser.id }
+    });
+}
+
+// ========== END MESSAGE READ COUNTS ==========
+
 // Global variable to track current event
 let currentEvent = null;
 let eventMessageSubscription = null;
@@ -12543,6 +12785,39 @@ eventMessageSubscription = supabase
         await fetchMessageReactions(messageId, 'event');
         updateReactionDisplay(messageId, 'event');
     })
+    .on('broadcast', { event: 'message_read' }, async (payload) => {
+        console.log('👁️ Event message read:', payload);
+        const messageId = payload.payload.messageId;
+        // Find the message and update its read count if it's the current user's message
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            // Get the sender_id from the message element or refetch
+            const { data: message } = await supabase
+                .from('event_messages')
+                .select('sender_id')
+                .eq('id', messageId)
+                .single();
+            if (message) {
+                updateReadCountDisplay(messageId, 'event', message.sender_id);
+            }
+        }
+    })
+    .on('broadcast', { event: 'messages_read' }, async (payload) => {
+        console.log('👁️ Event messages read by user:', payload.payload.userId);
+        // Refresh read counts for all user's own messages
+        const messageElements = document.querySelectorAll('[data-message-id]');
+        for (const messageElement of messageElements) {
+            const messageId = messageElement.getAttribute('data-message-id');
+            const { data: message } = await supabase
+                .from('event_messages')
+                .select('sender_id')
+                .eq('id', messageId)
+                .single();
+            if (message && message.sender_id === currentUser.id) {
+                updateReadCountDisplay(messageId, 'event', message.sender_id);
+            }
+        }
+    })
     .subscribe((status) => {
         console.log('Event chat subscription status:', status);
     });
@@ -12701,6 +12976,11 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
                 console.log('📜 Scrolled to bottom');
             }
         }, 500);
+
+        // Mark all visible messages as read
+        setTimeout(() => {
+            markAllVisibleMessagesAsRead('event');
+        }, 1000);
 
     } catch (error) {
         console.error('Error loading messages:', error);
@@ -12875,6 +13155,8 @@ function appendMessageToContainer(message, container) {
         fetchMessageReactions(message.id, messageType).then(() => {
             updateReactionDisplay(message.id, messageType);
         });
+        // Fetch and display read count (only for user's own messages)
+        updateReadCountDisplay(message.id, messageType, message.sender_id);
     }
 }
 
@@ -12973,6 +13255,8 @@ function appendMessage(message) {
         fetchMessageReactions(message.id, messageType).then(() => {
             updateReactionDisplay(message.id, messageType);
         });
+        // Fetch and display read count (only for user's own messages)
+        updateReadCountDisplay(message.id, messageType, message.sender_id);
     }
 }
 
