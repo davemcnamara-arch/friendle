@@ -8490,12 +8490,18 @@ document.getElementById('event-participants').innerHTML =
 
         // Render threaded chat UI
         await renderThreadedChat(matchId, allEvents || []);
-        
+
         // Set up real-time subscription
         await setupMatchChatSubscription(matchId);
-        
+
         hideLoader();
         showPage('chat');
+
+        // Save match chat context for refresh persistence
+        localStorage.setItem('friendle_current_chat_context', JSON.stringify({
+            type: 'match',
+            id: matchId
+        }));
 
         // Force scroll to bottom after page is shown (especially for notifications)
         setTimeout(() => forceScrollToBottom(), 300);
@@ -9211,6 +9217,12 @@ window.openCircleChat = async function(circleId) {
 
         hideLoader();
         showPage('chat');
+
+        // Save circle chat context for refresh persistence
+        localStorage.setItem('friendle_current_chat_context', JSON.stringify({
+            type: 'circle',
+            id: circleId
+        }));
 
         // Force scroll to bottom after page is shown (especially for notifications)
         setTimeout(() => forceScrollToBottom(), 300);
@@ -14535,6 +14547,7 @@ if (pageId !== 'chat') {
         currentMatchChat = null;
     }
     currentMatchId = null; // Clear match ID when leaving chat
+    localStorage.removeItem('friendle_current_chat_context'); // Clear saved chat context
     document.getElementById('event-details').style.display = 'block';
 }
     
@@ -15239,9 +15252,25 @@ if (pageId === 'settings') {
                     showNotification('Could not open chat. Please try again from the Matches tab.', 'error');
                 }
             } else {
-                // Don't restore chat page on full refresh - go to matches instead
-                if (lastPage === 'chat') {
-                    showPage('matches');
+                // Restore chat page on refresh if we have saved context
+                const savedChatContext = localStorage.getItem('friendle_current_chat_context');
+
+                if (savedChatContext && lastPage === 'chat') {
+                    try {
+                        const chatContext = JSON.parse(savedChatContext);
+                        if (chatContext.type === 'circle') {
+                            await openCircleChat(chatContext.id);
+                        } else if (chatContext.type === 'match') {
+                            await openMatchChatThreaded(chatContext.id);
+                        } else {
+                            // Invalid context type, fallback to matches
+                            showPage('matches');
+                        }
+                    } catch (error) {
+                        console.error('Error restoring chat context:', error);
+                        // On error, show matches page as fallback
+                        showPage('matches');
+                    }
                 } else {
                     showPage(lastPage);
                 }
