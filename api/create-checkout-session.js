@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: 'price_1QTNpUP6o7Mi3KJG5k4j2sSk', // $1.99 AUD one-time price
+          price: 'price_1STvWa3OnHlYYT3Osc3uMslr', // $1.99 AUD one-time price
           quantity: 1,
         },
       ],
