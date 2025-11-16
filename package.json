@@ -1,0 +1,17 @@
+{
+  "name": "friendle",
+  "version": "1.0.0",
+  "description": "Friendle - Who's in?",
+  "main": "index.html",
+  "dependencies": {
+    "stripe": "^14.9.0",
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["friendle", "social", "activities"],
+  "author": "",
+  "license": "ISC"
+}

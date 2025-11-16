@@ -2920,6 +2920,40 @@ body.dark-mode .custom-activity-item {
     </div>
 </div>
 
+<!-- Payment Modal -->
+<div class="modal-overlay" id="payment-modal-overlay">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close-modal-btn" onclick="closePaymentModal()">×</span>
+        <div class="modal-header">💳 Additional Circle</div>
+        <div style="margin: 20px 0; text-align: center;">
+            <div style="font-size: 3em; margin-bottom: 10px;">🎉</div>
+            <p style="font-size: 1.1em; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">
+                Your first circle is free!
+            </p>
+            <p style="font-size: 0.95em; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px;">
+                To create or join additional circles, there's a one-time fee of <strong style="color: var(--primary-color);">$1.99 AUD</strong> per circle.
+            </p>
+            <div style="background: var(--bg-secondary); border-radius: 12px; padding: 15px; margin: 20px 0;">
+                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">
+                    Total circles available:
+                </div>
+                <div style="font-size: 1.3em; font-weight: 600; color: var(--primary-color);">
+                    <span id="payment-circles-count">0</span>
+                </div>
+            </div>
+        </div>
+        <button class="btn" id="payment-proceed-btn" onclick="proceedToPayment()" style="width: 100%; margin-bottom: 10px;">
+            Purchase Additional Circle - $1.99
+        </button>
+        <button class="btn btn-secondary" onclick="closePaymentModal()" style="width: 100%;">
+            Cancel
+        </button>
+        <p style="font-size: 0.75em; color: var(--text-tertiary); text-align: center; margin-top: 15px;">
+            Secure payment powered by Stripe
+        </p>
+    </div>
+</div>
+
 <div class="undo-container" id="undo-container">
                     <span>Selection updated.</span>
                     <button class="undo-btn" onclick="undoLastActivityChange()">Undo</button>
@@ -5745,6 +5779,59 @@ window.changePassword = async function() {
         window.showJoinCircle = () => { document.getElementById('join-circle').style.display = 'block'; document.getElementById('circle-modal-overlay').style.display = 'flex'; };
         window.closeCircleModal = () => { document.getElementById('circle-modal-overlay').style.display = 'none'; document.getElementById('create-circle').style.display = 'none'; document.getElementById('join-circle').style.display = 'none'; };
 
+        // Payment Modal Management
+        window.showPaymentModal = async () => {
+            // Get current user's circles purchased count
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('circles_purchased')
+                .eq('id', currentUser.id)
+                .single();
+
+            const circlesPurchased = profile?.circles_purchased || 1;
+            document.getElementById('payment-circles-count').textContent = circlesPurchased;
+            document.getElementById('payment-modal-overlay').style.display = 'flex';
+        };
+
+        window.closePaymentModal = () => {
+            document.getElementById('payment-modal-overlay').style.display = 'none';
+        };
+
+        window.proceedToPayment = async () => {
+            const proceedBtn = document.getElementById('payment-proceed-btn');
+            proceedBtn.disabled = true;
+            proceedBtn.textContent = 'Processing...';
+
+            try {
+                // Call serverless function to create Stripe checkout session
+                const response = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        userEmail: currentUser.email,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create checkout session');
+                }
+
+                // Redirect to Stripe Checkout
+                window.location.href = data.url;
+
+            } catch (error) {
+                console.error('Payment error:', error);
+                showNotification('Payment failed. Please try again.', 'error');
+                proceedBtn.disabled = false;
+                proceedBtn.textContent = 'Purchase Additional Circle - $1.99';
+            }
+        };
+
         // Generic Modal Management
         window.showModal = (title, content) => {
             document.getElementById('generic-modal-title').textContent = title;
@@ -6043,19 +6130,60 @@ function updateCircleSelectedCount() {
 
 window.finalizeCircleCreation = async function() {
     const name = document.getElementById('circle-name').value.trim();
-    
+
     if (!name) {
         return showNotification('Please enter a circle name', 'error');
     }
-    
+
     // Get selected activities
     const selectedCards = document.querySelectorAll('#circle-creation-activities-grid .activity-card.selected');
     const selectedActivityIds = Array.from(selectedCards).map(card => card.dataset.activityId);
-    
+
     if (selectedActivityIds.length < 4) {
         return showNotification('Please select at least 4 activities', 'error');
     }
-    
+
+    // Check if user has available circles
+    showLoader('Checking availability...');
+
+    try {
+        // Get user's current circle count and purchased circles
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('circles_purchased')
+            .eq('id', currentUser.id)
+            .single();
+
+        if (profileError) throw profileError;
+
+        const circlesPurchased = profile?.circles_purchased || 1;
+
+        // Count user's current circles
+        const { data: memberData, error: countError } = await supabase
+            .from('circle_members')
+            .select('circle_id')
+            .eq('profile_id', currentUser.id);
+
+        if (countError) throw countError;
+
+        const currentCircleCount = memberData?.length || 0;
+
+        // Check if user needs to purchase more circles
+        if (currentCircleCount >= circlesPurchased) {
+            hideLoader();
+            closeCircleModal();
+            await showPaymentModal();
+            return;
+        }
+
+        hideLoader();
+    } catch (error) {
+        hideLoader();
+        console.error('Error checking circle availability:', error);
+        showNotification('Error checking availability', 'error');
+        return;
+    }
+
     showLoader('Creating circle...');
     
     try {
@@ -6169,6 +6297,47 @@ window.finalizeCircleCreation = async function() {
 
   if (error || !circle) {
     return showNotification('Circle not found', 'error');
+  }
+
+  // Check if user has available circles
+  showLoader('Checking availability...');
+
+  try {
+    // Get user's current circle count and purchased circles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('circles_purchased')
+      .eq('id', currentUser.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    const circlesPurchased = profile?.circles_purchased || 1;
+
+    // Count user's current circles
+    const { data: memberData, error: countError } = await supabase
+      .from('circle_members')
+      .select('circle_id')
+      .eq('profile_id', currentUser.id);
+
+    if (countError) throw countError;
+
+    const currentCircleCount = memberData?.length || 0;
+
+    // Check if user needs to purchase more circles
+    if (currentCircleCount >= circlesPurchased) {
+      hideLoader();
+      closeCircleModal();
+      await showPaymentModal();
+      return;
+    }
+
+    hideLoader();
+  } catch (error) {
+    hideLoader();
+    console.error('Error checking circle availability:', error);
+    showNotification('Error checking availability', 'error');
+    return;
   }
 
   // Add user to circle_members
@@ -15763,6 +15932,28 @@ window.addEventListener('offline', () => {
 // ✅ Run after DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   console.log("DOM ready, attaching avatar clicks...");
+
+  // Handle Stripe payment redirect returns
+  const urlParams = new URLSearchParams(window.location.search);
+  const purchaseStatus = urlParams.get('purchase');
+
+  if (purchaseStatus === 'success') {
+    // Remove query params from URL without refreshing
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    // Show success notification
+    setTimeout(() => {
+      showNotification('Payment successful! You can now create or join another circle.', 'success');
+    }, 1000);
+  } else if (purchaseStatus === 'cancelled') {
+    // Remove query params from URL without refreshing
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    // Show cancelled notification
+    setTimeout(() => {
+      showNotification('Payment cancelled. You can try again anytime.', 'info');
+    }, 1000);
+  }
 
   // Initialize pull-to-refresh
   initPullToRefresh();
