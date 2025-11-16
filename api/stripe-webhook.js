@@ -3,6 +3,7 @@
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { createClient } = require('@supabase/supabase-js');
+const buffer = require('micro').buffer;
 
 // Initialize Supabase with service role key (for admin operations)
 const supabase = createClient(
@@ -10,24 +11,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// Disable body parsing, we need the raw body for webhook verification
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// Helper function to get raw body
-async function getRawBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
-
 module.exports = async (req, res) => {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, stripe-signature'
+  );
+
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -35,14 +33,14 @@ module.exports = async (req, res) => {
 
   try {
     // Get the raw body for signature verification
-    const rawBody = await getRawBody(req);
+    const buf = await buffer(req);
     const sig = req.headers['stripe-signature'];
 
     // Verify webhook signature
     let event;
     try {
       event = stripe.webhooks.constructEvent(
-        rawBody,
+        buf,
         sig,
         process.env.STRIPE_WEBHOOK_SECRET
       );
@@ -69,11 +67,25 @@ module.exports = async (req, res) => {
         console.log(`Payment intent: ${session.payment_intent}`);
         console.log(`Amount: ${session.amount_total}`);
 
-        // 1. Increment circles_purchased in profiles table
+        // 1. Get current circles_purchased and increment
+        const { data: currentProfile, error: fetchError } = await supabase
+          .from('profiles')
+          .select('circles_purchased')
+          .eq('id', userId)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching profile:', fetchError);
+          return res.status(500).json({ error: 'Failed to fetch profile' });
+        }
+
+        const newCount = (currentProfile?.circles_purchased || 1) + 1;
+
+        // 2. Update circles_purchased in profiles table
         const { data: profile, error: updateError } = await supabase
           .from('profiles')
           .update({
-            circles_purchased: supabase.raw('circles_purchased + 1'),
+            circles_purchased: newCount,
             stripe_customer_id: session.customer || null,
           })
           .eq('id', userId)
@@ -87,7 +99,7 @@ module.exports = async (req, res) => {
 
         console.log(`Updated profile for user ${userId}:`, profile);
 
-        // 2. Record the purchase in circle_purchases table
+        // 3. Record the purchase in circle_purchases table
         const { data: purchase, error: insertError } = await supabase
           .from('circle_purchases')
           .insert({
