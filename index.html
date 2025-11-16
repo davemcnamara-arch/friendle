@@ -3972,7 +3972,7 @@ window.signOut = async function() {
 async function processInviteCode() {
     const inviteCode = sessionStorage.getItem('pending_invite_code');
     if (!inviteCode || !currentUser) return;
-    
+
     try {
         // Find circle by code
         const { data: circle, error: circleError } = await supabase
@@ -3980,13 +3980,13 @@ async function processInviteCode() {
             .select('*')
             .eq('code', inviteCode)
             .single();
-        
+
         if (circleError || !circle) {
             showNotification('Invalid invite code', 'error');
             sessionStorage.removeItem('pending_invite_code');
             return;
         }
-        
+
         // Check if user is already a member
         const { data: existingMember } = await supabase
             .from('circle_members')
@@ -3994,18 +3994,52 @@ async function processInviteCode() {
             .eq('circle_id', circle.id)
             .eq('profile_id', currentUser.id)
             .single();
-        
+
         if (existingMember) {
             showNotification('You are already a member of this circle');
             sessionStorage.removeItem('pending_invite_code');
             return;
         }
-        
+
+        // Check if user has available circles
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('circles_purchased')
+            .eq('id', currentUser.id)
+            .single();
+
+        if (profileError) throw profileError;
+
+        const circlesPurchased = profile?.circles_purchased || 1;
+
+        // Count user's current circles
+        const { data: memberData, error: countError } = await supabase
+            .from('circle_members')
+            .select('circle_id')
+            .eq('profile_id', currentUser.id);
+
+        if (countError) throw countError;
+
+        const currentCircleCount = memberData?.length || 0;
+
+        // Check if user needs to purchase more circles
+        if (currentCircleCount >= circlesPurchased) {
+            // Save circle join intent to localStorage for after payment
+            localStorage.setItem('pendingCircleJoin', JSON.stringify({
+                code: inviteCode,
+                timestamp: Date.now()
+            }));
+
+            // Don't clear sessionStorage yet - we'll need it if payment is cancelled
+            await showPaymentModal();
+            return;
+        }
+
         // Add user to circle
         const { error: joinError } = await supabase
             .from('circle_members')
             .insert([{ circle_id: circle.id, profile_id: currentUser.id }]);
-        
+
         if (joinError) throw joinError;
 
         showNotification('Successfully joined "' + circle.name + '"!');
@@ -16091,10 +16125,15 @@ document.addEventListener("DOMContentLoaded", () => {
           // Mark that user joined their first circle for PWA prompt
           markCircleJoined();
 
+          // Clear invite code from sessionStorage
+          sessionStorage.removeItem('pending_invite_code');
+
         } catch (error) {
           hideLoader();
           console.error('Error auto-joining circle:', error);
           showNotification('Payment successful, but please join the circle again.', 'error');
+          // Clear invite code even on error
+          sessionStorage.removeItem('pending_invite_code');
         }
 
       } else {
@@ -16109,6 +16148,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Clear any pending actions since payment was cancelled
     localStorage.removeItem('pendingCircleCreation');
     localStorage.removeItem('pendingCircleJoin');
+    sessionStorage.removeItem('pending_invite_code');
 
     // Show cancelled notification
     setTimeout(() => {
