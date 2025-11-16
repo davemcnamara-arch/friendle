@@ -2943,7 +2943,7 @@ body.dark-mode .custom-activity-item {
             </div>
         </div>
         <button class="btn" id="payment-proceed-btn" onclick="proceedToPayment()" style="width: 100%; margin-bottom: 10px;">
-            Purchase Additional Circle - $1.99
+            Join Additional Circle - $1.99
         </button>
         <button class="btn btn-secondary" onclick="closePaymentModal()" style="width: 100%;">
             Cancel
@@ -5803,6 +5803,8 @@ window.changePassword = async function() {
             proceedBtn.textContent = 'Processing...';
 
             try {
+                console.log('Creating checkout session for user:', currentUser.id);
+
                 // Call serverless function to create Stripe checkout session
                 const response = await fetch('/api/create-checkout-session', {
                     method: 'POST',
@@ -5815,20 +5817,28 @@ window.changePassword = async function() {
                     }),
                 });
 
+                console.log('Response status:', response.status);
+
                 const data = await response.json();
+                console.log('Response data:', data);
 
                 if (!response.ok) {
                     throw new Error(data.error || 'Failed to create checkout session');
                 }
 
+                if (!data.url) {
+                    throw new Error('No checkout URL returned');
+                }
+
                 // Redirect to Stripe Checkout
+                console.log('Redirecting to:', data.url);
                 window.location.href = data.url;
 
             } catch (error) {
                 console.error('Payment error:', error);
-                showNotification('Payment failed. Please try again.', 'error');
+                showNotification(`Payment failed: ${error.message}`, 'error');
                 proceedBtn.disabled = false;
-                proceedBtn.textContent = 'Purchase Additional Circle - $1.99';
+                proceedBtn.textContent = 'Join Additional Circle - $1.99';
             }
         };
 
