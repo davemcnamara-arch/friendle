@@ -2935,10 +2935,13 @@ body.dark-mode .custom-activity-item {
             </p>
             <div style="background: var(--bg-secondary); border-radius: 12px; padding: 15px; margin: 20px 0;">
                 <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">
-                    Total circles available:
+                    Active circles:
                 </div>
                 <div style="font-size: 1.3em; font-weight: 600; color: var(--primary-color);">
-                    <span id="payment-circles-count">0</span>
+                    <span id="payment-circles-current">0</span> / <span id="payment-circles-total">0</span>
+                </div>
+                <div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 8px;">
+                    (includes 1 free circle)
                 </div>
             </div>
         </div>
@@ -5823,7 +5826,17 @@ window.changePassword = async function() {
                 .single();
 
             const circlesPurchased = profile?.circles_purchased || 1;
-            document.getElementById('payment-circles-count').textContent = circlesPurchased;
+
+            // Count user's current circles
+            const { data: memberData } = await supabase
+                .from('circle_members')
+                .select('circle_id')
+                .eq('profile_id', currentUser.id);
+
+            const currentCircleCount = memberData?.length || 0;
+
+            document.getElementById('payment-circles-current').textContent = currentCircleCount;
+            document.getElementById('payment-circles-total').textContent = circlesPurchased;
             document.getElementById('payment-modal-overlay').style.display = 'flex';
         };
 
