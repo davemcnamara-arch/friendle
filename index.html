@@ -6181,6 +6181,14 @@ window.finalizeCircleCreation = async function() {
         // Check if user needs to purchase more circles
         if (currentCircleCount >= circlesPurchased) {
             hideLoader();
+
+            // Save circle creation intent to localStorage for after payment
+            localStorage.setItem('pendingCircleCreation', JSON.stringify({
+                name: name,
+                selectedActivityIds: selectedActivityIds,
+                timestamp: Date.now()
+            }));
+
             closeCircleModal();
             await showPaymentModal();
             return;
@@ -6337,6 +6345,13 @@ window.finalizeCircleCreation = async function() {
     // Check if user needs to purchase more circles
     if (currentCircleCount >= circlesPurchased) {
       hideLoader();
+
+      // Save circle join intent to localStorage for after payment
+      localStorage.setItem('pendingCircleJoin', JSON.stringify({
+        code: code,
+        timestamp: Date.now()
+      }));
+
       closeCircleModal();
       await showPaymentModal();
       return;
@@ -15951,13 +15966,149 @@ document.addEventListener("DOMContentLoaded", () => {
     // Remove query params from URL without refreshing
     window.history.replaceState({}, document.title, window.location.pathname);
 
-    // Show success notification
-    setTimeout(() => {
-      showNotification('Payment successful! You can now create or join another circle.', 'success');
+    // Check for pending circle creation or join
+    setTimeout(async () => {
+      const pendingCreation = localStorage.getItem('pendingCircleCreation');
+      const pendingJoin = localStorage.getItem('pendingCircleJoin');
+
+      if (pendingCreation) {
+        // Auto-complete circle creation
+        try {
+          const creationData = JSON.parse(pendingCreation);
+          localStorage.removeItem('pendingCircleCreation');
+
+          showLoader('Creating your circle...');
+
+          const code = generateCode();
+
+          // Insert into circles
+          const { data: circle, error } = await supabase
+            .from('circles')
+            .insert([{ name: creationData.name, code, created_by: currentUser.id }])
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          // Add creator as a member
+          await supabase.from('circle_members').insert([{
+            circle_id: circle.id,
+            profile_id: currentUser.id
+          }]);
+
+          // Handle custom activities
+          const customActivities = defaultActivities.filter(a =>
+            typeof a.id === 'string' && a.id.startsWith('temp_')
+          );
+
+          const activityIdMapping = {};
+
+          for (const customActivity of customActivities) {
+            const { data: newActivity, error: actError } = await supabase
+              .from('activities')
+              .insert([{
+                name: customActivity.name,
+                emoji: customActivity.emoji,
+                category: 'custom',
+                circle_id: circle.id
+              }])
+              .select()
+              .single();
+
+            if (!actError && newActivity) {
+              activityIdMapping[customActivity.id] = newActivity.id;
+            }
+          }
+
+          // Update selected IDs
+          const finalSelectedIds = creationData.selectedActivityIds.map(id =>
+            activityIdMapping[id] || id
+          );
+
+          // Set activity visibility
+          if (finalSelectedIds.length > 0) {
+            const allDefaultIds = defaultActivities
+              .filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp_')))
+              .map(a => a.id);
+
+            const visibilityRecords = allDefaultIds.map(activityId => ({
+              circle_id: circle.id,
+              activity_id: activityId,
+              is_visible: finalSelectedIds.includes(activityId)
+            }));
+
+            await supabase.from('circle_activities').insert(visibilityRecords);
+          }
+
+          // Clean up temp activities
+          defaultActivities = defaultActivities.filter(a =>
+            !(typeof a.id === 'string' && a.id.startsWith('temp_'))
+          );
+
+          circles.push(circle);
+          await renderCircles();
+
+          hideLoader();
+          showNotification(`Circle "${circle.name}" created! Share code: ${circle.code}`, 'success');
+
+        } catch (error) {
+          hideLoader();
+          console.error('Error auto-creating circle:', error);
+          showNotification('Payment successful, but please create your circle again.', 'error');
+        }
+
+      } else if (pendingJoin) {
+        // Auto-complete circle join
+        try {
+          const joinData = JSON.parse(pendingJoin);
+          localStorage.removeItem('pendingCircleJoin');
+
+          showLoader('Joining circle...');
+
+          // Find the circle by code
+          const { data: circle, error } = await supabase
+            .from('circles')
+            .select('*')
+            .eq('code', joinData.code)
+            .single();
+
+          if (error || !circle) {
+            throw new Error('Circle not found');
+          }
+
+          // Add user to circle_members
+          await supabase.from('circle_members').insert([{
+            circle_id: circle.id,
+            profile_id: currentUser.id
+          }]);
+
+          circles.push(circle);
+          await renderCircles();
+
+          hideLoader();
+          showNotification(`Joined "${circle.name}" successfully!`, 'success');
+
+          // Mark that user joined their first circle for PWA prompt
+          markCircleJoined();
+
+        } catch (error) {
+          hideLoader();
+          console.error('Error auto-joining circle:', error);
+          showNotification('Payment successful, but please join the circle again.', 'error');
+        }
+
+      } else {
+        // No pending action, just show success
+        showNotification('Payment successful! You can now create or join another circle.', 'success');
+      }
     }, 1000);
   } else if (purchaseStatus === 'cancelled') {
     // Remove query params from URL without refreshing
     window.history.replaceState({}, document.title, window.location.pathname);
+
+    // Clear any pending actions since payment was cancelled
+    localStorage.removeItem('pendingCircleCreation');
+    localStorage.removeItem('pendingCircleJoin');
 
     // Show cancelled notification
     setTimeout(() => {
