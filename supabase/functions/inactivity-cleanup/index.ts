@@ -175,6 +175,76 @@ serve(async (req) => {
     }
 
     // ==========================================
+    // CLEANUP: Remove stale pending warnings
+    // ==========================================
+    // Clean up pending warnings for matches where users no longer have that preference
+    console.log('Cleaning up stale pending warnings...')
+
+    const { data: allPendingWarnings } = await supabaseClient
+      .from('inactivity_warnings')
+      .select(`
+        match_id,
+        profile_id,
+        matches!inner(activity_id, circle_id)
+      `)
+      .eq('status', 'pending')
+
+    if (allPendingWarnings && allPendingWarnings.length > 0) {
+      console.log(`Found ${allPendingWarnings.length} pending warnings to check`)
+
+      // Get all user preferences
+      const warningProfileIds = [...new Set(allPendingWarnings.map((w: any) => w.profile_id))]
+      const { data: allUserPrefs } = await supabaseClient
+        .from('preferences')
+        .select('profile_id, activity_id, circle_id')
+        .in('profile_id', warningProfileIds)
+
+      // Create preference map
+      const userPrefMap = new Map<string, Set<string>>()
+      allUserPrefs?.forEach(pref => {
+        if (!userPrefMap.has(pref.profile_id)) {
+          userPrefMap.set(pref.profile_id, new Set())
+        }
+        userPrefMap.get(pref.profile_id)!.add(`${pref.circle_id}|${pref.activity_id}`)
+      })
+
+      // Find warnings where user no longer has the preference
+      const warningsToRemove: Array<{ match_id: string; profile_id: string }> = []
+
+      for (const warning of allPendingWarnings) {
+        const userPrefs = userPrefMap.get(warning.profile_id)
+        const prefKey = `${warning.matches.circle_id}|${warning.matches.activity_id}`
+
+        if (!userPrefs || !userPrefs.has(prefKey)) {
+          warningsToRemove.push({
+            match_id: warning.match_id,
+            profile_id: warning.profile_id
+          })
+          console.log(`Removing stale warning for ${warning.profile_id} - no longer has preference ${prefKey}`)
+        }
+      }
+
+      // Remove stale warnings
+      if (warningsToRemove.length > 0) {
+        for (const warning of warningsToRemove) {
+          const { error: deleteError } = await supabaseClient
+            .from('inactivity_warnings')
+            .delete()
+            .eq('match_id', warning.match_id)
+            .eq('profile_id', warning.profile_id)
+            .eq('status', 'pending')
+
+          if (deleteError) {
+            console.error('Error removing stale warning:', deleteError)
+          }
+        }
+        console.log(`Removed ${warningsToRemove.length} stale pending warnings`)
+      } else {
+        console.log('No stale warnings to remove')
+      }
+    }
+
+    // ==========================================
     // PHASE 2: Day 7 Auto-Removal
     // ==========================================
 
