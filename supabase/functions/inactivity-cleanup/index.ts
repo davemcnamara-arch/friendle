@@ -161,14 +161,25 @@ serve(async (req) => {
           })
         }
 
-        // Record all warnings in database
+        // Record all warnings in database (upsert to handle UNIQUE constraint)
         if (warningsToInsert.length > 0) {
-          const { error: insertError } = await supabaseClient
-            .from('inactivity_warnings')
-            .insert(warningsToInsert)
+          // Add warned_at timestamp for upsert
+          const warningsWithTimestamp = warningsToInsert.map(w => ({
+            ...w,
+            warned_at: new Date().toISOString()
+          }))
 
-          if (insertError) {
-            console.error('Error inserting warnings:', insertError)
+          const { error: upsertError } = await supabaseClient
+            .from('inactivity_warnings')
+            .upsert(warningsWithTimestamp, {
+              onConflict: 'match_id,profile_id',
+              ignoreDuplicates: false  // Update existing rows
+            })
+
+          if (upsertError) {
+            console.error('Error upserting warnings:', upsertError)
+          } else {
+            console.log(`Upserted ${warningsToInsert.length} warnings (inserted new or updated existing)`)
           }
         }
       }
