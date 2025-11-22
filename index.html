@@ -3053,7 +3053,12 @@ body.dark-mode .custom-activity-item {
                 <label for="edit-event-notes">Notes</label>
                 <textarea id="edit-event-notes" rows="3" placeholder="Any additional details..."></textarea>
             </div>
-            
+
+            <div class="form-group">
+                <label for="edit-event-max-participants">Max Attendees</label>
+                <input type="number" id="edit-event-max-participants" min="1" placeholder="Unlimited">
+            </div>
+
             <button type="submit" class="btn">Save Changes</button>
         </form>
     </div>
@@ -13872,6 +13877,7 @@ function editCurrentEvent() {
     document.getElementById('edit-event-time').value = currentEvent.scheduled_time || '';
     document.getElementById('edit-event-location').value = currentEvent.location || '';
     document.getElementById('edit-event-notes').value = currentEvent.notes || '';
+    document.getElementById('edit-event-max-participants').value = currentEvent.max_participants || '';
 
     document.getElementById('edit-event-modal').style.display = 'flex';
 }
@@ -13891,11 +13897,15 @@ async function saveEventEdits(e) {
             isCreator: currentEvent.created_by === currentUser.id
         });
 
+        const maxParticipantsInput = document.getElementById('edit-event-max-participants').value;
+        const maxParticipants = maxParticipantsInput ? parseInt(maxParticipantsInput, 10) : null;
+
         const updateData = {
             scheduled_date: document.getElementById('edit-event-date').value,
             scheduled_time: document.getElementById('edit-event-time').value || null,
             location: document.getElementById('edit-event-location').value || null,
-            notes: document.getElementById('edit-event-notes').value || null
+            notes: document.getElementById('edit-event-notes').value || null,
+            max_participants: maxParticipants
         };
 
         console.log('📝 Update data:', updateData);
