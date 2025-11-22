@@ -3337,6 +3337,53 @@ body.dark-mode .custom-activity-item {
             }
         };
 
+        // Invite Code Storage Helper
+        // Stores invite codes in localStorage (survives PWA installation) with 24-hour expiry
+        const InviteCodeStorage = {
+            STORAGE_KEY: 'pending_invite_code',
+            EXPIRY_HOURS: 24,
+
+            set(code) {
+                if (!code) return;
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+                    code: code,
+                    timestamp: Date.now()
+                }));
+                console.log('✅ Invite code stored:', code);
+            },
+
+            get() {
+                const data = localStorage.getItem(this.STORAGE_KEY);
+                if (!data) return null;
+
+                try {
+                    const parsed = JSON.parse(data);
+                    const ageHours = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
+
+                    // Check if expired
+                    if (ageHours > this.EXPIRY_HOURS) {
+                        console.log('⏰ Invite code expired, clearing');
+                        this.clear();
+                        return null;
+                    }
+
+                    return parsed.code;
+                } catch (e) {
+                    // Handle legacy sessionStorage format or invalid data
+                    console.error('Error parsing invite code:', e);
+                    this.clear();
+                    return null;
+                }
+            },
+
+            clear() {
+                localStorage.removeItem(this.STORAGE_KEY);
+                // Also clear legacy sessionStorage if present
+                sessionStorage.removeItem('pending_invite_code');
+                console.log('🧹 Invite code cleared');
+            }
+        };
+
         // SECURITY: Rate Limiter
         // Prevents abuse by limiting actions per time window
         // Uses sliding window algorithm for accurate rate limiting
@@ -3676,9 +3723,9 @@ async function sendPasswordReset() {
 window.showWelcomeFromOnboarding = function() {
     document.getElementById('onboarding').classList.remove('active');
     document.getElementById('welcome').classList.add('active');
-    
+
     // If they have an invite code, show registration form instead of login
-    const inviteCode = sessionStorage.getItem('pending_invite_code');
+    const inviteCode = InviteCodeStorage.get();
     if (inviteCode) {
         showRegister();
     }
@@ -3981,7 +4028,7 @@ window.signOut = async function() {
 }
 
 async function processInviteCode() {
-    const inviteCode = sessionStorage.getItem('pending_invite_code');
+    const inviteCode = InviteCodeStorage.get();
     if (!inviteCode || !currentUser) return;
 
     try {
@@ -3994,7 +4041,7 @@ async function processInviteCode() {
 
         if (circleError || !circle) {
             showNotification('Invalid invite code', 'error');
-            sessionStorage.removeItem('pending_invite_code');
+            InviteCodeStorage.clear();
             return;
         }
 
@@ -4008,7 +4055,7 @@ async function processInviteCode() {
 
         if (existingMember) {
             showNotification('You are already a member of this circle');
-            sessionStorage.removeItem('pending_invite_code');
+            InviteCodeStorage.clear();
             return;
         }
 
@@ -4041,7 +4088,7 @@ async function processInviteCode() {
                 timestamp: Date.now()
             }));
 
-            // Don't clear sessionStorage yet - we'll need it if payment is cancelled
+            // Don't clear invite code yet - we'll need it if payment is cancelled
             await showPaymentModal();
             return;
         }
@@ -4066,12 +4113,12 @@ async function processInviteCode() {
             await populateCircleSelector();
         }
 
-        sessionStorage.removeItem('pending_invite_code');
-        
+        InviteCodeStorage.clear();
+
     } catch (error) {
         console.error('Error processing invite:', error);
         showNotification('Error joining circle', 'error');
-        sessionStorage.removeItem('pending_invite_code');
+        InviteCodeStorage.clear();
     }
 }
 
@@ -15626,9 +15673,9 @@ if (pageId === 'settings') {
     const urlParams = new URLSearchParams(window.location.search);
     const inviteCode = urlParams.get('invite_code');
 
-    // Store invite code for after authentication
+    // Store invite code for after authentication (in localStorage so it survives PWA installation)
     if (inviteCode) {
-        sessionStorage.setItem('pending_invite_code', inviteCode);
+        InviteCodeStorage.set(inviteCode);
     }
     // Note: We'll clean up URL later, after checking for chat parameters
 
@@ -15806,8 +15853,8 @@ if (pageId === 'settings') {
 }
 
 async function showOnboarding() {
-    // Check if there's a pending invite
-    const inviteCode = sessionStorage.getItem('pending_invite_code');
+    // Check if there's a pending invite (now uses localStorage with expiry)
+    const inviteCode = InviteCodeStorage.get();
 
     if (inviteCode) {
         // Show invite context
@@ -16156,15 +16203,15 @@ document.addEventListener("DOMContentLoaded", () => {
           // Mark that user joined their first circle for PWA prompt
           markCircleJoined();
 
-          // Clear invite code from sessionStorage
-          sessionStorage.removeItem('pending_invite_code');
+          // Clear invite code
+          InviteCodeStorage.clear();
 
         } catch (error) {
           hideLoader();
           console.error('Error auto-joining circle:', error);
           showNotification('Payment successful, but please join the circle again.', 'error');
           // Clear invite code even on error
-          sessionStorage.removeItem('pending_invite_code');
+          InviteCodeStorage.clear();
         }
 
       } else {
@@ -16179,7 +16226,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Clear any pending actions since payment was cancelled
     localStorage.removeItem('pendingCircleCreation');
     localStorage.removeItem('pendingCircleJoin');
-    sessionStorage.removeItem('pending_invite_code');
+    InviteCodeStorage.clear();
 
     // Show cancelled notification
     setTimeout(() => {
