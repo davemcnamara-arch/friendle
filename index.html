@@ -3000,7 +3000,12 @@ body.dark-mode .custom-activity-item {
                 <label for="new-event-notes">Notes</label>
                 <textarea id="new-event-notes" rows="3" placeholder="Any additional details..."></textarea>
             </div>
-            
+
+            <div class="form-group">
+                <label for="new-event-max-participants">Max Attendees</label>
+                <input type="number" id="new-event-max-participants" min="1" placeholder="Unlimited">
+            </div>
+
             <button type="submit" class="btn">Create Event</button>
         </form>
     </div>
@@ -6998,15 +7003,20 @@ window.viewUpcomingEvents = async function(circleId) {
             // Check if user is already a participant
             const isUserJoined = event.event_participants?.some(p => p.profile_id === currentUser.id) || false;
             const participantCount = event.event_participants?.length || 0;
+            const maxParticipants = event.max_participants;
+            const isFull = maxParticipants && participantCount >= maxParticipants;
+            const participantDisplay = maxParticipants ? `${participantCount}/${maxParticipants}` : `${participantCount}`;
 
             eventsHtml += `
                 <div style="border: 1px solid ${borderColor}; background: ${cardBgColor}; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
                     <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 5px; color: ${textColor};">${activityName}</div>
                     <div style="color: ${mutedTextColor}; font-size: 0.9em; margin-bottom: 5px;">📅 ${eventDate} at ${eventTime}</div>
-                    <div style="color: ${mutedTextColor}; font-size: 0.9em; margin-bottom: 10px;">👥 ${participantCount} participant${participantCount !== 1 ? 's' : ''}</div>
+                    <div style="color: ${mutedTextColor}; font-size: 0.9em; margin-bottom: 10px;">👥 ${participantDisplay} participant${participantCount !== 1 ? 's' : ''}${isFull && !isUserJoined ? ' (full)' : ''}</div>
                     ${isUserJoined
                         ? '<div style="color: #10b981; font-weight: 500;">✓ You\'re joined</div>'
-                        : `<button class="btn btn-small" onclick="joinEventFromModal('${event.id}')" style="width: 100%; background: #667eea;">Join Event</button>`
+                        : isFull
+                            ? '<button class="btn btn-small" disabled style="width: 100%; background: #888; cursor: not-allowed;">Event Full</button>'
+                            : `<button class="btn btn-small" onclick="joinEventFromModal('${event.id}')" style="width: 100%; background: #667eea;">Join Event</button>`
                     }
                 </div>
             `;
@@ -8963,8 +8973,16 @@ function createEventCard(event, matchId, isPast = false) {
         timeStr = `, ${displayHour}:${minutes} ${ampm}`;
     }
 
-    // Get participant count
+    // Get participant count and check capacity
     const participantCount = event.event_participants?.length || 0;
+    const maxParticipants = event.max_participants;
+    const isFull = maxParticipants && participantCount >= maxParticipants;
+
+    // Format participant display: "X/Y" if limit set, otherwise just "X"
+    const participantDisplay = maxParticipants
+        ? `${participantCount}/${maxParticipants}`
+        : `${participantCount}`;
+    const participantLabel = participantCount === 1 ? 'person' : 'people';
 
     eventCard.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
@@ -8973,11 +8991,15 @@ function createEventCard(event, matchId, isPast = false) {
                     📅 ${dateStr}${timeStr}
                 </div>
                 ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantCount} ${participantCount === 1 ? 'person' : 'people'} ${isUserJoined ? 'going' : 'interested'}</div>
+                <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantDisplay} ${participantLabel} ${isUserJoined ? 'going' : 'interested'}${isFull && !isUserJoined ? ' (full)' : ''}</div>
             </div>
             ${isUserJoined ? `
                 <button class="event-chat-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                     💬 Event Chat
+                </button>
+            ` : isFull ? `
+                <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
+                    Event Full
                 </button>
             ` : participantCount === 0 ? `
                 <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -11661,12 +11683,15 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             });
             
             const participantCount = event.event_participants?.length || 0;
+            const maxParticipants = event.max_participants;
+            const isFull = maxParticipants && participantCount >= maxParticipants;
+            const capacitySuffix = maxParticipants ? ` (${participantCount}/${maxParticipants})` : '';
             const participantDisplay = formatParticipantNames(
                 event.event_participants || [],
                 event.id,
                 2,
                 event.isUserJoined ? 'going' : 'interested'
-            );
+            ) + capacitySuffix + (isFull && !event.isUserJoined ? ' - full' : '');
 
             return `
                 <div class="event-item${event.unreadCount > 0 ? ' unread' : (event.isUserJoined ? '' : ' pending')}" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}">
@@ -11682,6 +11707,10 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                         ${event.isUserJoined ? `
                             <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                                 💬 Event Chat
+                            </button>
+                        ` : isFull ? `
+                            <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
+                                Event Full
                             </button>
                         ` : `
                             <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
@@ -11803,6 +11832,23 @@ window.joinMatch = async function(matchId) {
 window.joinEvent = async function(eventId) {
     try {
         showLoader('Joining event...');
+
+        // First, check if event has a participant limit
+        const { data: eventCheck, error: checkError } = await supabase
+            .from('events')
+            .select('max_participants, event_participants(profile_id)')
+            .eq('id', eventId)
+            .single();
+
+        if (checkError) throw checkError;
+
+        // Check if event is full
+        const currentCount = eventCheck.event_participants?.length || 0;
+        if (eventCheck.max_participants && currentCount >= eventCheck.max_participants) {
+            hideLoader();
+            showNotification('This event is full', 'error');
+            return;
+        }
 
         // Add user to event participants
         const { error } = await supabase
@@ -12872,6 +12918,9 @@ async function createEvent(e) {
     try {
         // Create the event
         console.log('🔵 CREATE EVENT: Inserting event into database...');
+        const maxParticipantsInput = document.getElementById('new-event-max-participants').value;
+        const maxParticipants = maxParticipantsInput ? parseInt(maxParticipantsInput, 10) : null;
+
         const { data: newEvent, error: eventError } = await supabase
             .from('events')
             .insert({
@@ -12882,6 +12931,7 @@ async function createEvent(e) {
                 scheduled_time: document.getElementById('new-event-time').value || null,
                 location: document.getElementById('new-event-location').value || null,
                 notes: document.getElementById('new-event-notes').value || null,
+                max_participants: maxParticipants,
                 created_by: currentUser.id,
                 status: 'scheduled'
             })
