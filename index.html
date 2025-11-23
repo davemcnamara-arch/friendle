@@ -15814,7 +15814,8 @@ if (pageId === 'settings') {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session) {
-        // User is authenticated, load their profile
+        // CRITICAL: First load the user profile - this is auth-critical
+        // If the profile doesn't exist or there's an auth error, user should be signed out
         try {
             const { data: profileData, error } = await supabase
                 .from('profiles')
@@ -15822,22 +15823,37 @@ if (pageId === 'settings') {
                 .eq('id', session.user.id)
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error('Profile load error:', error);
+                throw error;
+            }
 
             currentUser = profileData;
+        } catch (error) {
+            // Profile loading failed - this IS an auth-critical error
+            // Sign out only for profile-related failures (e.g., profile doesn't exist)
+            console.error('Auth-critical error loading profile:', error);
+            await supabase.auth.signOut();
+            hideLoader();
+            showOnboarding();
+            return; // Exit initApp entirely
+        }
 
+        // NON-CRITICAL: Load app data - errors here should NOT sign out the user
+        // Network issues, temporary failures, etc. should be handled gracefully
+        try {
             // Load default activities AFTER authentication is confirmed
             // This ensures RLS policies allow the query to succeed
             await loadDefaultActivities();
-            
+
             if ('Notification' in window && Notification.permission === 'default') {
-    // Show friendly custom prompt before browser prompt
-    showNotificationPrompt();
-}
-            
+                // Show friendly custom prompt before browser prompt
+                showNotificationPrompt();
+            }
+
             // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
-  SecureStorage.setUserId(currentUser.id);
-  SecureStorage.setSessionData(currentUser);
+            SecureStorage.setUserId(currentUser.id);
+            SecureStorage.setSessionData(currentUser);
 
             await renderCircles();
             window.appState.circlesLoaded = true;
@@ -15855,7 +15871,7 @@ if (pageId === 'settings') {
             console.log('✅ App fully initialized:', JSON.stringify(window.appState));
 
             const lastPage = localStorage.getItem('friendle_current_page') || 'activities';
-            
+
             // Check if we should open a chat from notification click
             const openChatId = urlParams.get('openChat');
             const openChatType = urlParams.get('chatType');
@@ -15940,7 +15956,7 @@ if (pageId === 'settings') {
                     showPage(lastPage);
                 }
             }
-            
+
             updateProfile();
             await processInviteCode();
 
@@ -15951,12 +15967,22 @@ if (pageId === 'settings') {
 
             // PWA prompt now shown on sign-in page (before login) to reduce friction
             // Users install app first, then sign in once instead of twice
-            
+
         } catch (error) {
-            console.error('Error loading profile:', error);
-            await supabase.auth.signOut();
+            // Non-critical initialization error - DO NOT sign out the user
+            // This handles network issues, temporary database failures, etc.
+            console.error('Non-critical initialization error:', error);
             hideLoader();
-            showOnboarding();
+
+            // Show the app with whatever data we have - user stays logged in
+            const lastPage = localStorage.getItem('friendle_current_page') || 'activities';
+            showPage(lastPage);
+
+            // Mark app as initialized even with partial data
+            window.appState.initialized = true;
+
+            // Show a user-friendly error message
+            showNotification('Some features may be unavailable. Pull down to refresh.', 'error');
         }
     } else {
         // No authenticated session
