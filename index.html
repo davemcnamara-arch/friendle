@@ -6658,7 +6658,7 @@ window.finalizeCircleCreation = async function() {
         <div class="circle-card${unreadCount > 0 ? ' unread' : ''}${isExpanded ? ' expanded' : ''}" data-circle-id="${circle.id}">
           <div class="circle-card-header" onclick="toggleCircleExpand('${circle.id}')">
             <div class="circle-card-header-left">
-              <div class="circle-name">${circle.name}</div>
+              <div class="circle-name" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="cursor: pointer;" title="Click to rename">${circle.name}</div>
               <div class="circle-members" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="cursor: pointer; text-decoration: underline;" title="Click to view members">${memberText}</div>
             </div>
             <div class="circle-card-header-right">
