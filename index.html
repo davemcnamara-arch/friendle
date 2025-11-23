@@ -559,6 +559,15 @@
             }
         }
 
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+
         .match-summary-header {
             display: flex;
             flex-direction: column;
@@ -4352,7 +4361,48 @@ window.toggleMuteChat = async function() {
         showNotification('Error updating mute setting', 'error');
     }
 }
-        function showNotification(message, type = 'success') { /* ... */ }
+function showNotification(message, type = 'success') {
+    // Remove existing notification if any
+    const existing = document.getElementById('app-notification');
+    if (existing) existing.remove();
+
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    const bgColor = type === 'error'
+        ? '#dc3545'
+        : type === 'warning'
+            ? '#f59e0b'
+            : '#10b981';
+
+    const notification = document.createElement('div');
+    notification.id = 'app-notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${bgColor};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        animation: slideDown 0.3s ease;
+        max-width: 90%;
+        text-align: center;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 3000);
+}
 
 function showLoader(message = 'Loading...') {
     // Remove existing loader if any
@@ -10994,13 +11044,16 @@ function renderEventCard(event) {
         timeStr = `, ${displayHour}:${minutes} ${ampm}`;
     }
 
-    // Get participant count and format display
+    // Get participant count and check capacity
     const participantCount = event.participantCount || 0;
+    const maxParticipants = event.max_participants;
+    const isFull = maxParticipants && participantCount >= maxParticipants;
     const participantDisplay = formatParticipantNames(
         event.event_participants || [],
         event.id,
         2,
-        isUserJoined ? 'going' : 'interested'
+        isUserJoined ? 'going' : 'interested',
+        maxParticipants
     );
 
     return `
@@ -11020,6 +11073,10 @@ function renderEventCard(event) {
                 ${isUserJoined ? `
                     <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                         💬 Event Chat
+                    </button>
+                ` : isFull ? `
+                    <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
+                        Event Full
                     </button>
                 ` : `
                     <button class="btn" onclick="joinEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
@@ -11124,27 +11181,37 @@ async function showMatchParticipants(matchId) {
 }
 
 // Format participant names for display (e.g., "Alice, Bob and 3 more going")
-function formatParticipantNames(participants, eventId, maxNames = 2, verb = 'going') {
-    if (!participants || participants.length === 0) {
-        return `0 people ${verb}`;
-    }
+function formatParticipantNames(participants, eventId, maxNames = 2, verb = 'going', maxParticipants = null) {
+    const count = participants?.length || 0;
 
-    const count = participants.length;
+    // Format capacity display (e.g., "2/5" or just "2")
+    const capacityDisplay = maxParticipants ? `${count}/${maxParticipants}` : `${count}`;
+    const isFull = maxParticipants && count >= maxParticipants;
+    const fullIndicator = isFull ? ' (full)' : '';
+
+    if (count === 0) {
+        return `${capacityDisplay} people ${verb}${fullIndicator}`;
+    }
 
     if (count === 1) {
         const name = participants[0].profiles?.name || 'Someone';
-        return `${name} ${verb}`;
+        return maxParticipants
+            ? `${name} (${capacityDisplay}) ${verb}${fullIndicator}`
+            : `${name} ${verb}`;
     }
 
     if (count <= maxNames) {
         const names = participants.map(p => p.profiles?.name || 'Someone').join(', ');
-        return `${names} ${verb}`;
+        return maxParticipants
+            ? `${names} (${capacityDisplay}) ${verb}${fullIndicator}`
+            : `${names} ${verb}`;
     }
 
     // More than maxNames - show first few and "x more" as clickable
     const shownNames = participants.slice(0, maxNames).map(p => p.profiles?.name || 'Someone').join(', ');
     const remaining = count - maxNames;
-    return `${shownNames} and <span style="cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${eventId}')" title="Click to view all attendees">${remaining} more</span> ${verb}`;
+    const capacitySuffix = maxParticipants ? ` (${capacityDisplay})` : '';
+    return `${shownNames} and <span style="cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${eventId}')" title="Click to view all attendees">${remaining} more</span>${capacitySuffix} ${verb}${fullIndicator}`;
 }
 
 // Helper functions for time period grouping
