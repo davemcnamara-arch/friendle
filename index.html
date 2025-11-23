@@ -6264,7 +6264,8 @@ async function renderCircleCreationActivities(previousSelections = new Set(), au
         card.dataset.activityId = activity.id;
 
         // Restore previous selections or auto-select new activity
-        if (previousSelections.has(activity.id) || activity.id === autoSelectId) {
+        // Note: Convert to string for comparison since dataset values are always strings
+        if (previousSelections.has(String(activity.id)) || activity.id === autoSelectId) {
             card.classList.add('selected');
         }
 
@@ -6427,10 +6428,11 @@ window.finalizeCircleCreation = async function() {
                 .map(a => a.id);
             
             // Create visibility records for default activities
+            // Note: Convert to string for comparison since dataset values are always strings
             const visibilityRecords = allDefaultIds.map(activityId => ({
                 circle_id: circle.id,
                 activity_id: activityId,
-                is_visible: finalSelectedIds.includes(activityId)
+                is_visible: finalSelectedIds.includes(String(activityId))
             }));
             
             await supabase
@@ -8394,10 +8396,11 @@ window.setActivityMode = async function(activityId, isToday) {
             };
             
             defaultActivities.push(newActivity);
-            
+
             showNotification(`Activity "${name}" added and selected!`);
+            document.getElementById('suggest-name').value = '';
             closeSuggestModal();
-            
+
             // Re-render circle creation activities with previous selections + new one
             await renderCircleCreationActivities(currentlySelected, newActivity.id);
             
@@ -8415,10 +8418,11 @@ window.setActivityMode = async function(activityId, isToday) {
                 .single();
 
             if (error) throw error;
-            
+
             showNotification(`Activity "${name}" added!`);
+            document.getElementById('suggest-name').value = '';
             closeSuggestModal();
-            
+
             const savedActivityIds = await loadUserPreferences(selectedCircle.id);
             const allActivities = await loadActivities(selectedCircle.id);
             activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
