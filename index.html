@@ -13394,6 +13394,12 @@ allActiveSubscriptions.push(eventMessageSubscription);
 
         showPage('chat');
 
+        // Save event chat context for refresh persistence
+        localStorage.setItem('friendle_current_chat_context', JSON.stringify({
+            type: 'event',
+            id: eventId
+        }));
+
         // Force scroll to bottom after page is shown (especially for notifications)
         setTimeout(() => forceScrollToBottom(), 300);
 
@@ -15943,6 +15949,8 @@ if (pageId === 'settings') {
                             await openCircleChat(chatContext.id);
                         } else if (chatContext.type === 'match') {
                             await openMatchChatThreaded(chatContext.id);
+                        } else if (chatContext.type === 'event') {
+                            await openEventChat(chatContext.id);
                         } else {
                             // Invalid context type, fallback to matches
                             showPage('matches');
