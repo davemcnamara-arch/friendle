@@ -3352,6 +3352,8 @@ body.dark-mode .custom-activity-item {
                 localStorage.removeItem('friendle_user_id');
                 localStorage.removeItem('friendle_user'); // Legacy - clean up old storage
                 localStorage.removeItem('friendle_current_page'); // Reset page preference to default
+                localStorage.removeItem('friendle_previous_page'); // Clear navigation history
+                localStorage.removeItem('friendle_current_chat_context'); // Clear chat context
                 sessionStorage.removeItem('friendle_session');
             }
         };
@@ -15192,13 +15194,16 @@ async function getCircleUnreadCount(circleId, lastReadAt) {
 }
 
         // Track navigation history for proper back button behavior
-        let previousPage = 'matches'; // Default to matches page
+        let previousPage = localStorage.getItem('friendle_previous_page') || 'matches'; // Restore or default to matches
 
         window.showPage = async function(pageId) {
     // Track current page before navigating
     const currentPage = document.querySelector('.page.active')?.id;
-    if (currentPage && currentPage !== pageId) {
+    // Only update previousPage if coming from a valid app page (not onboarding/welcome)
+    if (currentPage && currentPage !== pageId && currentPage !== 'onboarding' && currentPage !== 'welcome') {
         previousPage = currentPage;
+        // Persist previousPage for refresh scenarios
+        localStorage.setItem('friendle_previous_page', previousPage);
     }
 
     // Clean up subscriptions when leaving chat
