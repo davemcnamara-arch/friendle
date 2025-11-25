@@ -2202,6 +2202,17 @@ body.dark-mode .custom-activity-item {
             await window.waitForAppReady(15000); // 15 second timeout
             console.log('✅ Page: App is ready, proceeding with navigation');
 
+            // Set previousPage based on chat type so back button leads to the correct page
+            if (data.chatType === 'match') {
+              window.previousPage = 'matches';
+            } else if (data.chatType === 'event') {
+              window.previousPage = 'events';
+            } else if (data.chatType === 'circle') {
+              window.previousPage = 'circles';
+            }
+            localStorage.setItem('friendle_previous_page', window.previousPage);
+            console.log('✅ Page: Set previousPage for back button:', window.previousPage);
+
             // Navigate directly to the chat
             if (data.chatType === 'match') {
               await openMatchChatThreaded(data.chatId);
@@ -15897,6 +15908,17 @@ if (pageId === 'settings') {
 
                 // Clean up URL (remove all query parameters)
                 window.history.replaceState({}, document.title, window.location.pathname);
+
+                // Set previousPage based on chat type so back button leads to the correct page
+                if (openChatType === 'match') {
+                    previousPage = 'matches';
+                } else if (openChatType === 'event') {
+                    previousPage = 'events';
+                } else if (openChatType === 'circle') {
+                    previousPage = 'circles';
+                }
+                localStorage.setItem('friendle_previous_page', previousPage);
+                console.log('✅ Set previousPage for back button:', previousPage);
 
                 // DON'T show any other page - let the chat function handle the page display
                 // This prevents race conditions where we might navigate away
