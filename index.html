@@ -2203,15 +2203,16 @@ body.dark-mode .custom-activity-item {
             console.log('✅ Page: App is ready, proceeding with navigation');
 
             // Set previousPage based on chat type so back button leads to the correct page
+            let chatPreviousPage = 'matches';
             if (data.chatType === 'match') {
-              window.previousPage = 'matches';
+              chatPreviousPage = 'matches';
             } else if (data.chatType === 'event') {
-              window.previousPage = 'events';
+              chatPreviousPage = 'events';
             } else if (data.chatType === 'circle') {
-              window.previousPage = 'circles';
+              chatPreviousPage = 'circles';
             }
-            localStorage.setItem('friendle_previous_page', window.previousPage);
-            console.log('✅ Page: Set previousPage for back button:', window.previousPage);
+            localStorage.setItem('friendle_previous_page', chatPreviousPage);
+            console.log('✅ Page: Set previousPage for back button:', chatPreviousPage);
 
             // Navigate directly to the chat
             if (data.chatType === 'match') {
