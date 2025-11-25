@@ -2791,27 +2791,6 @@ body.dark-mode .custom-activity-item {
     <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
 </div>
         </div>
-        
-<!-- Pull to Refresh Indicator -->
-        <div id="pull-refresh-indicator" style="
-            position: fixed;
-            top: -60px;
-            left: 0;
-            right: 0;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: top 0.3s ease;
-            z-index: 9998;
-        ">
-            <div style="text-align: center;">
-                <div id="pull-refresh-icon" style="font-size: 1.5em; margin-bottom: 5px;">↓</div>
-                <div id="pull-refresh-text" style="font-size: 0.85em; color: #666;">Pull to refresh</div>
-            </div>
-        </div>
 
         <div class="bottom-nav">
             <div class="nav-item" onclick="showPage('circles')"><div class="nav-icon">👥</div><div class="nav-label">Circles</div></div>
@@ -16094,138 +16073,6 @@ async function showOnboarding() {
     }, 1000);
 }
 
-// Pull-to-Refresh functionality
-let pullStartY = 0;
-let pullMoveY = 0;
-let isPulling = false;
-let pullThreshold = 150; // Much higher threshold - need a very deliberate pull
-let pullStartThreshold = 60; // Don't even show indicator until 60px pull
-let pullStartTime = 0;
-let minPullDuration = 200; // Must pull for at least 200ms to prevent accidental triggers
-
-function initPullToRefresh() {
-    const indicator = document.getElementById('pull-refresh-indicator');
-    const icon = document.getElementById('pull-refresh-icon');
-    const text = document.getElementById('pull-refresh-text');
-    
-    document.addEventListener('touchstart', (e) => {
-        // Only allow pull at top of page AND in scrollable containers
-        const target = e.target;
-        const scrollableParent = target.closest('.page, .chat-messages');
-        
-        if (scrollableParent) {
-            // Check if at top of scrollable container
-            if (scrollableParent.scrollTop === 0 && window.scrollY === 0) {
-                pullStartY = e.touches[0].clientY;
-                pullStartTime = Date.now();
-                isPulling = true;
-            }
-        }
-    });
-    
-    document.addEventListener('touchmove', (e) => {
-        if (!isPulling) return;
-        
-        pullMoveY = e.touches[0].clientY;
-        const pullDistance = pullMoveY - pullStartY;
-        
-        // Only respond to downward pulls that exceed the start threshold
-        if (pullDistance > pullStartThreshold) {
-            // Prevent default scroll only when we're actually pulling
-            const target = e.target;
-            const scrollableParent = target.closest('.page, .chat-messages');
-            if (scrollableParent && scrollableParent.scrollTop === 0 && window.scrollY === 0) {
-                e.preventDefault();
-            }
-            
-            // Calculate indicator position (with much more resistance)
-            const indicatorTop = Math.min((pullDistance - pullStartThreshold) * 0.25, 60);
-            indicator.style.top = (indicatorTop - 60) + 'px';
-            
-            // Update icon and text based on pull distance
-            if (pullDistance > pullThreshold) {
-                icon.textContent = '↻';
-                icon.style.transform = 'rotate(180deg)';
-                text.textContent = 'Release to refresh';
-                text.style.color = '#667eea';
-            } else {
-                icon.textContent = '↓';
-                icon.style.transform = 'rotate(0deg)';
-                text.textContent = 'Pull to refresh';
-                const isDarkMode = document.body.classList.contains('dark-mode');
-                text.style.color = isDarkMode ? '#9ca3af' : '#666';
-            }
-        }
-    }, { passive: false });
-    
-    document.addEventListener('touchend', async (e) => {
-        if (!isPulling) return;
-        
-        const pullDistance = pullMoveY - pullStartY;
-        const pullDuration = Date.now() - pullStartTime;
-        
-        // Only trigger if pulled far enough AND held long enough
-        if (pullDistance > pullThreshold && pullDuration > minPullDuration) {
-            // Trigger refresh
-            icon.textContent = '⟳';
-            icon.style.animation = 'spin 1s linear infinite';
-            text.textContent = 'Refreshing...';
-            
-            // Determine which page to refresh
-            const activePage = document.querySelector('.page.active').id;
-
-            try {
-                if (activePage === 'matches') {
-                    await loadMatches();
-                } else if (activePage === 'circles') {
-                    await renderCircles();
-                } else if (activePage === 'activities') {
-                    // Check if in swipe or grid view mode
-                    if (viewMode === 'swipe') {
-                        await initializeSwipeView();
-                    } else {
-                        await renderActivities();
-                    }
-                }
-                
-                // Brief success state
-                icon.textContent = '✓';
-                icon.style.animation = 'none';
-                icon.style.transform = 'rotate(0deg)'; // Reset rotation for checkmark
-                text.textContent = 'Refreshed!';
-                
-                setTimeout(() => {
-                    resetPullIndicator();
-                }, 500);
-            } catch (error) {
-                console.error('Error refreshing:', error);
-                resetPullIndicator();
-            }
-        } else {
-            // Didn't pull far enough - reset
-            resetPullIndicator();
-        }
-        
-        isPulling = false;
-        pullStartY = 0;
-        pullMoveY = 0;
-    });
-}
-
-function resetPullIndicator() {
-    const indicator = document.getElementById('pull-refresh-indicator');
-    const icon = document.getElementById('pull-refresh-icon');
-    const text = document.getElementById('pull-refresh-text');
-    
-    indicator.style.top = '-60px';
-    icon.textContent = '↓';
-    icon.style.transform = 'rotate(0deg)';
-    icon.style.animation = 'none';
-    text.textContent = 'Pull to refresh';
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    text.style.color = isDarkMode ? '#9ca3af' : '#666';
-}
-
 // Global error handlers - catch unexpected errors
 window.addEventListener('error', (event) => {
     console.error('Global error caught:', event.error);
@@ -16432,9 +16279,6 @@ document.addEventListener("DOMContentLoaded", () => {
       showNotification('Payment cancelled. You can try again anytime.', 'info');
     }, 1000);
   }
-
-  // Initialize pull-to-refresh
-  initPullToRefresh();
 
   // Initialize auto-expanding chat input
   initMessageInput();
