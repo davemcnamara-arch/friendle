@@ -3749,6 +3749,12 @@ window.showWelcomeFromOnboarding = function() {
     const inviteCode = InviteCodeStorage.get();
     if (inviteCode) {
         showRegister();
+
+        // Show PWA install prompt for invite code users
+        // This ensures the prompt appears even if they clicked through quickly from onboarding
+        setTimeout(() => {
+            showPWAPrompt(true);
+        }, 1000);
     }
 }
 
