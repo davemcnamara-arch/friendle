@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { userId, userEmail } = req.body;
+    const { userId, userEmail, circleCode } = req.body;
 
     // Validate required fields
     if (!userId) {
@@ -35,6 +35,18 @@ module.exports = async (req, res) => {
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const baseUrl = `${protocol}://${host}`;
+
+    // Build metadata object
+    const metadata = {
+      userId: userId,
+      product: 'additional_circle',
+    };
+
+    // Add circle code to metadata if provided (for verification after payment)
+    if (circleCode) {
+      metadata.circleCode = circleCode;
+      console.log('Including circleCode in Stripe metadata:', circleCode);
+    }
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -50,10 +62,7 @@ module.exports = async (req, res) => {
       cancel_url: `${baseUrl}/?purchase=cancelled`,
       client_reference_id: userId, // Store user ID for webhook processing
       customer_email: userEmail || undefined,
-      metadata: {
-        userId: userId,
-        product: 'additional_circle',
-      },
+      metadata: metadata,
     });
 
     // Return the session ID and URL to the client
