@@ -4100,11 +4100,21 @@ async function processInviteCode() {
 
         // Check if user needs to purchase more circles
         if (currentCircleCount >= circlesPurchased) {
+            // Clear any stale pending join data first
+            const existingPendingJoin = localStorage.getItem('pendingCircleJoin');
+            if (existingPendingJoin) {
+                console.log('🧹 Clearing stale pendingCircleJoin before setting new one');
+                localStorage.removeItem('pendingCircleJoin');
+            }
+
             // Save circle join intent to localStorage for after payment
-            localStorage.setItem('pendingCircleJoin', JSON.stringify({
+            const pendingData = {
                 code: inviteCode,
-                timestamp: Date.now()
-            }));
+                timestamp: Date.now(),
+                source: 'invite_link'
+            };
+            localStorage.setItem('pendingCircleJoin', JSON.stringify(pendingData));
+            console.log('✅ Set pendingCircleJoin for invite code:', inviteCode);
 
             // Don't clear invite code yet - we'll need it if payment is cancelled
             await showPaymentModal();
@@ -5972,6 +5982,19 @@ window.changePassword = async function() {
             try {
                 console.log('Creating checkout session for user:', currentUser.id);
 
+                // Get pending circle join info to pass to Stripe
+                let circleCode = null;
+                const pendingJoin = localStorage.getItem('pendingCircleJoin');
+                if (pendingJoin) {
+                    try {
+                        const joinData = JSON.parse(pendingJoin);
+                        circleCode = joinData.code;
+                        console.log('📝 Including circle code in Stripe session:', circleCode);
+                    } catch (e) {
+                        console.error('Error parsing pendingCircleJoin:', e);
+                    }
+                }
+
                 // Call serverless function to create Stripe checkout session
                 const response = await fetch('/api/create-checkout-session', {
                     method: 'POST',
@@ -5981,6 +6004,7 @@ window.changePassword = async function() {
                     body: JSON.stringify({
                         userId: currentUser.id,
                         userEmail: currentUser.email,
+                        circleCode: circleCode, // Add circle code to request
                     }),
                 });
 
@@ -6515,11 +6539,21 @@ window.finalizeCircleCreation = async function() {
     if (currentCircleCount >= circlesPurchased) {
       hideLoader();
 
+      // Clear any stale pending join data first
+      const existingPendingJoin = localStorage.getItem('pendingCircleJoin');
+      if (existingPendingJoin) {
+        console.log('🧹 Clearing stale pendingCircleJoin before setting new one');
+        localStorage.removeItem('pendingCircleJoin');
+      }
+
       // Save circle join intent to localStorage for after payment
-      localStorage.setItem('pendingCircleJoin', JSON.stringify({
+      const pendingData = {
         code: code,
-        timestamp: Date.now()
-      }));
+        timestamp: Date.now(),
+        source: 'manual_join'
+      };
+      localStorage.setItem('pendingCircleJoin', JSON.stringify(pendingData));
+      console.log('✅ Set pendingCircleJoin for manual join code:', code);
 
       closeCircleModal();
       await showPaymentModal();
@@ -16219,7 +16253,17 @@ document.addEventListener("DOMContentLoaded", () => {
         // Auto-complete circle join
         try {
           const joinData = JSON.parse(pendingJoin);
-          localStorage.removeItem('pendingCircleJoin');
+          console.log('💳 Payment successful - processing pending circle join:', joinData);
+
+          // Validate timestamp is recent (within 30 minutes)
+          const ageMinutes = (Date.now() - joinData.timestamp) / (1000 * 60);
+          if (ageMinutes > 30) {
+            console.warn('⚠️ Pending circle join is too old (', ageMinutes.toFixed(1), 'minutes). Rejecting.');
+            localStorage.removeItem('pendingCircleJoin');
+            throw new Error('Circle join request expired. Please try joining again.');
+          }
+
+          console.log('✅ Pending join timestamp valid (', ageMinutes.toFixed(1), 'minutes old)');
 
           showLoader('Joining circle...');
 
@@ -16231,8 +16275,31 @@ document.addEventListener("DOMContentLoaded", () => {
             .single();
 
           if (error || !circle) {
+            console.error('❌ Circle not found for code:', joinData.code);
+            localStorage.removeItem('pendingCircleJoin');
             throw new Error('Circle not found');
           }
+
+          console.log('✅ Found circle:', circle.name, '(ID:', circle.id, ')');
+
+          // Check if user is already a member
+          const { data: existingMember } = await supabase
+            .from('circle_members')
+            .select('*')
+            .eq('circle_id', circle.id)
+            .eq('profile_id', currentUser.id)
+            .single();
+
+          if (existingMember) {
+            console.log('ℹ️ User is already a member of this circle');
+            localStorage.removeItem('pendingCircleJoin');
+            hideLoader();
+            showNotification(`You are already a member of "${circle.name}"`, 'info');
+            return;
+          }
+
+          // Remove from localStorage AFTER we know circle exists
+          localStorage.removeItem('pendingCircleJoin');
 
           // Add user to circle_members
           await supabase.from('circle_members').insert([{
@@ -16268,6 +16335,8 @@ document.addEventListener("DOMContentLoaded", () => {
   } else if (purchaseStatus === 'cancelled') {
     // Remove query params from URL without refreshing
     window.history.replaceState({}, document.title, window.location.pathname);
+
+    console.log('💳 Payment cancelled - clearing all pending actions');
 
     // Clear any pending actions since payment was cancelled
     localStorage.removeItem('pendingCircleCreation');
