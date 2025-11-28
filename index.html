@@ -13624,10 +13624,10 @@ async function openEventChat(eventId) {
 
         // Show different buttons based on event status
         if (event.status === 'planning') {
-            // Planning mode: Show "Lock in Details" button
+            // Planning mode: Show "Lock in Details" button and options
             if (lockDetailsBtn) lockDetailsBtn.style.display = 'inline-block';
             if (calendarBtn) calendarBtn.style.display = 'none';
-            if (eventOptionsBtn) eventOptionsBtn.style.display = 'none';
+            if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
         } else {
             // Scheduled mode: Show calendar and options buttons
             if (lockDetailsBtn) lockDetailsBtn.style.display = 'none';
