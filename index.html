@@ -2472,6 +2472,7 @@ body.dark-mode .custom-activity-item {
         <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
     </div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="lock-details-btn" onclick="openLockDetailsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️ Lock in Details</button>
         <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
         <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
         <button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">
@@ -2493,6 +2494,7 @@ body.dark-mode .custom-activity-item {
         <div class="chat-input">
             <div class="chat-input-top-row">
                 <textarea id="message-input" placeholder="Type a message..." onkeydown="handleMessageKeyPress(event)" rows="1"></textarea>
+                <button class="attachment-btn" id="poll-btn" onclick="openCreatePollModal()" title="Create a poll">📊</button>
                 <button class="attachment-btn" id="photo-btn" onclick="sharePhoto()">📷</button>
                 <button class="attachment-btn" id="location-btn" onclick="shareLocation()">📍</button>
                 <button class="attachment-btn" id="search-btn" onclick="findNearbyPlaces()">🔍</button>
@@ -3060,6 +3062,137 @@ body.dark-mode .custom-activity-item {
             </div>
 
             <button type="submit" class="btn">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<!-- Swipe Action Modal (Plan Event / Stay Interested) -->
+<div class="modal-overlay" id="swipe-action-modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close-modal-btn" onclick="closeSwipeActionModal()">×</span>
+        <div class="modal-header" id="swipe-action-title">🎯 Activity Match!</div>
+
+        <div style="margin-bottom: 20px; color: #666; line-height: 1.6; text-align: center;">
+            <p id="swipe-action-description">What would you like to do?</p>
+        </div>
+
+        <button onclick="handlePlanEvent()" class="btn" style="width: 100%; margin-bottom: 10px; background: #007bff;">
+            📅 Plan Event
+        </button>
+
+        <button onclick="handleStayInterested()" class="btn btn-secondary" style="width: 100%; background: #6c757d; color: white;">
+            👀 Stay Interested
+        </button>
+
+        <div style="margin-top: 15px; font-size: 12px; color: #999; text-align: center;">
+            "Stay Interested" lets you watch for events others create without planning one yourself.
+        </div>
+    </div>
+</div>
+
+<!-- Planning Event Creation Modal -->
+<div class="modal-overlay" id="planning-event-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closePlanningEventModal()">×</span>
+        <div class="modal-header" id="planning-event-title">🎳 Plan: Activity</div>
+
+        <form id="planning-event-form">
+            <input type="hidden" id="planning-event-match-id">
+
+            <div class="form-group">
+                <label for="planning-timeframe">When works for you? *</label>
+                <select id="planning-timeframe" required style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+                    <option value="">Select a timeframe...</option>
+                    <option value="This weekend">This weekend</option>
+                    <option value="Next weekend">Next weekend</option>
+                    <option value="This week">This week</option>
+                    <option value="Next week">Next week</option>
+                    <option value="Weeknights">Weeknights</option>
+                    <option value="Flexible">Flexible</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="planning-location">Where? (optional)</label>
+                <input type="text" id="planning-location" placeholder="Enter location or leave blank">
+                <div id="planning-location-suggestions" style="margin-top: 5px; font-size: 12px; color: #666;">
+                    <!-- Suggestions will appear here -->
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="planning-notes">Notes (optional)</label>
+                <textarea id="planning-notes" rows="3" placeholder="Any thoughts on timing, location, etc..."></textarea>
+            </div>
+
+            <button type="submit" class="btn">Start Planning</button>
+        </form>
+    </div>
+</div>
+
+<!-- Lock in Details Modal -->
+<div class="modal-overlay" id="lock-details-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closeLockDetailsModal()">×</span>
+        <div class="modal-header">⚙️ Lock in Event Details</div>
+
+        <form id="lock-details-form">
+            <div class="form-group">
+                <label for="lock-date">Date *</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="date" id="lock-date" required style="flex: 1;">
+                    <input type="time" id="lock-time" placeholder="Time (optional)" style="flex: 1;">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="lock-location">Location *</label>
+                <input type="text" id="lock-location" required placeholder="Where are you meeting?">
+            </div>
+
+            <div class="form-group">
+                <label for="lock-notes">Notes (optional)</label>
+                <textarea id="lock-notes" rows="3" placeholder="Any additional details..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="lock-max-participants">Max Attendees</label>
+                <input type="number" id="lock-max-participants" min="1" placeholder="Unlimited">
+            </div>
+
+            <button type="submit" class="btn">✅ Lock in Event</button>
+        </form>
+    </div>
+</div>
+
+<!-- Create Poll Modal -->
+<div class="modal-overlay" id="create-poll-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closeCreatePollModal()">×</span>
+        <div class="modal-header">📊 Quick Poll</div>
+
+        <form id="create-poll-form">
+            <div class="form-group">
+                <label for="poll-question">Question *</label>
+                <input type="text" id="poll-question" required placeholder="When should we meet?" maxlength="200">
+            </div>
+
+            <div class="form-group">
+                <label>Options *</label>
+                <div id="poll-options-container">
+                    <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" class="poll-option" placeholder="Option 1" required style="flex: 1;">
+                    </div>
+                    <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" class="poll-option" placeholder="Option 2" required style="flex: 1;">
+                    </div>
+                </div>
+                <button type="button" onclick="addPollOption()" class="btn btn-secondary" style="width: 100%; margin-top: 5px;">
+                    ➕ Add Option
+                </button>
+            </div>
+
+            <button type="submit" class="btn">Send Poll</button>
         </form>
     </div>
 </div>
@@ -13006,6 +13139,571 @@ function openCreateEventModalFromHeader() {
     openCreateEventModal(currentMatchId);
 }
 
+// ========== NEW MODALS FOR PLANNING MODE ==========
+
+// Swipe Action Modal (Plan Event / Stay Interested)
+let pendingSwipeMatchId = null;
+
+function openSwipeActionModal(matchId, activityName) {
+    pendingSwipeMatchId = matchId;
+    document.getElementById('swipe-action-title').textContent = `${activityName || '🎯 Activity'} Match!`;
+    document.getElementById('swipe-action-description').textContent =
+        'You matched! Would you like to plan an event or just stay interested for now?';
+    document.getElementById('swipe-action-modal').style.display = 'flex';
+}
+
+function closeSwipeActionModal() {
+    document.getElementById('swipe-action-modal').style.display = 'none';
+    pendingSwipeMatchId = null;
+}
+
+async function handlePlanEvent() {
+    if (!pendingSwipeMatchId) return;
+
+    // Add user to match_participants
+    await joinMatchChat(pendingSwipeMatchId);
+
+    // Close swipe modal
+    closeSwipeActionModal();
+
+    // Open planning event modal
+    openPlanningEventModal(pendingSwipeMatchId);
+}
+
+async function handleStayInterested() {
+    if (!pendingSwipeMatchId) return;
+
+    // Add user to match_participants (but don't create event)
+    const success = await joinMatchChat(pendingSwipeMatchId);
+
+    closeSwipeActionModal();
+
+    if (success) {
+        showNotification('👀 You\'re watching for events! You\'ll be notified when someone plans something.');
+        await loadMatches();
+    } else {
+        showNotification('Error joining match', 'error');
+    }
+}
+
+// Planning Event Creation Modal
+function openPlanningEventModal(matchId) {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    const activity = activities.find(a => a.id === match.activity_id);
+    const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
+
+    document.getElementById('planning-event-title').textContent = `Plan: ${activityName}`;
+    document.getElementById('planning-event-match-id').value = matchId;
+    document.getElementById('planning-event-form').reset();
+
+    document.getElementById('planning-event-modal').style.display = 'flex';
+}
+
+function closePlanningEventModal() {
+    document.getElementById('planning-event-modal').style.display = 'none';
+}
+
+// Lock in Details Modal
+function openLockDetailsModal() {
+    if (!currentEvent) {
+        console.error('No current event context');
+        return;
+    }
+
+    // Pre-fill with existing data if available
+    document.getElementById('lock-date').value = currentEvent.scheduled_date || '';
+    document.getElementById('lock-time').value = currentEvent.scheduled_time || '';
+    document.getElementById('lock-location').value = currentEvent.location || '';
+    document.getElementById('lock-notes').value = currentEvent.notes || '';
+    document.getElementById('lock-max-participants').value = currentEvent.max_participants || '';
+
+    document.getElementById('lock-details-modal').style.display = 'flex';
+}
+
+function closeLockDetailsModal() {
+    document.getElementById('lock-details-modal').style.display = 'none';
+}
+
+// Create Poll Modal
+function openCreatePollModal() {
+    if (!currentEvent) {
+        console.error('No current event context for poll');
+        return;
+    }
+
+    // Reset form
+    document.getElementById('create-poll-form').reset();
+
+    // Reset to 2 default options
+    const container = document.getElementById('poll-options-container');
+    container.innerHTML = `
+        <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" class="poll-option" placeholder="Option 1" required style="flex: 1;">
+        </div>
+        <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" class="poll-option" placeholder="Option 2" required style="flex: 1;">
+        </div>
+    `;
+
+    document.getElementById('create-poll-modal').style.display = 'flex';
+}
+
+function closeCreatePollModal() {
+    document.getElementById('create-poll-modal').style.display = 'none';
+}
+
+function addPollOption() {
+    const container = document.getElementById('poll-options-container');
+    const optionCount = container.querySelectorAll('.poll-option-input').length + 1;
+
+    if (optionCount > 10) {
+        showNotification('Maximum 10 options allowed', 'error');
+        return;
+    }
+
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'poll-option-input';
+    optionDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+    optionDiv.innerHTML = `
+        <input type="text" class="poll-option" placeholder="Option ${optionCount}" required style="flex: 1;">
+        <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px;">✕</button>
+    `;
+
+    container.appendChild(optionDiv);
+}
+
+// ========== END NEW MODALS ==========
+
+// ========== PLANNING EVENT FUNCTIONS ==========
+
+// Create event in planning mode
+async function createPlanningEvent(e) {
+    e.preventDefault();
+    console.log('🔵 CREATE PLANNING EVENT: Starting...');
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="btn-spinner"></span>Starting...';
+
+    const matchId = document.getElementById('planning-event-match-id').value;
+    const match = matches.find(m => m.id === matchId);
+
+    try {
+        const { data: newEvent, error: eventError } = await supabase
+            .from('events')
+            .insert({
+                match_id: matchId,
+                activity_id: match.activity_id,
+                circle_id: match.circle_id,
+                scheduled_date: null, // NULL in planning mode
+                scheduled_time: null,
+                location: document.getElementById('planning-location').value || null,
+                notes: document.getElementById('planning-notes').value || null,
+                proposed_timeframe: document.getElementById('planning-timeframe').value,
+                created_by: currentUser.id,
+                status: 'planning' // Planning mode status
+            })
+            .select()
+            .single();
+
+        if (eventError) throw eventError;
+
+        console.log('✓ Planning event created:', newEvent);
+
+        // Add creator as first participant
+        const { error: participantError } = await supabase
+            .from('event_participants')
+            .insert({
+                event_id: newEvent.id,
+                profile_id: currentUser.id,
+                status: 'accepted'
+            });
+
+        if (participantError) throw participantError;
+
+        // Update match last_interaction
+        await supabase
+            .from('matches')
+            .update({ last_interaction: new Date().toISOString() })
+            .eq('id', matchId);
+
+        // Send notifications to other match participants
+        sendEventCreatedNotification(matchId, newEvent).catch(err => {
+            console.error('Error sending notification:', err);
+        });
+
+        // Close modal
+        closePlanningEventModal();
+
+        // Open event chat immediately
+        await openEventChat(newEvent.id);
+
+        // Post system message about planning started
+        const activity = activities.find(a => a.id === match.activity_id);
+        const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
+        const locationText = newEvent.location ? `\n📍 Suggested: ${newEvent.location}` : '';
+
+        const systemMessage = `🤖 ${currentUser.name} started planning ${activityName}\n📅 Thinking: ${newEvent.proposed_timeframe}${locationText}\n\nChat below to finalize details!`;
+
+        await sendSystemMessage(newEvent.id, systemMessage);
+
+    } catch (error) {
+        console.error('Error creating planning event:', error);
+        showNotification('Error creating event', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    }
+}
+
+// Lock in event details (transition from planning to scheduled)
+async function lockEventDetails(e) {
+    e.preventDefault();
+    console.log('🔒 LOCK DETAILS: Starting...');
+
+    if (!currentEvent) {
+        showNotification('No event context', 'error');
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="btn-spinner"></span>Locking...';
+
+    try {
+        const maxParticipantsInput = document.getElementById('lock-max-participants').value;
+        const maxParticipants = maxParticipantsInput ? parseInt(maxParticipantsInput, 10) : null;
+
+        // Update event to scheduled status
+        const { error: updateError } = await supabase
+            .from('events')
+            .update({
+                status: 'scheduled',
+                scheduled_date: document.getElementById('lock-date').value,
+                scheduled_time: document.getElementById('lock-time').value || null,
+                location: document.getElementById('lock-location').value,
+                notes: document.getElementById('lock-notes').value || null,
+                max_participants: maxParticipants,
+                proposed_timeframe: null // Clear planning timeframe
+            })
+            .eq('id', currentEvent.id);
+
+        if (updateError) throw updateError;
+
+        console.log('✓ Event locked to scheduled');
+
+        // Close modal
+        closeLockDetailsModal();
+
+        // Reload event chat to show updated UI
+        await openEventChat(currentEvent.id);
+
+        // Post system message
+        const dateStr = formatEventDate(document.getElementById('lock-date').value, document.getElementById('lock-time').value);
+        const locationStr = document.getElementById('lock-location').value;
+
+        const systemMessage = `✅ Event scheduled:\n📅 ${dateStr}\n📍 ${locationStr}`;
+        await sendSystemMessage(currentEvent.id, systemMessage);
+
+        showNotification('Event details locked in!');
+
+    } catch (error) {
+        console.error('Error locking details:', error);
+        showNotification('Error updating event', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    }
+}
+
+// ========== END PLANNING EVENT FUNCTIONS ==========
+
+// ========== POLLING FUNCTIONS ==========
+
+// Submit a new poll
+async function submitPoll(e) {
+    e.preventDefault();
+
+    if (!currentEvent) {
+        showNotification('No event context', 'error');
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="btn-spinner"></span>Sending...';
+
+    try {
+        const question = document.getElementById('poll-question').value;
+        const optionInputs = document.querySelectorAll('.poll-option');
+        const options = Array.from(optionInputs)
+            .map(input => input.value.trim())
+            .filter(val => val.length > 0);
+
+        if (options.length < 2) {
+            showNotification('Please add at least 2 options', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+            return;
+        }
+
+        // Create poll in database
+        const { data: newPoll, error: pollError } = await supabase
+            .from('polls')
+            .insert({
+                event_id: currentEvent.id,
+                question: question,
+                options: JSON.stringify(options),
+                created_by: currentUser.id
+            })
+            .select()
+            .single();
+
+        if (pollError) throw pollError;
+
+        console.log('✓ Poll created:', newPoll);
+
+        // Create a message of type 'poll' in event_messages
+        const { data: pollMessage, error: messageError } = await supabase
+            .from('event_messages')
+            .insert({
+                event_id: currentEvent.id,
+                sender_id: currentUser.id,
+                content: question, // Store question as content
+                message_type: 'poll',
+                poll_id: newPoll.id
+            })
+            .select()
+            .single();
+
+        if (messageError) throw messageError;
+
+        // Broadcast new poll message
+        const channel = supabase.channel(`event_${currentEvent.id}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'new_message',
+            payload: {
+                id: pollMessage.id,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                sender_avatar: currentUser.avatar,
+                content: question,
+                message_type: 'poll',
+                poll_id: newPoll.id,
+                created_at: pollMessage.created_at
+            }
+        });
+
+        // Close modal and reset form
+        closeCreatePollModal();
+        showNotification('Poll created!');
+
+        // Render the poll immediately
+        await renderPollMessage(pollMessage, newPoll);
+
+    } catch (error) {
+        console.error('Error creating poll:', error);
+        showNotification('Error creating poll', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    }
+}
+
+// Render a poll message in the chat
+async function renderPollMessage(message, poll) {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+
+    // Parse options if they're a string
+    const options = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
+
+    // Get vote counts
+    const { data: votes } = await supabase
+        .from('poll_votes')
+        .select('option_index, voter_id')
+        .eq('poll_id', poll.id);
+
+    const voteCounts = {};
+    options.forEach((_, index) => { voteCounts[index] = 0; });
+    votes?.forEach(vote => {
+        voteCounts[vote.option_index] = (voteCounts[vote.option_index] || 0) + 1;
+    });
+
+    const userVote = votes?.find(v => v.voter_id === currentUser.id);
+    const totalVotes = votes?.length || 0;
+
+    // Create poll message element
+    const pollDiv = document.createElement('div');
+    pollDiv.className = 'message';
+    pollDiv.setAttribute('data-message-id', message.id);
+    pollDiv.setAttribute('data-poll-id', poll.id);
+
+    const sender = message.sender_id === currentUser.id ? currentUser : { name: 'User', avatar: '👤' };
+
+    pollDiv.innerHTML = `
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #007bff;">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <div class="avatar" style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 18px;">
+                    ${sender.avatar || '👤'}
+                </div>
+                <div>
+                    <div style="font-weight: 600; color: #333;">${sender.name}</div>
+                    <div style="font-size: 12px; color: #666;">📊 asked:</div>
+                </div>
+            </div>
+            <div style="font-weight: 500; margin-bottom: 15px; color: #222;">
+                ${escapeHtml(poll.question)}
+            </div>
+            <div class="poll-options" style="display: flex; flex-direction: column; gap: 8px;">
+                ${options.map((option, index) => {
+                    const voteCount = voteCounts[index] || 0;
+                    const isSelected = userVote?.option_index === index;
+                    return `
+                        <button
+                            onclick="voteOnPoll('${poll.id}', ${index})"
+                            style="
+                                background: ${isSelected ? '#007bff' : 'white'};
+                                color: ${isSelected ? 'white' : '#333'};
+                                border: 2px solid ${isSelected ? '#007bff' : '#ddd'};
+                                padding: 10px 15px;
+                                border-radius: 8px;
+                                text-align: left;
+                                cursor: pointer;
+                                font-size: 14px;
+                                transition: all 0.2s;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                            "
+                            onmouseover="if (!${isSelected}) this.style.background='#f0f0f0'"
+                            onmouseout="if (!${isSelected}) this.style.background='white'"
+                        >
+                            <span>${isSelected ? '✓ ' : ''}${escapeHtml(option)}</span>
+                            <span style="font-weight: 600;">${voteCount} vote${voteCount !== 1 ? 's' : ''}</span>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+            <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                ${totalVotes} ${totalVotes === 1 ? 'person' : 'people'} voted
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; color: #999;">
+                ${formatTime(message.created_at)}
+            </div>
+        </div>
+    `;
+
+    messagesContainer.appendChild(pollDiv);
+    forceScrollToBottom();
+}
+
+// Vote on a poll
+window.voteOnPoll = async function(pollId, optionIndex) {
+    try {
+        // Upsert vote (update if exists, insert if new)
+        const { error } = await supabase
+            .from('poll_votes')
+            .upsert({
+                poll_id: pollId,
+                voter_id: currentUser.id,
+                option_index: optionIndex
+            }, {
+                onConflict: 'poll_id,voter_id'
+            });
+
+        if (error) throw error;
+
+        // Refresh poll display
+        await refreshPollDisplay(pollId);
+
+        // Broadcast vote change
+        if (currentEvent) {
+            const channel = supabase.channel(`event_${currentEvent.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'poll_updated',
+                payload: { pollId }
+            });
+        }
+
+    } catch (error) {
+        console.error('Error voting on poll:', error);
+        showNotification('Error submitting vote', 'error');
+    }
+}
+
+// Refresh a single poll's display
+async function refreshPollDisplay(pollId) {
+    const pollElement = document.querySelector(`[data-poll-id="${pollId}"]`);
+    if (!pollElement) return;
+
+    // Fetch updated poll data
+    const { data: poll } = await supabase
+        .from('polls')
+        .select('*')
+        .eq('id', pollId)
+        .single();
+
+    const { data: pollMessage } = await supabase
+        .from('event_messages')
+        .select('*')
+        .eq('poll_id', pollId)
+        .single();
+
+    if (!poll || !pollMessage) return;
+
+    // Remove old element
+    pollElement.remove();
+
+    // Re-render with updated data
+    await renderPollMessage(pollMessage, poll);
+}
+
+// Send system message (for planning started, event locked, etc.)
+async function sendSystemMessage(eventId, content) {
+    try {
+        const { data: systemMessage, error } = await supabase
+            .from('event_messages')
+            .insert({
+                event_id: eventId,
+                sender_id: currentUser.id,
+                content: content,
+                message_type: 'system'
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Broadcast system message
+        const channel = supabase.channel(`event_${eventId}`);
+        await channel.send({
+            type: 'broadcast',
+            event: 'new_message',
+            payload: {
+                id: systemMessage.id,
+                sender_id: currentUser.id,
+                content: content,
+                message_type: 'system',
+                created_at: systemMessage.created_at
+            }
+        });
+
+    } catch (error) {
+        console.error('Error sending system message:', error);
+    }
+}
+
+// ========== END POLLING FUNCTIONS ==========
+
+
 // Create new event
 async function createEvent(e) {
     e.preventDefault();
@@ -13253,16 +13951,28 @@ async function openEventChat(eventId) {
         // Set context using helper
         setEventContext(event);
         
-        // Show event-specific buttons in event chat
+        // Show/hide buttons based on event status (planning vs scheduled)
         const generalChatBtn = document.getElementById('open-general-chat-btn');
         const calendarBtn = document.getElementById('add-to-calendar-btn');
         const eventOptionsBtn = document.getElementById('event-options-btn');
         const leaveEventBtn = document.getElementById('leave-event-btn');
-        
+        const lockDetailsBtn = document.getElementById('lock-details-btn');
+
         if (generalChatBtn) generalChatBtn.style.display = 'inline-block';
-        if (calendarBtn) calendarBtn.style.display = 'inline-block';
-        if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
         if (leaveEventBtn) leaveEventBtn.style.display = 'inline-block';
+
+        // Show different buttons based on event status
+        if (event.status === 'planning') {
+            // Planning mode: Show "Lock in Details" button
+            if (lockDetailsBtn) lockDetailsBtn.style.display = 'inline-block';
+            if (calendarBtn) calendarBtn.style.display = 'none';
+            if (eventOptionsBtn) eventOptionsBtn.style.display = 'none';
+        } else {
+            // Scheduled mode: Show calendar and options buttons
+            if (lockDetailsBtn) lockDetailsBtn.style.display = 'none';
+            if (calendarBtn) calendarBtn.style.display = 'inline-block';
+            if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
+        }
 
         // Hide create event button in event chats
         const createEventBtn = document.getElementById('create-event-header-btn');
@@ -13311,30 +14021,51 @@ if (participantCount <= 3) {
         `${shown}, and <a href="#" onclick="event.preventDefault(); alert('Participants:\\n\\n${allNames}');" style="color: white; text-decoration: underline; cursor: pointer;">${remaining} other${remaining > 1 ? 's' : ''}</a>`;
 }
         
-        // Format and display event details
-const eventDate = new Date(event.scheduled_date);
-const dateStr = eventDate.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-});
+        // Format and display event details based on status
+        const eventDetailsDiv = document.getElementById('event-details');
 
-// Format time if available
-let timeStr = '';
-if (event.scheduled_time) {
-    const [hours, minutes] = event.scheduled_time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    timeStr = ` at ${displayHour}:${minutes} ${ampm}`;
-}
+        if (event.status === 'planning') {
+            // Planning mode: Show proposed timeframe and suggested location
+            eventDetailsDiv.style.background = '#fff3cd'; // Yellow background for planning
+            eventDetailsDiv.style.borderColor = '#ffc107';
 
-        document.getElementById('event-date').textContent = `📅 ${dateStr}${timeStr}`;
-        document.getElementById('event-location').textContent = 
-            event.location ? `📍 ${event.location}` : '';
-        document.getElementById('event-notes').textContent = 
-            event.notes ? `📝 ${event.notes}` : '';
+            const timeframeText = event.proposed_timeframe ? `📅 Proposed: ${event.proposed_timeframe}` : '📅 Planning...';
+            const locationText = event.location ? `\n📍 Suggested: ${event.location}` : '';
+
+            document.getElementById('event-date').textContent = `🎳 Planning Mode\n${timeframeText}${locationText}`;
+            document.getElementById('event-location').textContent = '';
+            document.getElementById('event-notes').textContent = event.notes ? `📝 ${event.notes}` : '';
+        } else {
+            // Scheduled mode: Show actual date, time, location
+            eventDetailsDiv.style.background = '#e6f7ff'; // Blue background for scheduled
+            eventDetailsDiv.style.borderColor = '#91d5ff';
+
+            if (event.scheduled_date) {
+                const eventDate = new Date(event.scheduled_date);
+                const dateStr = eventDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+
+                // Format time if available
+                let timeStr = '';
+                if (event.scheduled_time) {
+                    const [hours, minutes] = event.scheduled_time.split(':');
+                    const hour = parseInt(hours);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+                    timeStr = ` at ${displayHour}:${minutes} ${ampm}`;
+                }
+
+                document.getElementById('event-date').textContent = `📅 ${dateStr}${timeStr}`;
+                document.getElementById('event-location').textContent =
+                    event.location ? `📍 ${event.location}` : '';
+                document.getElementById('event-notes').textContent =
+                    event.notes ? `📝 ${event.notes}` : '';
+            }
+        }
         
         // Load messages (with archive support)
 await loadEventMessages(eventId, event.created_at);
@@ -13774,6 +14505,39 @@ function appendMessage(message) {
     const placeholder = messagesContainer.querySelector('p');
     if (placeholder && placeholder.textContent.includes('No messages yet')) {
         messagesContainer.innerHTML = '';
+    }
+
+    // Handle different message types
+    if (message.message_type === 'poll') {
+        // Render poll message - fetch poll data and call renderPollMessage
+        supabase
+            .from('polls')
+            .select('*')
+            .eq('id', message.poll_id)
+            .single()
+            .then(({ data: poll }) => {
+                if (poll) renderPollMessage(message, poll);
+            });
+        return;
+    }
+
+    if (message.message_type === 'system') {
+        // Render system message
+        const systemDiv = document.createElement('div');
+        systemDiv.style.cssText = `
+            text-align: center;
+            margin: 20px 0;
+            padding: 12px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #0369a1;
+            white-space: pre-line;
+        `;
+        systemDiv.textContent = message.content;
+        messagesContainer.appendChild(systemDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        return;
     }
 
     const isOwnMessage = message.sender_id === currentUser.id;
@@ -14462,44 +15226,9 @@ window.sharePhoto = function() {
 let currentMatchNotification = null;
 
 function showMatchNotification(activity, matchId, otherUsers) {
-    currentMatchNotification = matchId;
-
-    // Set activity emoji
-    document.getElementById('match-notification-activity').textContent = activity.emoji + ' ' + activity.name;
-
-    // Set heading and button based on whether others are interested
-    const headingElement = document.getElementById('match-notification-heading');
-    const joinButton = document.getElementById('match-notification-join-btn');
-
-    if (otherUsers && otherUsers.length > 0) {
-        // Show "It's a Match!" for subsequent people
-        headingElement.textContent = "It's a Match!";
-        headingElement.style.display = 'block';
-        joinButton.textContent = '✓ Join Match';
-    } else {
-        // Hide heading for first person
-        headingElement.style.display = 'none';
-        joinButton.textContent = 'View Activity';
-    }
-
-    // Set message based on whether others are interested
-    let messageHTML = '';
-    if (otherUsers && otherUsers.length > 0) {
-        if (otherUsers.length === 1) {
-            messageHTML = `${otherUsers[0].name} is also interested! Start chatting to plan something.`;
-        } else if (otherUsers.length === 2) {
-            messageHTML = `${otherUsers[0].name} and ${otherUsers[1].name} are also interested! Start planning together.`;
-        } else {
-            const hiddenUsers = otherUsers.slice(2);
-            const hiddenNames = hiddenUsers.map(u => u.name).join(', ');
-            messageHTML = `${otherUsers[0].name}, ${otherUsers[1].name}, and <a href="#" onclick="event.preventDefault(); alert('Also interested:\\n\\n${hiddenNames}');" style="color: #667eea; text-decoration: underline; cursor: pointer;">${otherUsers.length - 2} other${otherUsers.length - 2 > 1 ? 's' : ''}</a> are interested! Let's make it happen.`;
-        }
-    } else {
-        messageHTML = `You're the first one interested! Others in your circle will see this and can join.`;
-    }
-
-    document.getElementById('match-notification-text').innerHTML = messageHTML;
-    document.getElementById('match-notification-modal').style.display = 'flex';
+    // Use new swipe action modal instead of old match notification modal
+    const activityName = `${activity.emoji} ${activity.name}`;
+    openSwipeActionModal(matchId, activityName);
 }
 
 window.closeMatchNotification = function() {
@@ -14557,13 +15286,9 @@ window.joinMatchFromNotification = async function() {
 let currentFirstToChooseMatch = null;
 
 function showFirstToChoosePopup(activity, matchId) {
-    currentFirstToChooseMatch = matchId;
-
-    // Set activity emoji and name
-    document.getElementById('first-to-choose-activity').textContent = activity.emoji + ' ' + activity.name;
-
-    // Show the modal
-    document.getElementById('first-to-choose-modal').style.display = 'flex';
+    // Use new swipe action modal instead of old first-to-choose modal
+    const activityName = `${activity.emoji} ${activity.name}`;
+    openSwipeActionModal(matchId, activityName);
 }
 
 window.closeFirstToChooseModal = function() {
@@ -16380,6 +17105,15 @@ document.getElementById('create-event-form').addEventListener('submit', createEv
 
 // Edit event form submission
 document.getElementById('edit-event-form').addEventListener('submit', saveEventEdits);
+
+// Planning event form submission
+document.getElementById('planning-event-form').addEventListener('submit', createPlanningEvent);
+
+// Lock details form submission
+document.getElementById('lock-details-form').addEventListener('submit', lockEventDetails);
+
+// Create poll form submission
+document.getElementById('create-poll-form').addEventListener('submit', submitPoll);
 
 window.openManageActivitiesModal = async function() {
     if (!selectedCircle) return;
