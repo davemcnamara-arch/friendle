@@ -3423,7 +3423,7 @@ body.dark-mode .custom-activity-item {
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentMatchChat = null, currentCircleChat = null, matchMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set();
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set();
 
         // Message Pagination State
         const MESSAGE_PAGE_SIZE = 50;
@@ -8786,32 +8786,8 @@ async function leaveMatchChat(matchId) {
 }
 
 // Join chat as first person
-window.joinMatchChatFirst = async function(matchId) {
-    showLoader('Joining chat...');
-
-    const success = await joinMatchChat(matchId);
-
-    if (success) {
-        hideLoader();
-        showNotification('You\'re in! Others can now see and join.');
-
-        // Send notification to existing participants (non-blocking - fire and forget)
-        sendMatchJoinNotification(matchId).catch(err => {
-            console.error('Error sending match join notification:', err);
-        });
-
-        await loadMatches();
-    } else {
-        hideLoader();
-        showNotification('Error joining chat', 'error');
-    }
-}
-
-// Skip joining for now
-window.skipJoinChat = async function(matchId) {
-    // Just close/refresh - user stays interested but not in chat
-    showNotification('You can join the chat anytime from here');
-}
+// Deprecated: Match chat replaced with event-based planning
+// Functions removed: joinMatchChatFirst, skipJoinChat
 
 // Stay Interested - reset inactivity timer
 window.stayInterested = async function(matchId) {
@@ -8913,167 +8889,13 @@ window.joinMatchChatNormal = async function(matchId) {
 }
 
 // Open threaded chat view
+// Match chat has been replaced with event-based planning
+// This stub exists for backward compatibility with old notifications
 window.openMatchChatThreaded = async function(matchId) {
-    try {
-        console.log('🔄 Opening match chat:', matchId);
-        showLoader('Loading chat...');
-        
-	// Mark match as read
-        await markMatchAsRead(matchId);
-
-        // Clean up ALL previous subscriptions
-        if (matchMessageSubscription) {
-            await supabase.removeChannel(matchMessageSubscription);
-            const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
-            if (index > -1) allActiveSubscriptions.splice(index, 1);
-            matchMessageSubscription = null;
-        }
-        
-        if (eventMessageSubscription) {
-            await supabase.removeChannel(eventMessageSubscription);
-            const index = allActiveSubscriptions.indexOf(eventMessageSubscription);
-            if (index > -1) allActiveSubscriptions.splice(index, 1);
-            eventMessageSubscription = null;
-        }
-        
-        // Find the match in local array first
-        let match = matches.find(m => m.id === matchId);
-
-        // If not found locally, fetch from database (handles notification deep linking)
-        if (!match) {
-            console.log('Match not in local array, fetching from database...');
-            const { data: matchData, error: matchError } = await supabase
-                .from('matches')
-                .select(`
-                    id,
-                    circle_id,
-                    activity_id,
-                    created_at
-                `)
-                .eq('id', matchId)
-                .single();
-
-            if (matchError || !matchData) {
-                hideLoader();
-                console.error('Match not found in database:', matchError);
-                showNotification('Match not found', 'error');
-                return;
-            }
-
-            match = matchData;
-        }
-
-        // Set context using helper
-        setMatchContext(match);
-        
-        // Get activity details
-        let activity = activities.find(a => a.id === match.activity_id);
-        if (!activity) {
-            const { data: activityData } = await supabase
-                .from('activities')
-                .select('*')
-                .eq('id', match.activity_id)
-                .single();
-            activity = activityData;
-        }
-        
-        // Get all chat participants
-        const { data: participants } = await supabase
-            .from('match_participants')
-            .select('profile_id, profiles(id, name, avatar)')
-            .eq('match_id', matchId);
-        
-        // Get all events for this match
-        const { data: allEvents } = await supabase
-            .from('events')
-            .select(`
-                *,
-                event_participants(profile_id, profiles(id, name, avatar))
-            `)
-            .eq('match_id', matchId)
-            .order('scheduled_date', { ascending: true });
-        
-        // Update header
-        document.getElementById('event-activity-name').textContent = 
-            `${activity ? activity.emoji : '🎯'} ${activity ? activity.name : 'Activity'} Chat`;
-        
-        const participantProfiles = participants?.map(p => p.profiles.name) || [];
-const participantCount = participants?.length || 1;
-
-let participantDisplay;
-if (participantCount === 1) {
-    participantDisplay = 'Just you';
-} else if (participantCount <= 3) {
-    // Show all names
-    participantDisplay = participantProfiles.join(', ');
-} else {
-    // Show first 2 and "X others" (clickable)
-    const shown = participantProfiles.slice(0, 2).join(', ');
-    const remaining = participantCount - 2;
-    const allNames = participantProfiles.join('\\n');
-    
-    participantDisplay = `${shown}, and <a href="#" onclick="event.preventDefault(); alert('In chat:\\n\\n${allNames}');" style="color: white; text-decoration: underline; cursor: pointer;">${remaining} other${remaining > 1 ? 's' : ''}</a>`;
-}
-
-document.getElementById('event-participants').innerHTML = 
-    `${participantCount} in chat: ${participantDisplay}`;
-        
-        // Hide event-specific buttons in general chat
-        const generalChatBtn = document.getElementById('open-general-chat-btn');
-        const addToCalendarBtn = document.getElementById('add-to-calendar-btn');
-        const eventOptionsBtn = document.getElementById('event-options-btn');
-        const leaveEventBtn = document.getElementById('leave-event-btn');
-        
-        if (generalChatBtn) generalChatBtn.style.display = 'none';
-        if (addToCalendarBtn) addToCalendarBtn.style.display = 'none';
-        if (eventOptionsBtn) eventOptionsBtn.style.display = 'none';
-        if (leaveEventBtn) leaveEventBtn.style.display = 'none';
-        
-// Show mute button for match chats
-        const muteChatBtn = document.getElementById('mute-chat-btn');
-        if (muteChatBtn) {
-            muteChatBtn.style.display = 'inline-block';
-            updateMuteButton(matchId, null, null);
-        }
-
-        // Show create event button in general match chat
-        const createEventBtn = document.getElementById('create-event-header-btn');
-        if (createEventBtn) {
-            createEventBtn.style.display = 'inline-block';
-        }
-
-        // Hide event details banner in general chat (redundant with event cards)
-        document.getElementById('event-details').style.display = 'none';
-        
-	// Hide add to calendar button (only for event chats)
-        const calendarBtn = document.getElementById('add-to-calendar-btn');
-        if (calendarBtn) {
-            calendarBtn.style.display = 'none';
-        }
-
-        // Render threaded chat UI
-        await renderThreadedChat(matchId, allEvents || []);
-
-        // Set up real-time subscription
-        await setupMatchChatSubscription(matchId);
-
-        hideLoader();
-        showPage('chat');
-
-        // Save match chat context for refresh persistence
-        localStorage.setItem('friendle_current_chat_context', JSON.stringify({
-            type: 'match',
-            id: matchId
-        }));
-
-        // Force scroll to bottom after page is shown (especially for notifications)
-        setTimeout(() => forceScrollToBottom(), 300);
-
-    } catch (error) {
-        hideLoader();
-        console.error('Error opening threaded chat:', error);
-        showNotification('Error loading chat', 'error');
-    }
+    console.log('⚠️ Match chat deprecated - redirecting to matches page');
+    showNotification('Match chat is now event-based. Plan an event to start coordinating!');
+    await loadMatches();
+    showPage('matches');
 }
 
 async function renderThreadedChat(matchId, events) {
@@ -10631,90 +10453,7 @@ async function sendNewMatchNotification(match) {
     }
 }
 
-async function sendMatchJoinNotification(matchId) {
-    try {
-        // Validate matchId
-        if (!matchId) {
-            console.log('⚠️ Cannot send match join notification: matchId is undefined');
-            return;
-        }
-
-        console.log('📢 Sending match join notification for:', matchId);
-
-        // Get match with activity details
-        const { data: match, error: matchError } = await supabase
-            .from('matches')
-            .select('id, activity_id, circle_id, activities(emoji, name)')
-            .eq('id', matchId)
-            .single();
-
-        if (matchError) throw matchError;
-        if (!match) return;
-
-        const activity = match.activities;
-
-        // Get existing participants (exclude current user who just joined)
-        const { data: participants, error: participantsError } = await supabase
-            .from('match_participants')
-            .select('profile_id')
-            .eq('match_id', matchId)
-            .neq('profile_id', currentUser.id);
-
-        if (participantsError) throw participantsError;
-
-        if (!participants || participants.length === 0) {
-            console.log('ℹ️ No existing participants to notify (user is first)');
-            return;
-        }
-
-        const existingParticipantIds = participants.map(p => p.profile_id);
-
-        // Get profiles with OneSignal IDs
-        const { data: profiles, error: profileError } = await supabase
-            .from('profiles')
-            .select('id, name, onesignal_player_id')
-            .in('id', existingParticipantIds)
-            .not('onesignal_player_id', 'is', null);
-
-        if (profileError) throw profileError;
-
-        if (!profiles || profiles.length === 0) {
-            console.log('ℹ️ No participants with notification IDs');
-            return;
-        }
-
-        // Create notification message
-        const message = `${currentUser.name} joined your ${activity.emoji} ${activity.name} match!`;
-
-        console.log('📬 Notifying:', message);
-
-        // Get recipient IDs for the Edge Function
-        const recipientIds = profiles.map(p => p.id);
-
-        // Send notification via Edge Function
-        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
-            body: {
-                senderId: currentUser.id,
-                recipientIds: recipientIds,
-                message: message,
-                activityName: `${activity.emoji} ${activity.name}`,
-                chatType: 'match',
-                chatId: matchId,
-                notificationType: 'match_join'
-            }
-        });
-
-        if (notifError) {
-            console.error('❌ Error sending match join notification:', notifError);
-        } else {
-            console.log('✅ Match join notifications sent successfully:', data);
-        }
-
-    } catch (error) {
-        console.error('❌ Error in sendMatchJoinNotification:', error);
-        // Don't throw - we don't want to block match joining if notifications fail
-    }
-}
+// Removed: sendMatchJoinNotification - match chat deprecated
 
 async function sendEventJoinNotification(event) {
     try {
@@ -10817,33 +10556,41 @@ async function sendEventCreatedNotification(matchId, event) {
 
         const recipientIds = participants.map(p => p.profile_id);
 
-        // Format event date and time
-        let dateTimeStr = 'soon';
-        if (event.scheduled_date) {
-            // Parse the date (format: YYYY-MM-DD from database)
-            const eventDate = new Date(event.scheduled_date);
-            console.log('📅 Parsed eventDate:', eventDate, 'isValid:', !isNaN(eventDate.getTime()));
+        // Format event date and time based on status
+        let dateTimeStr = '';
+        let message = '';
 
-            if (!isNaN(eventDate.getTime())) {
-                // Format date: "Mon, Dec 25"
-                dateTimeStr = eventDate.toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                });
+        if (event.status === 'planning') {
+            // Planning event - show proposed timeframe
+            const timeframe = event.proposed_timeframe || 'when everyone can make it';
+            message = `${currentUser.name} wants to plan ${activity.emoji} ${activity.name} ${timeframe}. Join the chat to coordinate!`;
+        } else {
+            // Scheduled event - show actual date/time
+            dateTimeStr = 'soon';
+            if (event.scheduled_date) {
+                // Parse the date (format: YYYY-MM-DD from database)
+                const eventDate = new Date(event.scheduled_date);
+                console.log('📅 Parsed eventDate:', eventDate, 'isValid:', !isNaN(eventDate.getTime()));
 
-                // Add time if provided (format HH:MM, removing seconds)
-                if (event.scheduled_time) {
-                    // Remove seconds if present (HH:MM:SS -> HH:MM)
-                    const timeStr = event.scheduled_time.substring(0, 5);
-                    dateTimeStr += ` at ${timeStr}`;
+                if (!isNaN(eventDate.getTime())) {
+                    // Format date: "Mon, Dec 25"
+                    dateTimeStr = eventDate.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+
+                    // Add time if provided (format HH:MM, removing seconds)
+                    if (event.scheduled_time) {
+                        // Remove seconds if present (HH:MM:SS -> HH:MM)
+                        const timeStr = event.scheduled_time.substring(0, 5);
+                        dateTimeStr += ` at ${timeStr}`;
+                    }
                 }
             }
+            console.log('📅 Formatted dateTimeStr:', dateTimeStr);
+            message = `${currentUser.name} created a ${activity.emoji} ${activity.name} event on ${dateTimeStr}!`;
         }
-        console.log('📅 Formatted dateTimeStr:', dateTimeStr);
-
-        // Create notification message
-        const message = `${currentUser.name} created a ${activity.emoji} ${activity.name} event on ${dateTimeStr}!`;
 
         console.log('📬 Notifying:', message);
 
@@ -11816,14 +11563,21 @@ const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 console.log('Filtering events:', events.map(e => ({id: e.id, status: e.status, date: e.scheduled_date})));
 
 const upcomingEvents = events.filter(e => {
+    // Include planning events (no date yet)
+    if (e.status === 'planning') {
+        console.log(`Event ${e.id}: status=planning, included in upcoming`);
+        return true;
+    }
+    // Include scheduled events that are today or in the future
     const isScheduled = e.status === 'scheduled';
     const isFuture = new Date(e.scheduled_date) >= today;
     console.log(`Event ${e.id}: status=${e.status}, isScheduled=${isScheduled}, isFuture=${isFuture}`);
     return isScheduled && isFuture;
 });
 
-const pastEvents = events.filter(e => 
-    e.status !== 'scheduled' || new Date(e.scheduled_date) < today
+const pastEvents = events.filter(e =>
+    e.status === 'cancelled' || e.status === 'completed' ||
+    (e.status === 'scheduled' && new Date(e.scheduled_date) < today)
 );
 
 console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
@@ -11835,8 +11589,12 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             return sum + (event.event_participants?.length || 0);
         }, 0);
 
+        // Check if user has any events for this match
+        const userEvents = events.filter(e => e.isUserJoined);
+        const userIsInMatch = match.userInChat; // User is in match_participants
+
         return `
-    <details class="match-card${matchUnreadCount > 0 ? ' unread' : ''}${hasWarning ? ' has-warning' : ''}">
+    <details class="match-card${hasWarning ? ' has-warning' : ''}">
         <summary>
             <div class="match-summary-header">
                 <div class="match-summary-top-line">
@@ -11846,8 +11604,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                 </div>
                 <div class="match-summary-stats">
                     ${hasWarning ? `<span class="match-summary-badge warning">⚠️ Still interested?</span>` : ''}
-                    ${matchUnreadCount > 0 && !hasWarning ? `<span class="match-summary-badge unread" onclick="event.stopPropagation(); openMatchChatThreaded('${match.id}');" style="cursor: pointer;">💬 New message</span>` : ''}
-                    ${match.inChatCount > 0 ? `<span class="match-summary-stat">💬 ${match.inChatCount} in chat</span>` : ''}
+                    ${userIsInMatch && userEvents.length === 0 ? `<span class="match-summary-stat">👀 Watching</span>` : ''}
                     ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
                     ${match.interestedCount > 0 ? `<span class="match-summary-stat">👥 ${match.interestedCount} interested</span>` : ''}
                 </div>
@@ -11859,9 +11616,9 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             <p style="margin: 0; font-size: 14px; line-height: 1.4;">
                 ${interestedCount} ${interestedCount === 1 ? 'person' : 'people'} interested
             </p>
-            ${match.inChatCount > 0 ? `
-                <p style="margin: 4px 0 0 0; color: var(--primary-color); font-size: 13px;">
-                    💬 ${inChatDisplay} in chat
+            ${userIsInMatch && userEvents.length === 0 ? `
+                <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;">
+                    👀 You're watching for events
                 </p>
             ` : ''}
         </div>
@@ -11869,43 +11626,33 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     <span class="circle-tag">
         ${circleName}
     </span>
-    ${isFirst ? `
-        <div class="match-info-box">
-            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 500;">🎉 You're first!</p>
-            <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;">Want to put it out there? Others will see and can join.</p>
-            <button onclick="joinMatchChatFirst('${match.id}')" class="btn" style="font-size: 13px; padding: 8px 16px; margin: 0 0 8px 0; width: 100%;">
-                Join Chat & Coordinate
-            </button>
-            <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; width: 100%; margin: 0; background: #6c757d; opacity: 0.7;">
-                🚫 No Longer Interested
+    ${hasWarning ? `
+        <div class="match-info-box warning" style="margin-bottom: 10px;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 500;">⚠️ Still interested?</p>
+            <p style="margin: 0 0 10px 0; font-size: 12px; line-height: 1.4;">We haven't seen you active in a while. Let us know you're still interested!</p>
+            <button onclick="stayInterested('${match.id}')" class="btn" style="font-size: 13px; padding: 10px 16px; width: 100%; background: #ff4d4f;">
+                👍 Yes, I'm Still Interested
             </button>
         </div>
-    ` : match.userInChat ? `
-        ${hasWarning ? `
-            <div class="match-info-box warning" style="margin-bottom: 10px;">
-                <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 500;">⚠️ Still interested?</p>
-                <p style="margin: 0 0 10px 0; font-size: 12px; line-height: 1.4;">We haven't seen you active in a while. Let us know you're still interested!</p>
-                <button onclick="stayInterested('${match.id}')" class="btn" style="font-size: 13px; padding: 10px 16px; width: 100%; background: #ff4d4f;">
-                    👍 Yes, I'm Still Interested
-                </button>
-            </div>
-        ` : ''}
-        <button onclick="openMatchChatThreaded('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0 0 8px 0;">
-            💬 Open Chat
+    ` : ''}
+    ${userIsInMatch ? `
+        ${userEvents.length === 0 ? `
+            <button onclick="openPlanningEventModal('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0 0 8px 0; background: #4CAF50;">
+                + Plan Event
+            </button>
+        ` : `
+            <button onclick="openPlanningEventModal('${match.id}')" class="btn btn-secondary" style="font-size: 13px; padding: 8px 16px; width: 100%; margin: 0 0 8px 0;">
+                + Plan Another Event
+            </button>
+        `}
+        <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; width: 100%; margin: 0; background: #6c757d; opacity: 0.7;">
+            🚫 No Longer Interested
         </button>
-        <div style="display: flex; gap: 8px; width: 100%;">
-            <button onclick="openCreateEventModal('${match.id}')" class="btn btn-secondary" style="font-size: 13px; padding: 8px 16px; flex: 1; margin: 0;">
-                + Create Event
-            </button>
-            <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; flex: 1; margin: 0; background: #6c757d; opacity: 0.7;">
-                🚫 No Longer Interested
-            </button>
-        </div>
     ` : `
-        <button onclick="joinMatchChatNormal('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0 0 8px 0; background: #4CAF50;">
-            Join Chat
+        <button onclick="(async () => { pendingSwipeMatchId = '${match.id}'; await handleStayInterested(); })();" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0 0 8px 0; background: #4CAF50;">
+            👀 Stay Interested
         </button>
-        <p style="font-size: 11px; color: #666; margin: 0 0 8px 0; text-align: center; line-height: 1.3;">${match.inChatCount} ${match.inChatCount === 1 ? 'person' : 'people'} already chatting</p>
+        <p style="font-size: 11px; color: #666; margin: 0 0 8px 0; text-align: center; line-height: 1.3;">${match.interestedCount} ${match.interestedCount === 1 ? 'person' : 'people'} interested</p>
         <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; width: 100%; margin: 0; background: #6c757d; opacity: 0.7;">
             🚫 No Longer Interested
         </button>
@@ -11917,13 +11664,6 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     <div style="margin-bottom: 15px;">
     <h4 style="margin: 0 0 12px 0; font-size: 15px; color: #666; font-weight: 600;">Upcoming</h4>
         ${upcomingEvents.map(event => {
-            const date = new Date(event.scheduled_date);
-            const dateStr = date.toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                month: 'short', 
-                day: 'numeric'
-            });
-            
             const participantCount = event.event_participants?.length || 0;
             const maxParticipants = event.max_participants;
             const isFull = maxParticipants && participantCount >= maxParticipants;
@@ -11935,39 +11675,77 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                 event.isUserJoined ? 'going' : 'interested'
             ) + capacitySuffix + (isFull && !event.isUserJoined ? ' - full' : '');
 
-            return `
-                <div class="event-item${event.unreadCount > 0 ? ' unread' : (event.isUserJoined ? '' : ' pending')}" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}">
-                    <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
-                        <div style="flex: 1;">
-    <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
-        📅 ${dateStr}
-    </div>
-                            ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                            <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
-                        ${event.isUserJoined ? `
-                            <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
-                                💬 Event Chat
-                            </button>
-                        ` : isFull ? `
-                            <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
-                                Event Full
-                            </button>
-                        ` : `
-                            <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
-                                ✓ Join Event
-                            </button>
-                        `}
-                        ${participantCount === 0 && !event.isUserJoined ? `
-                            <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
-                                🗑️ Delete
-                            </button>
-                        ` : ''}
+            // Handle planning events differently
+            if (event.status === 'planning') {
+                const timeframeText = event.proposed_timeframe || 'TBD';
+                return `
+                    <div class="event-item" style="background: #fff3cd; border-left: 4px solid #ffc107;" data-joined="${event.isUserJoined}">
+                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+                                    🎳 Planning Mode
+                                </div>
+                                <div class="event-meta" style="font-size: 13px;">📅 Proposed: ${timeframeText}</div>
+                                ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 Suggested: ${event.location}</div>` : ''}
+                                <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                            ${event.isUserJoined ? `
+                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #ffc107; color: #000;">
+                                    💬 Open Chat
+                                </button>
+                            ` : `
+                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                                    ✓ Join Planning
+                                </button>
+                            `}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                // Scheduled event
+                const date = new Date(event.scheduled_date);
+                const dateStr = date.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                return `
+                    <div class="event-item${event.unreadCount > 0 ? ' unread' : (event.isUserJoined ? '' : ' pending')}" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}">
+                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+                                    📅 ${dateStr}
+                                </div>
+                                ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
+                                <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                            ${event.isUserJoined ? `
+                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                                    💬 Open Chat
+                                </button>
+                            ` : isFull ? `
+                                <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
+                                    Event Full
+                                </button>
+                            ` : `
+                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                                    ✓ Join Event
+                                </button>
+                            `}
+                            ${participantCount === 0 && !event.isUserJoined ? `
+                                <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                                    🗑️ Delete
+                                </button>
+                            ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         }).join('')}
     </div>
 ` : `
@@ -14149,6 +13927,10 @@ eventMessageSubscription = supabase
                 updateReadCountDisplay(messageId, 'event', message.sender_id);
             }
         }
+    })
+    .on('broadcast', { event: 'poll_updated' }, (payload) => {
+        console.log('📊 Poll updated:', payload.payload.pollId);
+        refreshPollDisplay(payload.payload.pollId);
     })
     .subscribe((status) => {
         console.log('Event chat subscription status:', status);
