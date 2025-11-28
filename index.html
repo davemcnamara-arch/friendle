@@ -7924,26 +7924,19 @@ async function animateSwipeRight(card, activity) {
         console.log('Calling loadMatches...');
         await loadMatches();
 
-        setTimeout(() => {
-            currentCardIndex++;
-            showNextCard();
-        }, 300);
-
+        // Don't advance to next card - wait for user to choose Plan Event or Stay Interested
         return; // Exit early since we already handled everything
     }
 
     console.log('Calling checkForMatches...');
     // Check for new matches and send notifications
     await checkForMatches();
-    
+
     console.log('Calling loadMatches...');
     // Reload matches to see any changes
     await loadMatches();
-    
-    setTimeout(() => {
-        currentCardIndex++;
-        showNextCard();
-    }, 300);
+
+    // Don't advance to next card - wait for user to choose Plan Event or Stay Interested
 }
 
 function animateSwipeLeft(card, activity) {
@@ -12920,6 +12913,12 @@ async function handlePlanEvent() {
 
     // Open planning event modal
     openPlanningEventModal(pendingSwipeMatchId);
+
+    // Advance to next card after user made their choice
+    setTimeout(() => {
+        currentCardIndex++;
+        showNextCard();
+    }, 300);
 }
 
 async function handleStayInterested() {
@@ -12936,6 +12935,12 @@ async function handleStayInterested() {
     } else {
         showNotification('Error joining match', 'error');
     }
+
+    // Advance to next card after user made their choice
+    setTimeout(() => {
+        currentCardIndex++;
+        showNextCard();
+    }, 300);
 }
 
 // Planning Event Creation Modal
