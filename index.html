@@ -12959,12 +12959,14 @@ function toggleLockDetailsFields() {
     const submitBtn = document.getElementById('planning-submit-btn');
     const locationInput = document.getElementById('planning-location');
     const dateInput = document.getElementById('planning-lock-date');
+    const timeframeInput = document.getElementById('planning-timeframe');
 
     if (checkbox.checked) {
         fieldsDiv.style.display = 'block';
         submitBtn.textContent = 'Create Event';
         locationInput.required = true;
         dateInput.required = true;
+        timeframeInput.required = false; // Timeframe not needed when locking with specific date
 
         // Set min date to today
         const today = new Date().toISOString().slice(0, 10);
@@ -12974,6 +12976,7 @@ function toggleLockDetailsFields() {
         submitBtn.textContent = 'Start Planning';
         locationInput.required = false;
         dateInput.required = false;
+        timeframeInput.required = true; // Timeframe required for planning mode
     }
 }
 
