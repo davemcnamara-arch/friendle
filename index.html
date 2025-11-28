@@ -12784,14 +12784,17 @@ function closeSwipeActionModal() {
 async function handlePlanEvent() {
     if (!pendingSwipeMatchId) return;
 
+    // Save matchId before closing modal (closeSwipeActionModal sets pendingSwipeMatchId to null)
+    const matchId = pendingSwipeMatchId;
+
     // Add user to match_participants
-    await joinMatchChat(pendingSwipeMatchId);
+    await joinMatchChat(matchId);
 
     // Close swipe modal
     closeSwipeActionModal();
 
     // Open planning event modal
-    openPlanningEventModal(pendingSwipeMatchId);
+    openPlanningEventModal(matchId);
 
     // Advance to next card after user made their choice
     setTimeout(() => {
