@@ -4911,8 +4911,8 @@ function showPWAPrompt(forceShow = false) {
             <div class="pwa-banner-content">
                 <div class="pwa-banner-icon">📱</div>
                 <div class="pwa-banner-text">
-                    <div class="pwa-banner-title">Install Friendle</div>
-                    <div class="pwa-banner-subtitle">Quick access from your home screen</div>
+                    <div class="pwa-banner-title">Want to add Friendle as an app?</div>
+                    <div class="pwa-banner-subtitle">Add to home screen for quick access. Note: You'll need to log in again.</div>
                 </div>
             </div>
             <div class="pwa-banner-buttons">
@@ -4950,9 +4950,12 @@ function showIOSInstallInstructions() {
     const modalHTML = `
         <div class="modal-overlay" id="pwa-ios-modal" style="display: flex;">
             <div class="modal-content" style="max-width: 400px;">
-                <h3 style="margin-top: 0; color: var(--primary-color);">📱 Install Friendle</h3>
+                <h3 style="margin-top: 0; color: var(--primary-color);">📱 Want to add Friendle as an app?</h3>
                 <p style="line-height: 1.6; color: var(--text-secondary); margin: 15px 0;">
                     Add Friendle to your home screen for the best experience!
+                </p>
+                <p style="line-height: 1.6; color: var(--text-secondary); margin: 15px 0; font-size: 14px; opacity: 0.8;">
+                    <strong>Note:</strong> You'll need to log in again after installing.
                 </p>
                 <div class="pwa-ios-instructions">
                     <div class="pwa-ios-step">
