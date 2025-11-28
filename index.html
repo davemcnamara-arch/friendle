@@ -3423,7 +3423,7 @@ body.dark-mode .custom-activity-item {
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set();
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, matchMessageSubscription = null, currentMatchChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set();
 
         // Message Pagination State
         const MESSAGE_PAGE_SIZE = 50;
@@ -8874,17 +8874,11 @@ window.joinMatchChatNormal = async function(matchId) {
 
     if (success) {
         hideLoader();
-        showNotification('Joined chat!');
-
-        // Send notification to existing participants (non-blocking - fire and forget)
-        sendMatchJoinNotification(matchId).catch(err => {
-            console.error('Error sending match join notification:', err);
-        });
-
+        showNotification('Joined match!');
         await loadMatches();
     } else {
         hideLoader();
-        showNotification('Error joining chat', 'error');
+        showNotification('Error joining match', 'error');
     }
 }
 
@@ -9569,14 +9563,6 @@ window.openCircleChat = async function(circleId) {
         // Mark circle as read
         await markCircleAsRead(circleId);
 
-        // Clean up any existing subscriptions
-        if (matchMessageSubscription) {
-            await supabase.removeChannel(matchMessageSubscription);
-            const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
-            if (index > -1) allActiveSubscriptions.splice(index, 1);
-            matchMessageSubscription = null;
-        }
-
         // Set circle chat context
         setCircleChatContext(circle);
 
@@ -9905,13 +9891,6 @@ window.joinEventFromChat = async function(eventId, matchId) {
         // Auto-join general chat if not already in it (and notify others if this is a new join)
         const wasAlreadyInChat = await isUserInMatchChat(matchId);
         await joinMatchChat(matchId);
-
-        if (!wasAlreadyInChat) {
-            // User just joined the match chat, notify existing participants (non-blocking - fire and forget)
-            sendMatchJoinNotification(matchId).catch(err => {
-                console.error('Error sending match join notification:', err);
-            });
-        }
 
         // Get event details for notification
         const { data: event, error: eventError } = await supabase
@@ -11834,11 +11813,6 @@ window.joinMatch = async function(matchId) {
         if (error) throw error;
 
         showNotification('Joined match! You can now chat and schedule events.');
-
-        // Send notification to existing participants (non-blocking - fire and forget)
-        sendMatchJoinNotification(matchId).catch(err => {
-            console.error('Error sending match join notification:', err);
-        });
 
         // Refresh matches to update UI
         await loadMatches();
@@ -15040,11 +15014,6 @@ window.joinMatchFromNotification = async function() {
             if (error.code !== '23505') {
                 throw error;
             }
-        }
-
-        // Send notification to existing participants (only if not a duplicate join)
-        if (!error || error.code !== '23505') {
-            await sendMatchJoinNotification(currentMatchNotification);
         }
 
         closeMatchNotification();
