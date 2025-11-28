@@ -6944,14 +6944,10 @@ async function deleteCircle(circleId) {
         .from('match_participants')
         .delete()
         .in('match_id', matchIds);
-      
-      // 4. Delete match_messages
-      await supabase
-        .from('match_messages')
-        .delete()
-        .in('match_id', matchIds);
+
+      // Note: match_messages table has been removed (transitioned to event-based planning)
     }
-    
+
     // 5. Delete events and related data
     const { data: circleEvents } = await supabase
       .from('events')
@@ -11343,20 +11339,7 @@ async function loadMatches() {
         (allMatchParticipations || []).map(p => [p.match_id, p])
     );
 
-    // Fetch all latest messages for matches at once
-    const { data: allLatestMatchMessages } = await supabase
-        .from('match_messages')
-        .select('match_id, created_at, sender_id')
-        .in('match_id', matchIds)
-        .order('created_at', { ascending: false });
-
-    // Group messages by match_id and keep only the latest
-    const latestMatchMessageMap = new Map();
-    (allLatestMatchMessages || []).forEach(msg => {
-        if (!latestMatchMessageMap.has(msg.match_id)) {
-            latestMatchMessageMap.set(msg.match_id, msg);
-        }
-    });
+    // Note: Match chat has been removed. No longer fetching match_messages.
 
     let matchesWithEvents = await Promise.all(
     matches.map(async (match) => {
@@ -11377,19 +11360,8 @@ async function loadMatches() {
             return { match, events: [], matchUnreadCount: 0 };
         }
 
-        // Get match participation from map (already fetched)
-        const matchParticipation = matchParticipationMap.get(match.id);
-
-        // Calculate unread count using cached data
+        // Note: Match chat has been removed. No unread count for matches.
         let matchUnreadCount = 0;
-        if (matchParticipation?.last_read_at) {
-            const latestMessage = latestMatchMessageMap.get(match.id);
-            if (latestMessage &&
-                new Date(latestMessage.created_at) > new Date(matchParticipation.last_read_at) &&
-                latestMessage.sender_id !== currentUser.id) {
-                matchUnreadCount = 1;
-            }
-        }
 
         // Get all event IDs for batch fetching
         const eventIds = (allEvents || []).map(e => e.id);
@@ -11988,43 +11960,6 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     created_at: data.created_at
                 }
             });
-            
-        } else if (context.type === 'match') {
-            // MATCH CHAT
-            const { data, error } = await supabase
-                .from('match_messages')
-                .insert({
-                    match_id: context.id,
-                    sender_id: currentUser.id,
-                    content: messageContent
-                })
-                .select(`*, sender:profiles(id, name, avatar)`)
-                .single();
-
-            if (error) throw error;
-
-            appendMessage(data);
-
-            // Update last_interaction_at for inactivity tracking
-            await supabase
-                .from('match_participants')
-                .update({ last_interaction_at: new Date().toISOString() })
-                .eq('match_id', context.id)
-                .eq('profile_id', currentUser.id);
-
-            const channel = supabase.channel(`match_chat_${context.id}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'new_general_message',
-                payload: {
-                    id: data.id,
-                    sender_id: currentUser.id,
-                    sender_name: currentUser.name,
-                    sender_avatar: currentUser.avatar,
-                    content: data.content,
-                    created_at: data.created_at
-                }
-            });
 
         } else if (context.type === 'circle') {
             // CIRCLE CHAT
@@ -12083,21 +12018,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
                 // Get activity name
                 const activity = activities.find(a => a.id === currentEvent?.activity_id);
                 activityName = activity ? `${activity.emoji} ${activity.name}` : 'Event';
-                
-            } else if (context.type === 'match') {
-                // Get match participants (excluding sender)
-                const { data: participants } = await supabase
-                    .from('match_participants')
-                    .select('profile_id')
-                    .eq('match_id', context.id)
-                    .neq('profile_id', currentUser.id);
 
-                recipientIds = participants?.map(p => p.profile_id) || [];
-
-                // Get activity name
-                const match = matches.find(m => m.id === context.id);
-                const activity = match?.activity || activities.find(a => a.id === match?.activity_id);
-                activityName = activity ? `${activity.emoji} ${activity.name}` : 'Chat';
             } else if (context.type === 'circle') {
                 // Get circle members (excluding sender)
                 const { data: members } = await supabase
@@ -12122,9 +12043,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     .select('profile_id')
                     .in('profile_id', recipientIds);
 
-                if (context.type === 'match') {
-                    muteQuery = muteQuery.eq('match_id', context.id);
-                } else if (context.type === 'event') {
+                if (context.type === 'event') {
                     muteQuery = muteQuery.eq('event_id', context.id);
                 } else if (context.type === 'circle') {
                     muteQuery = muteQuery.eq('circle_id', context.id);
@@ -12260,24 +12179,6 @@ window.editEventMessage = async function(msgId, currentContent) {
 
             await loadEventMessages(context.id, context.data.created_at, true, scrollPos);
 
-        } else if (context.type === 'match') {
-            const { error } = await supabase
-                .from('match_messages')
-                .update({ content: newContent.trim() })
-                .eq('id', msgId)
-                .eq('sender_id', currentUser.id);
-
-            if (error) throw error;
-
-            const channel = supabase.channel(`match_chat_${context.id}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'message_edited',
-                payload: { id: msgId, content: newContent.trim() }
-            });
-
-            await loadMatchMessages(context.id, true, scrollPos);
-
         } else if (context.type === 'circle') {
             const { error } = await supabase
                 .from('circle_messages')
@@ -12341,28 +12242,6 @@ window.deleteEventMessage = async function(msgId) {
 
             // Stay in event chat - just reload the event messages
             await loadEventMessages(context.id, context.data.created_at, true, scrollPos);
-
-        } else if (context.type === 'match') {
-            const { error } = await supabase
-                .from('match_messages')
-                .update({
-                    is_deleted: true,
-                    deleted_at: new Date().toISOString()
-                })
-                .eq('id', msgId)
-                .eq('sender_id', currentUser.id);
-
-            if (error) throw error;
-
-            const channel = supabase.channel(`match_chat_${context.id}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'message_deleted',
-                payload: { id: msgId }
-            });
-
-            // Reload the general chat messages (not the full threaded view)
-            await loadAndDisplayGeneralMessages(context.id, true, scrollPos);
 
         } else if (context.type === 'circle') {
             const { error } = await supabase
@@ -14909,36 +14788,7 @@ window.sharePhoto = function() {
                         created_at: messageData.created_at
                     }
                 });
-                
-            } else if (context.type === 'match') {
-                // MATCH CHAT
-                const { data: messageData, error: messageError } = await supabase
-                    .from('match_messages')
-                    .insert({
-                        match_id: context.id,
-                        sender_id: currentUser.id,
-                        content: `<img src="${photoUrl}" style="max-width: 100%; max-height: 300px; width: auto; height: auto; display: block; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
-                    })
-                    .select(`*, sender:profiles(id, name, avatar)`)
-                    .single();
 
-                if (messageError) throw messageError;
-
-                appendMessage(messageData);
-
-                const channel = supabase.channel(`match_chat_${context.id}`);
-                await channel.send({
-                    type: 'broadcast',
-                    event: 'new_message',
-                    payload: {
-                        id: messageData.id,
-                        sender_id: currentUser.id,
-                        sender_name: currentUser.name,
-                        sender_avatar: currentUser.avatar,
-                        content: messageData.content,
-                        created_at: messageData.created_at
-                    }
-                });
             } else if (context.type === 'circle') {
                 // CIRCLE CHAT
                 const { data: messageData, error: messageError } = await supabase
@@ -15202,36 +15052,7 @@ async function checkLocationPermission() {
                             created_at: data.created_at
                         }
                     });
-                    
-                } else if (context.type === 'match') {
-                    // MATCH CHAT
-                    const { data, error } = await supabase
-                        .from('match_messages')
-                        .insert({
-                            match_id: context.id,
-                            sender_id: currentUser.id,
-                            content: `📍 <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e90ff; text-decoration: underline; font-weight: 500;">View Location on Map</a>`
-                        })
-                        .select(`*, sender:profiles(id, name, avatar)`)
-                        .single();
 
-                    if (error) throw error;
-
-                    appendMessage(data);
-
-                    const channel = supabase.channel(`match_chat_${context.id}`);
-                    await channel.send({
-                        type: 'broadcast',
-                        event: 'new_general_message',
-                        payload: {
-                            id: data.id,
-                            sender_id: currentUser.id,
-                            sender_name: currentUser.name,
-                            sender_avatar: currentUser.avatar,
-                            content: data.content,
-                            created_at: data.created_at
-                        }
-                    });
                 } else if (context.type === 'circle') {
                     // CIRCLE CHAT
                     const { data, error } = await supabase
@@ -15459,36 +15280,7 @@ window.findNearbyPlaces = async function() {
                 created_at: data.created_at
             }
         });
-        
-    } else if (context.type === 'match') {
-        // MATCH CHAT
-        const { data, error } = await supabase
-            .from('match_messages')
-            .insert({
-                match_id: context.id,
-                sender_id: currentUser.id,
-                content: `🔍 <a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline; font-weight: 500;">Find nearby ${activityName} spots</a>`
-            })
-            .select(`*, sender:profiles(id, name, avatar)`)
-            .single();
 
-        if (error) throw error;
-
-        appendMessage(data);
-
-        const channel = supabase.channel(`match_chat_${context.id}`);
-        await channel.send({
-            type: 'broadcast',
-            event: 'new_general_message',
-            payload: {
-                id: data.id,
-                sender_id: currentUser.id,
-                sender_name: currentUser.name,
-                sender_avatar: currentUser.avatar,
-                content: data.content,
-                created_at: data.created_at
-            }
-        });
     } else if (context.type === 'circle') {
         // CIRCLE CHAT
         const { data, error } = await supabase
