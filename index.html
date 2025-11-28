@@ -3423,7 +3423,7 @@ body.dark-mode .custom-activity-item {
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, matchMessageSubscription = null, currentMatchChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set();
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, matchMessageSubscription = null, currentMatchChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set(), highlightedEventId = null;
 
         // Message Pagination State
         const MESSAGE_PAGE_SIZE = 50;
@@ -11647,8 +11647,10 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             // Handle planning events differently
             if (event.status === 'planning') {
                 const timeframeText = event.proposed_timeframe || 'TBD';
+                const isHighlighted = highlightedEventId === event.id;
+                const bgColor = isHighlighted ? '#ffeb3b' : '#fff3cd';
                 return `
-                    <div class="event-item" style="background: #fff3cd; border-left: 4px solid #ffc107;" data-joined="${event.isUserJoined}">
+                    <div class="event-item" style="background: ${bgColor}; border-left: 4px solid #ffc107;" data-joined="${event.isUserJoined}">
                         <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
                             <div style="flex: 1;">
                                 <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
@@ -11680,9 +11682,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                     month: 'short',
                     day: 'numeric'
                 });
+                const isHighlighted = highlightedEventId === event.id;
+                const highlightStyle = isHighlighted ? ' style="background: #ffeb3b !important;"' : '';
 
                 return `
-                    <div class="event-item${event.unreadCount > 0 ? ' unread' : (event.isUserJoined ? '' : ' pending')}" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}">
+                    <div class="event-item${event.unreadCount > 0 ? ' unread' : (event.isUserJoined ? '' : ' pending')}" data-unread="${event.unreadCount > 0}" data-joined="${event.isUserJoined}"${highlightStyle}>
                         <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
                             <div style="flex: 1;">
                                 <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
@@ -11765,10 +11769,18 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     
     document.querySelectorAll('.event-item').forEach(item => {
         item.addEventListener('mouseenter', function() {
+            // Don't change background on hover if this is the highlighted event
+            if (this.style.background && this.style.background.includes('rgb(255, 235, 59)')) {
+                return; // Keep the yellow highlight
+            }
             const isDarkMode = document.body.classList.contains('dark-mode');
             this.style.background = isDarkMode ? '#2a2a2e' : '#e8e8e8';
         });
         item.addEventListener('mouseleave', function() {
+            // Don't change background on hover out if this is the highlighted event
+            if (this.style.background && this.style.background.includes('rgb(255, 235, 59)')) {
+                return; // Keep the yellow highlight
+            }
             const isDarkMode = document.body.classList.contains('dark-mode');
             if (this.style.opacity === '0.7') {
                 // Past events
@@ -11785,6 +11797,47 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             }
         });
     });
+
+    // If there's a highlighted event, expand the match and scroll to it
+    if (highlightedEventId) {
+        setTimeout(() => {
+            // Find all event items and locate the highlighted one
+            const allEventItems = document.querySelectorAll('.event-item');
+            let highlightedElement = null;
+
+            allEventItems.forEach(item => {
+                // Check if any button within this event item has the highlighted event ID
+                const openChatBtn = item.querySelector(`button[onclick*="openEventChat('${highlightedEventId}')"]`);
+                const joinEventBtn = item.querySelector(`button[onclick*="joinEvent('${highlightedEventId}')"]`);
+
+                if (openChatBtn || joinEventBtn) {
+                    highlightedElement = item;
+                }
+            });
+
+            if (highlightedElement) {
+                // Find the parent match card (details element)
+                const matchCard = highlightedElement.closest('.match-card');
+                if (matchCard) {
+                    // Expand the match card
+                    matchCard.open = true;
+
+                    // Scroll to the highlighted event
+                    setTimeout(() => {
+                        highlightedElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
+                    }, 100);
+                }
+            }
+
+            // Clear the highlighted event ID after a delay
+            setTimeout(() => {
+                highlightedEventId = null;
+            }, 5000); // Clear after 5 seconds
+        }, 200); // Small delay to ensure DOM is ready
+    }
 }
 
 window.joinMatch = async function(matchId) {
@@ -13618,6 +13671,8 @@ async function openEventChat(eventId) {
 
             if (matchParticipant) {
                 // User is watching the match but hasn't joined this event
+                // Store event ID to highlight it on the matches page
+                highlightedEventId = eventId;
                 showNotification('Join the event from the Matches page to view the chat', 'info');
                 showPage('matches');
                 return;
