@@ -7590,9 +7590,12 @@ window.handleCircleChange = async function(shouldScroll = true) {
     }
     
     hideLoader();
-    
+
     if (shouldScroll) {
-        document.getElementById('activity-search').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const searchElement = document.getElementById('activity-search');
+        if (searchElement) {
+            searchElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 }
 
