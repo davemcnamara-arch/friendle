@@ -3019,10 +3019,10 @@ body.dark-mode .custom-activity-item {
         <span class="close-modal-btn" onclick="closeEventOptionsModal()">×</span>
         <div class="modal-header">Event Options</div>
         
-        <button onclick="editCurrentEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
+        <button id="event-edit-btn" onclick="editCurrentEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
             ✏️ Edit Event Details
         </button>
-        <button onclick="cancelEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
+        <button id="event-cancel-btn" onclick="cancelEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
             ❌ Cancel Event
         </button>
         <button onclick="deleteEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0; background: #dc3545; color: white;">
@@ -13627,10 +13627,10 @@ async function openEventChat(eventId) {
 
         // Show different buttons based on event status
         if (event.status === 'planning') {
-            // Planning mode: Show "Lock in Details" button
+            // Planning mode: Show "Lock in Details" button and options
             if (lockDetailsBtn) lockDetailsBtn.style.display = 'inline-block';
             if (calendarBtn) calendarBtn.style.display = 'none';
-            if (eventOptionsBtn) eventOptionsBtn.style.display = 'none';
+            if (eventOptionsBtn) eventOptionsBtn.style.display = 'inline-block';
         } else {
             // Scheduled mode: Show calendar and options buttons
             if (lockDetailsBtn) lockDetailsBtn.style.display = 'none';
@@ -14393,6 +14393,21 @@ async function sendEventMessage(e) {
 // Event options functions
 function openEventOptionsModal() {
     const modal = document.getElementById('event-options-modal');
+    const editBtn = document.getElementById('event-edit-btn');
+    const cancelBtn = document.getElementById('event-cancel-btn');
+
+    // Hide edit and cancel buttons in planning mode
+    // Planning events should only be deleted (removed) or locked (finalized)
+    if (currentEvent) {
+        if (currentEvent.status === 'planning') {
+            if (editBtn) editBtn.style.display = 'none';
+            if (cancelBtn) cancelBtn.style.display = 'none';
+        } else {
+            if (editBtn) editBtn.style.display = 'block';
+            if (cancelBtn) cancelBtn.style.display = 'block';
+        }
+    }
+
     if (modal) {
         modal.style.display = 'flex';
     } else {
