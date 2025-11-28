@@ -4276,6 +4276,12 @@ async function processInviteCode() {
 
         InviteCodeStorage.clear();
 
+        // Show PWA install prompt after successful invite join
+        // Brief delay to avoid interrupting the success moment
+        setTimeout(() => {
+            showPWAPrompt();
+        }, 500);
+
     } catch (error) {
         console.error('Error processing invite:', error);
         showNotification('Error joining circle', 'error');
@@ -16377,10 +16383,16 @@ async function showOnboarding() {
     showPage('onboarding');
 
     // Show PWA install prompt on sign-in page to reduce friction
-    // Users will install the app first, then sign in once (instead of twice)
-    setTimeout(() => {
-        showPWAPrompt(true);
-    }, 1000);
+    // UNLESS there's a pending invite code - in that case, wait until after they join
+    // This prevents localStorage issues on iOS where PWA has separate storage from Safari
+    const hasPendingInvite = InviteCodeStorage.get();
+    if (!hasPendingInvite) {
+        setTimeout(() => {
+            showPWAPrompt(true);
+        }, 1000);
+    } else {
+        console.log('⏸️ Skipping PWA prompt due to pending invite - will show after circle join');
+    }
 }
 
 // Global error handlers - catch unexpected errors
@@ -16594,6 +16606,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // Clear invite code
           InviteCodeStorage.clear();
+
+          // Show PWA install prompt after successful payment and join
+          setTimeout(() => {
+            showPWAPrompt();
+          }, 500);
 
         } catch (error) {
           hideLoader();
