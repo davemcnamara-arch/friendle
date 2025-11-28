@@ -3126,7 +3126,29 @@ body.dark-mode .custom-activity-item {
                 <textarea id="planning-notes" rows="3" placeholder="Any thoughts on timing, location, etc..."></textarea>
             </div>
 
-            <button type="submit" class="btn">Start Planning</button>
+            <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="lock-details-now" onchange="toggleLockDetailsFields()" style="margin-right: 10px;">
+                    <span>Lock in details now</span>
+                </label>
+            </div>
+
+            <div id="lock-details-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="planning-lock-date">Date *</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="planning-lock-date" style="flex: 1;">
+                        <input type="time" id="planning-lock-time" placeholder="Time (optional)" style="flex: 1;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="planning-lock-max-participants">Max Attendees</label>
+                    <input type="number" id="planning-lock-max-participants" min="1" placeholder="Unlimited">
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="planning-submit-btn">Start Planning</button>
         </form>
     </div>
 </div>
@@ -12868,6 +12890,34 @@ function openPlanningEventModal(matchId) {
 
 function closePlanningEventModal() {
     document.getElementById('planning-event-modal').style.display = 'none';
+    // Reset the lock details checkbox and fields
+    document.getElementById('lock-details-now').checked = false;
+    document.getElementById('lock-details-fields').style.display = 'none';
+    document.getElementById('planning-submit-btn').textContent = 'Start Planning';
+}
+
+function toggleLockDetailsFields() {
+    const checkbox = document.getElementById('lock-details-now');
+    const fieldsDiv = document.getElementById('lock-details-fields');
+    const submitBtn = document.getElementById('planning-submit-btn');
+    const locationInput = document.getElementById('planning-location');
+    const dateInput = document.getElementById('planning-lock-date');
+
+    if (checkbox.checked) {
+        fieldsDiv.style.display = 'block';
+        submitBtn.textContent = 'Create Event';
+        locationInput.required = true;
+        dateInput.required = true;
+
+        // Set min date to today
+        const today = new Date().toISOString().slice(0, 10);
+        dateInput.min = today;
+    } else {
+        fieldsDiv.style.display = 'none';
+        submitBtn.textContent = 'Start Planning';
+        locationInput.required = false;
+        dateInput.required = false;
+    }
 }
 
 // Lock in Details Modal
@@ -12943,41 +12993,57 @@ function addPollOption() {
 
 // ========== PLANNING EVENT FUNCTIONS ==========
 
-// Create event in planning mode
+// Create event in planning mode (or scheduled if details locked in)
 async function createPlanningEvent(e) {
     e.preventDefault();
-    console.log('🔵 CREATE PLANNING EVENT: Starting...');
+
+    const lockDetailsNow = document.getElementById('lock-details-now').checked;
+    console.log(`🔵 CREATE EVENT: Starting... (${lockDetailsNow ? 'SCHEDULED' : 'PLANNING'} mode)`);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.innerHTML;
 
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="btn-spinner"></span>Starting...';
+    submitBtn.innerHTML = `<span class="btn-spinner"></span>${lockDetailsNow ? 'Creating...' : 'Starting...'}`;
 
     const matchId = document.getElementById('planning-event-match-id').value;
     const match = matches.find(m => m.id === matchId);
 
     try {
+        // Prepare event data based on mode
+        const eventData = {
+            match_id: matchId,
+            activity_id: match.activity_id,
+            circle_id: match.circle_id,
+            location: document.getElementById('planning-location').value || null,
+            notes: document.getElementById('planning-notes').value || null,
+            proposed_timeframe: document.getElementById('planning-timeframe').value,
+            created_by: currentUser.id
+        };
+
+        if (lockDetailsNow) {
+            // Scheduled mode - lock in details immediately
+            eventData.status = 'scheduled';
+            eventData.scheduled_date = document.getElementById('planning-lock-date').value;
+            eventData.scheduled_time = document.getElementById('planning-lock-time').value || null;
+            const maxParticipantsInput = document.getElementById('planning-lock-max-participants').value;
+            eventData.max_participants = maxParticipantsInput ? parseInt(maxParticipantsInput, 10) : null;
+        } else {
+            // Planning mode
+            eventData.status = 'planning';
+            eventData.scheduled_date = null;
+            eventData.scheduled_time = null;
+        }
+
         const { data: newEvent, error: eventError } = await supabase
             .from('events')
-            .insert({
-                match_id: matchId,
-                activity_id: match.activity_id,
-                circle_id: match.circle_id,
-                scheduled_date: null, // NULL in planning mode
-                scheduled_time: null,
-                location: document.getElementById('planning-location').value || null,
-                notes: document.getElementById('planning-notes').value || null,
-                proposed_timeframe: document.getElementById('planning-timeframe').value,
-                created_by: currentUser.id,
-                status: 'planning' // Planning mode status
-            })
+            .insert(eventData)
             .select()
             .single();
 
         if (eventError) throw eventError;
 
-        console.log('✓ Planning event created:', newEvent);
+        console.log(`✓ Event created (${newEvent.status}):`, newEvent);
 
         // Add creator as first participant
         const { error: participantError } = await supabase
@@ -13007,17 +13073,41 @@ async function createPlanningEvent(e) {
         // Open event chat immediately
         await openEventChat(newEvent.id);
 
-        // Post system message about planning started
+        // Post appropriate system message
         const activity = activities.find(a => a.id === match.activity_id);
         const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
-        const locationText = newEvent.location ? `\n📍 Suggested: ${newEvent.location}` : '';
+        const locationText = newEvent.location ? `\n📍 ${lockDetailsNow ? 'Location' : 'Suggested'}: ${newEvent.location}` : '';
 
-        const systemMessage = `🤖 ${currentUser.name} started planning ${activityName}\n📅 Thinking: ${newEvent.proposed_timeframe}${locationText}\n\nChat below to finalize details!`;
+        let systemMessage;
+        if (lockDetailsNow) {
+            // Event is scheduled - format date and time
+            let dateTimeStr = '';
+            if (newEvent.scheduled_date) {
+                const eventDate = new Date(newEvent.scheduled_date);
+                dateTimeStr = eventDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                if (newEvent.scheduled_time) {
+                    const [hours, minutes] = newEvent.scheduled_time.split(':');
+                    const hour = parseInt(hours);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+                    dateTimeStr += `, ${displayHour}:${minutes} ${ampm}`;
+                }
+            }
+            systemMessage = `🤖 ${currentUser.name} created ${activityName}\n📅 ${dateTimeStr}${locationText}\n\nEvent is locked in!`;
+        } else {
+            // Event is in planning mode
+            systemMessage = `🤖 ${currentUser.name} started planning ${activityName}\n📅 Thinking: ${newEvent.proposed_timeframe}${locationText}\n\nChat below to finalize details!`;
+        }
 
         await sendSystemMessage(newEvent.id, systemMessage);
 
     } catch (error) {
-        console.error('Error creating planning event:', error);
+        console.error('Error creating event:', error);
         showNotification('Error creating event', 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
