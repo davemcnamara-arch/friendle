@@ -13604,12 +13604,28 @@ async function openEventChat(eventId) {
             .single();
         
         if (eventError) throw eventError;
-        
-// Check if user has joined this event
+
+        // Check if user has joined this event
         const isUserInEvent = event.event_participants?.some(p => p.profile_id === currentUser.id);
         if (!isUserInEvent) {
-            showNotification('Please join the event first', 'error');
-            return;
+            // User hasn't joined the event. Check if they're watching the match
+            const { data: matchParticipant } = await supabase
+                .from('match_participants')
+                .select('id')
+                .eq('match_id', event.match_id)
+                .eq('profile_id', currentUser.id)
+                .maybeSingle();
+
+            if (matchParticipant) {
+                // User is watching the match but hasn't joined this event
+                showNotification('Join the event from the Matches page to view the chat', 'info');
+                showPage('matches');
+                return;
+            } else {
+                // User is not part of this match at all
+                showNotification('Please join the event first', 'error');
+                return;
+            }
         }
 
         // Set context using helper
