@@ -11958,10 +11958,13 @@ window.joinEvent = async function(eventId) {
         }
 
         hideLoader();
-        showNotification('Joined event! You can now access the event chat.');
+        showNotification('Joining event chat...');
 
         // Refresh matches to update UI
         await loadMatches();
+
+        // Automatically open the event chat
+        await openEventChat(eventId);
 
         // Refresh events page if currently viewing it
         const currentPage = document.querySelector('.page.active')?.id;
