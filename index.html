@@ -3019,7 +3019,7 @@ body.dark-mode .custom-activity-item {
         <span class="close-modal-btn" onclick="closeEventOptionsModal()">×</span>
         <div class="modal-header">Event Options</div>
         
-        <button onclick="editCurrentEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
+        <button id="event-edit-btn" onclick="editCurrentEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
             ✏️ Edit Event Details
         </button>
         <button onclick="cancelEvent()" class="btn btn-secondary" style="width: 100%; text-align: left; margin: 5px 0;">
@@ -14390,6 +14390,17 @@ async function sendEventMessage(e) {
 // Event options functions
 function openEventOptionsModal() {
     const modal = document.getElementById('event-options-modal');
+    const editBtn = document.getElementById('event-edit-btn');
+
+    // Hide edit button in planning mode (details aren't locked yet)
+    if (editBtn && currentEvent) {
+        if (currentEvent.status === 'planning') {
+            editBtn.style.display = 'none';
+        } else {
+            editBtn.style.display = 'block';
+        }
+    }
+
     if (modal) {
         modal.style.display = 'flex';
     } else {
