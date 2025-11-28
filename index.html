@@ -6652,6 +6652,19 @@ window.finalizeCircleCreation = async function() {
     return showNotification('Circle not found', 'error');
   }
 
+  // Check if user is already a member
+  const { data: existingMember } = await supabase
+    .from('circle_members')
+    .select('*')
+    .eq('circle_id', circle.id)
+    .eq('profile_id', currentUser.id)
+    .single();
+
+  if (existingMember) {
+    closeCircleModal();
+    return showNotification('You are already a member of this circle');
+  }
+
   // Check if user has available circles
   showLoader('Checking availability...');
 
