@@ -333,6 +333,29 @@ serve(async (req) => {
 
         // Remove participants from matches
         for (const participant of participantsToRemove) {
+          // First, get all events for this match that this user is participating in
+          const { data: userEvents } = await supabaseClient
+            .from('event_participants')
+            .select('event_id, events!inner(match_id)')
+            .eq('profile_id', participant.profile_id)
+            .eq('events.match_id', participant.match_id)
+
+          // Remove from event_participants for all events in this match
+          if (userEvents && userEvents.length > 0) {
+            const eventIds = userEvents.map((e: any) => e.event_id)
+            const { error: eventDeleteError } = await supabaseClient
+              .from('event_participants')
+              .delete()
+              .eq('profile_id', participant.profile_id)
+              .in('event_id', eventIds)
+
+            if (eventDeleteError) {
+              console.error('Error removing from event_participants:', eventDeleteError)
+            } else {
+              console.log(`Removed participant ${participant.profile_id} from ${eventIds.length} events`)
+            }
+          }
+
           // Delete from match_participants
           const { error: deleteError } = await supabaseClient
             .from('match_participants')
