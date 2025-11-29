@@ -13341,11 +13341,12 @@ async function createPlanningEvent(e) {
 
         if (participantError) throw participantError;
 
-        // Update match last_interaction
+        // Update creator's last interaction timestamp in match_participants
         await supabase
-            .from('matches')
-            .update({ last_interaction: new Date().toISOString() })
-            .eq('id', matchId);
+            .from('match_participants')
+            .update({ last_interaction_at: new Date().toISOString() })
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id);
 
         // Send notifications to other match participants
         sendEventCreatedNotification(matchId, newEvent).catch(err => {
