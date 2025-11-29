@@ -3402,7 +3402,22 @@ body.dark-mode .consensus-notification-badge {
                 </button>
             </div>
 
-            <button type="submit" class="btn">Send Poll</button>
+            <!-- Agreement Notification Section -->
+            <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 5px;">
+                    <input type="checkbox" id="chat-poll-enable-auto-lock" onchange="toggleChatPollAutoLock()" style="margin-right: 10px;">
+                    <span style="font-weight: 600;">🔔 Enable Agreement Notifications</span>
+                </label>
+                <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Notify all participants when enough people agree on a poll option</p>
+
+                <div id="chat-poll-auto-lock-threshold" style="display: none; margin-top: 10px;">
+                    <label for="chat-poll-threshold-input" style="font-size: 13px; color: #555; margin-bottom: 5px; display: block;">
+                        Notify when <input type="number" id="chat-poll-threshold-input" min="2" max="10" value="2" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; text-align: center; margin: 0 5px;"> people agree
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%;">Send Poll</button>
         </form>
     </div>
 </div>
@@ -13489,6 +13504,15 @@ function openCreatePollModal() {
 
 function closeCreatePollModal() {
     document.getElementById('create-poll-modal').style.display = 'none';
+
+    // Reset agreement notification checkbox and threshold
+    const autoLockCheckbox = document.getElementById('chat-poll-enable-auto-lock');
+    const autoLockThreshold = document.getElementById('chat-poll-auto-lock-threshold');
+    const thresholdInput = document.getElementById('chat-poll-threshold-input');
+
+    if (autoLockCheckbox) autoLockCheckbox.checked = false;
+    if (autoLockThreshold) autoLockThreshold.style.display = 'none';
+    if (thresholdInput) thresholdInput.value = '2';
 }
 
 function addPollOption() {
@@ -13509,6 +13533,17 @@ function addPollOption() {
     `;
 
     container.appendChild(optionDiv);
+}
+
+function toggleChatPollAutoLock() {
+    const checkbox = document.getElementById('chat-poll-enable-auto-lock');
+    const thresholdDiv = document.getElementById('chat-poll-auto-lock-threshold');
+
+    if (checkbox.checked) {
+        thresholdDiv.style.display = 'block';
+    } else {
+        thresholdDiv.style.display = 'none';
+    }
 }
 
 // ========== END NEW MODALS ==========
@@ -13795,7 +13830,11 @@ async function submitPoll(e) {
             .map(input => input.value.trim())
             .filter(val => val.length > 0);
 
-        console.log('📝 Poll data:', { question, optionsCount: options.length, options });
+        // Get agreement notification settings
+        const enableAutoLock = document.getElementById('chat-poll-enable-auto-lock')?.checked || false;
+        const autoLockThreshold = enableAutoLock ? parseInt(document.getElementById('chat-poll-threshold-input')?.value || '2', 10) : null;
+
+        console.log('📝 Poll data:', { question, optionsCount: options.length, options, enableAutoLock, autoLockThreshold });
 
         if (options.length < 2) {
             showNotification('Please add at least 2 options', 'error');
@@ -13804,13 +13843,20 @@ async function submitPoll(e) {
             return;
         }
 
+        // Store poll data with metadata (same format as planning modal polls)
+        const pollData = {
+            options: options,
+            autoLockEnabled: enableAutoLock,
+            autoLockThreshold: autoLockThreshold
+        };
+
         // Create poll in database
         const { data: newPoll, error: pollError } = await supabase
             .from('polls')
             .insert({
                 event_id: currentEvent.id,
                 question: question,
-                options: JSON.stringify(options),
+                options: JSON.stringify(pollData),
                 created_by: currentUser.id
             })
             .select()
@@ -13876,10 +13922,15 @@ async function renderPollMessage(message, poll) {
         return;
     }
 
-    // Check if this message already exists (prevent duplicates)
-    const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
-    if (existingMessage) {
-        console.log('⚠️ Poll message already exists, skipping duplicate render');
+    // Check if this message already exists (prevent duplicates) - check by both message ID and poll ID
+    const existingMessageById = document.querySelector(`[data-message-id="${message.id}"]`);
+    const existingPollById = document.querySelector(`[data-poll-id="${poll.id}"]`);
+
+    if (existingMessageById || existingPollById) {
+        console.log('⚠️ Poll message already exists, skipping duplicate render:', {
+            messageExists: !!existingMessageById,
+            pollExists: !!existingPollById
+        });
         return;
     }
 
@@ -13919,11 +13970,13 @@ async function renderPollMessage(message, poll) {
     pollDiv.className = 'message';
     pollDiv.setAttribute('data-message-id', message.id);
     pollDiv.setAttribute('data-poll-id', poll.id);
+    // Make poll full width
+    pollDiv.style.cssText = 'width: 100%; margin-bottom: 15px;';
 
     const sender = message.sender_id === currentUser.id ? currentUser : (message.sender || { name: 'User', avatar: '👤' });
 
     pollDiv.innerHTML = `
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #007bff;">
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #007bff; width: 100%;">
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 ${renderAvatar(sender.avatar, 32)}
                 <div style="margin-left: 10px;">
@@ -14154,8 +14207,9 @@ async function checkAutoLockThreshold(pollId) {
 
 // Refresh a single poll's display
 async function refreshPollDisplay(pollId) {
-    const pollElement = document.querySelector(`[data-poll-id="${pollId}"]`);
-    if (!pollElement) return;
+    // Find ALL poll elements with this poll_id (in case of duplicates)
+    const pollElements = document.querySelectorAll(`[data-poll-id="${pollId}"]`);
+    if (pollElements.length === 0) return;
 
     // Fetch updated poll data
     const { data: poll } = await supabase
@@ -14172,10 +14226,10 @@ async function refreshPollDisplay(pollId) {
 
     if (!poll || !pollMessage) return;
 
-    // Remove old element
-    pollElement.remove();
+    // Remove ALL old elements (fixes duplication issue)
+    pollElements.forEach(element => element.remove());
 
-    // Re-render with updated data
+    // Re-render with updated data (only once)
     await renderPollMessage(pollMessage, poll);
 }
 
