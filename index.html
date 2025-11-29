@@ -14320,6 +14320,8 @@ eventMessageSubscription = supabase
             sender_id: payload.payload.sender_id,
             content: payload.payload.content,
             created_at: payload.payload.created_at,
+            message_type: payload.payload.message_type,
+            poll_id: payload.payload.poll_id,
             sender: {
                 id: payload.payload.sender_id,
                 name: payload.payload.sender_name,
