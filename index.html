@@ -4597,6 +4597,14 @@ window.toggleMuteChat = async function() {
         showNotification('Error updating mute setting', 'error');
     }
 }
+
+// Utility function to escape HTML and prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function showNotification(message, type = 'success') {
     // Remove existing notification if any
     const existing = document.getElementById('app-notification');
