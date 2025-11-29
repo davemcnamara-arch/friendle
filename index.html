@@ -13057,7 +13057,11 @@ function closePlanningEventModal() {
     // Reset the lock details checkbox and fields
     document.getElementById('lock-details-now').checked = false;
     document.getElementById('lock-details-fields').style.display = 'none';
-    document.getElementById('planning-submit-btn').textContent = 'Start Planning';
+
+    // Reset and re-enable the submit button
+    const submitBtn = document.getElementById('planning-submit-btn');
+    submitBtn.textContent = 'Start Planning';
+    submitBtn.disabled = false;
 
     // Reset poll creation checkbox and fields
     const createPollCheckbox = document.getElementById('create-poll-on-start');
