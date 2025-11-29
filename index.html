@@ -1980,6 +1980,26 @@ body.dark-mode .custom-activity-item {
     border-color: var(--border-color);
 }
 
+/* Dark mode styles for consensus notification feature */
+body.dark-mode .consensus-notification-section {
+    background: #2a2a2a !important;
+    border-color: #444 !important;
+}
+
+body.dark-mode .consensus-notification-section p {
+    color: #aaa !important;
+}
+
+body.dark-mode .consensus-notification-section label {
+    color: #ddd !important;
+}
+
+body.dark-mode .consensus-notification-badge {
+    background: #1a3a4a !important;
+    color: #88c0d0 !important;
+    border-color: #2e5266 !important;
+}
+
     </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
@@ -3156,17 +3176,17 @@ body.dark-mode .custom-activity-item {
                     <button type="button" onclick="addPlanningPollOption()" class="btn btn-secondary" style="padding: 8px 12px; font-size: 14px;">+ Add Option</button>
                 </div>
 
-                <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+                <div class="form-group consensus-notification-section" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
                     <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
                         <input type="checkbox" id="enable-auto-lock" onchange="toggleAutoLockFields()" style="margin-right: 10px;">
-                        <span><strong>🔒 Auto-lock details when consensus reached</strong></span>
+                        <span><strong>🔔 Send notification when users agree</strong></span>
                     </label>
-                    <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Automatically finalize the event when enough people agree on a poll option</p>
+                    <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Notify all participants when enough people agree on a poll option</p>
 
                     <div id="auto-lock-fields" style="display: none;">
-                        <label for="auto-lock-threshold">Lock when this many users agree:</label>
+                        <label for="auto-lock-threshold">Notify when this many users agree:</label>
                         <input type="number" id="auto-lock-threshold" min="2" value="3" style="width: 100%; margin-top: 5px;">
-                        <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Event will auto-lock when this many participants vote for the same option</p>
+                        <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Everyone will be notified when this many participants vote for the same option</p>
                     </div>
                 </div>
             </div>
@@ -13680,8 +13700,8 @@ async function renderPollMessage(message, poll) {
                 ${totalVotes} ${totalVotes === 1 ? 'person' : 'people'} voted
             </div>
             ${autoLockEnabled ? `
-                <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 5px; font-size: 12px; color: #856404; border: 1px solid #ffeaa7;">
-                    🔒 Auto-lock enabled: Event will finalize when ${autoLockThreshold} ${autoLockThreshold === 1 ? 'person agrees' : 'people agree'} on the same option
+                <div class="consensus-notification-badge" style="margin-top: 8px; padding: 8px; background: #e7f3ff; border-radius: 5px; font-size: 12px; color: #004085; border: 1px solid #b8daff;">
+                    🔔 Notifications enabled: Everyone will be notified when ${autoLockThreshold} ${autoLockThreshold === 1 ? 'person agrees' : 'people agree'} on the same option
                 </div>
             ` : ''}
             <div style="margin-top: 8px; font-size: 11px; color: #999;">
@@ -13732,7 +13752,7 @@ window.voteOnPoll = async function(pollId, optionIndex) {
     }
 }
 
-// Check if auto-lock threshold has been reached for a poll
+// Check if consensus notification threshold has been reached for a poll
 async function checkAutoLockThreshold(pollId) {
     try {
         // Get poll data
@@ -13744,7 +13764,7 @@ async function checkAutoLockThreshold(pollId) {
 
         if (pollError || !poll) return;
 
-        // Parse poll options to check for auto-lock metadata
+        // Parse poll options to check for notification metadata
         let pollData;
         try {
             pollData = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
@@ -13753,7 +13773,7 @@ async function checkAutoLockThreshold(pollId) {
             return;
         }
 
-        // Check if auto-lock is enabled
+        // Check if consensus notifications are enabled
         if (!pollData.autoLockEnabled || !pollData.autoLockThreshold) {
             return;
         }
@@ -13785,7 +13805,7 @@ async function checkAutoLockThreshold(pollId) {
             }
         }
 
-        // If threshold reached, auto-lock the event
+        // If threshold reached, send notifications to all participants
         if (winningOptionIndex !== null) {
             const winningOption = options[winningOptionIndex];
             const eventId = poll.event_id;
@@ -13797,43 +13817,34 @@ async function checkAutoLockThreshold(pollId) {
                 .eq('id', eventId)
                 .single();
 
-            // Only auto-lock if event is still in planning mode
+            // Only notify if event is still in planning mode
             if (event && event.status === 'planning') {
-                console.log(`🔒 Auto-lock triggered! Winning option: "${winningOption}" with ${maxVotes} votes`);
+                console.log(`🔔 Consensus notification triggered! Popular option: "${winningOption}" with ${maxVotes} votes`);
 
-                // Update event to mark consensus reached
-                // We'll keep it in planning mode but add a note about consensus
-                const consensusNote = `\n\n🔒 GROUP CONSENSUS: ${winningOption} (${maxVotes} votes)`;
-                const updatedNotes = (event.notes || '') + consensusNote;
-
-                await supabase
-                    .from('events')
-                    .update({
-                        notes: updatedNotes,
-                        proposed_timeframe: winningOption // Update timeframe to winning option
-                    })
-                    .eq('id', eventId);
-
-                // Post system message about consensus
-                const systemMessage = `🎉 Consensus reached!\n\n${maxVotes} people agreed on: "${winningOption}"\n\nUse "Lock in Details" to finalize the event with a specific date and time.`;
+                // Post system message about consensus - but don't modify the event itself
+                const systemMessage = `🎉 ${maxVotes} ${maxVotes === 1 ? 'person' : 'people'} agreed on: "${winningOption}"\n\nConsider using "Lock in Details" to finalize the event with this option!`;
                 await sendSystemMessage(eventId, systemMessage);
 
-                // Show notification
-                showNotification('Poll consensus reached! 🎉', 'success');
+                // Show notification to current user
+                showNotification(`🎉 ${maxVotes} people agreed on "${winningOption}"!`, 'success');
 
-                // Broadcast event update
+                // Broadcast notification to all participants
                 const channel = supabase.channel(`event_${eventId}`);
                 await channel.send({
                     type: 'broadcast',
-                    event: 'event_updated',
-                    payload: { eventId }
+                    event: 'consensus_reached',
+                    payload: {
+                        eventId,
+                        winningOption,
+                        voteCount: maxVotes
+                    }
                 });
             }
         }
 
     } catch (error) {
-        console.error('Error checking auto-lock threshold:', error);
-        // Don't show error to user - auto-lock is a background feature
+        console.error('Error checking consensus threshold:', error);
+        // Don't show error to user - consensus notification is a background feature
     }
 }
 
