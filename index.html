@@ -14247,6 +14247,12 @@ async function checkAutoLockThreshold(pollId) {
             const winningOption = options[winningOptionIndex];
             const eventId = poll.event_id;
 
+            // Check if we've already sent the notification for this poll
+            if (pollData.thresholdNotificationSent) {
+                console.log('Threshold notification already sent for this poll, skipping duplicate');
+                return;
+            }
+
             // Get current event
             const { data: event } = await supabase
                 .from('events')
@@ -14299,6 +14305,17 @@ async function checkAutoLockThreshold(pollId) {
                     } catch (notifError) {
                         console.error('Failed to send poll agreement notifications:', notifError);
                     }
+                }
+
+                // Mark that we've sent the threshold notification
+                pollData.thresholdNotificationSent = true;
+                const { error: updateError } = await supabase
+                    .from('polls')
+                    .update({ options: pollData })
+                    .eq('id', pollId);
+
+                if (updateError) {
+                    console.error('Error updating poll notification flag:', updateError);
                 }
 
                 // Broadcast notification to all participants
