@@ -9012,17 +9012,36 @@ async function joinMatchChat(matchId) {
 // Helper function to leave match chat
 async function leaveMatchChat(matchId) {
     try {
+        // First, remove user from all event participants for events in this match
+        const { data: userEvents } = await supabase
+            .from('event_participants')
+            .select('event_id, events!inner(match_id)')
+            .eq('profile_id', currentUser.id)
+            .eq('events.match_id', matchId);
+
+        if (userEvents && userEvents.length > 0) {
+            const eventIds = userEvents.map(e => e.event_id);
+            const { error: eventError } = await supabase
+                .from('event_participants')
+                .delete()
+                .eq('profile_id', currentUser.id)
+                .in('event_id', eventIds);
+
+            if (eventError) throw eventError;
+        }
+
+        // Then remove from match participants
         const { error } = await supabase
             .from('match_participants')
             .delete()
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id);
-        
+
         if (error) throw error;
-        
+
         console.log('✓ Left match chat');
         return true;
-        
+
     } catch (error) {
         console.error('Error leaving match chat:', error);
         return false;
@@ -9087,16 +9106,26 @@ window.markAsUninterested = async function(matchId, activityId, circleId) {
 
         if (prefError) throw prefError;
 
-        // If no events, remove user from match participants
-        if (!userEvents || userEvents.length === 0) {
-            const { error: participantError } = await supabase
-                .from('match_participants')
+        // Remove user from event participants for all events in this match
+        if (userEvents && userEvents.length > 0) {
+            const eventIds = userEvents.map(e => e.event_id);
+            const { error: eventParticipantError } = await supabase
+                .from('event_participants')
                 .delete()
-                .eq('match_id', matchId)
-                .eq('profile_id', currentUser.id);
+                .eq('profile_id', currentUser.id)
+                .in('event_id', eventIds);
 
-            if (participantError) throw participantError;
+            if (eventParticipantError) throw eventParticipantError;
         }
+
+        // Remove user from match participants
+        const { error: participantError } = await supabase
+            .from('match_participants')
+            .delete()
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id);
+
+        if (participantError) throw participantError;
 
         hideLoader();
         showNotification('Activity removed from your preferences');
