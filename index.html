@@ -12138,7 +12138,9 @@ window.markActivityAsToday = async function(activityId, matchId) {
                     sender_name: currentUser.name,
                     sender_avatar: currentUser.avatar,
                     content: data.content,
-                    created_at: data.created_at
+                    created_at: data.created_at,
+                    message_type: data.message_type,
+                    poll_id: data.poll_id
                 }
             });
 
