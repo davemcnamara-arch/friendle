@@ -3398,8 +3398,20 @@ body.dark-mode .poll-notification-label {
 
             <div id="create-poll-fields" style="display: none;">
                 <div class="form-group">
+                    <label for="planning-poll-question-template">Question Template</label>
+                    <select id="planning-poll-question-template" onchange="handlePlanningPollTemplateChange()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+                        <option value="">Select a template or write your own...</option>
+                        <option value="when">When? (Scheduling/Timing)</option>
+                        <option value="where">Where? (Location)</option>
+                        <option value="what">What? (Activity/Event)</option>
+                        <option value="who">Who should come? (Group Size)</option>
+                        <option value="how">How? (Method/Format)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label for="planning-poll-question">Poll Question *</label>
-                    <input type="text" id="planning-poll-question" placeholder="e.g., What time works best?" style="width: 100%;">
+                    <input type="text" id="planning-poll-question" placeholder="Enter your question or select a template above" style="width: 100%;">
                 </div>
 
                 <div class="form-group">
@@ -3500,8 +3512,20 @@ body.dark-mode .poll-notification-label {
 
         <form id="create-poll-form">
             <div class="form-group">
+                <label for="poll-question-template">Question Template</label>
+                <select id="poll-question-template" onchange="handlePollTemplateChange()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+                    <option value="">Select a template or write your own...</option>
+                    <option value="when">When? (Scheduling/Timing)</option>
+                    <option value="where">Where? (Location)</option>
+                    <option value="what">What? (Activity/Event)</option>
+                    <option value="who">Who should come? (Group Size)</option>
+                    <option value="how">How? (Method/Format)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="poll-question">Question *</label>
-                <input type="text" id="poll-question" required placeholder="When should we meet?" maxlength="200">
+                <input type="text" id="poll-question" required placeholder="Enter your question or select a template above" maxlength="200">
             </div>
 
             <div class="form-group">
@@ -13553,10 +13577,49 @@ function addPlanningPollOption() {
     optionDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
     optionDiv.innerHTML = `
         <input type="text" class="planning-poll-option" placeholder="Option ${optionCount}" style="flex: 1;">
-        <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px;">✕</button>
+        <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px; width: auto; min-width: 40px; flex-shrink: 0;">✕</button>
     `;
 
     container.appendChild(optionDiv);
+}
+
+function handlePlanningPollTemplateChange() {
+    const template = document.getElementById('planning-poll-question-template').value;
+    const questionInput = document.getElementById('planning-poll-question');
+    const container = document.getElementById('planning-poll-options-container');
+
+    if (!template) {
+        // User selected "Select a template..." - clear everything
+        questionInput.value = '';
+        container.innerHTML = `
+            <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" class="planning-poll-option" placeholder="Option 1" style="flex: 1;">
+            </div>
+            <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" class="planning-poll-option" placeholder="Option 2" style="flex: 1;">
+            </div>
+        `;
+        return;
+    }
+
+    const templateData = getPollTemplateData(template);
+    if (templateData) {
+        // Populate question
+        questionInput.value = templateData.question;
+
+        // Clear and populate options
+        container.innerHTML = '';
+        templateData.options.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'poll-option-input';
+            optionDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+            optionDiv.innerHTML = `
+                <input type="text" class="planning-poll-option" placeholder="Option ${index + 1}" value="${option}" style="flex: 1;">
+                <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px; width: auto; min-width: 40px; flex-shrink: 0;">✕</button>
+            `;
+            container.appendChild(optionDiv);
+        });
+    }
 }
 
 function openGoogleMapsSearch() {
@@ -13646,10 +13709,76 @@ function addPollOption() {
     optionDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
     optionDiv.innerHTML = `
         <input type="text" class="poll-option" placeholder="Option ${optionCount}" required style="flex: 1;">
-        <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px;">✕</button>
+        <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px; width: auto; min-width: 40px; flex-shrink: 0;">✕</button>
     `;
 
     container.appendChild(optionDiv);
+}
+
+function getPollTemplateData(templateType) {
+    const templates = {
+        when: {
+            question: "When should we meet?",
+            options: ["Today", "Tomorrow", "This Weekend", "Next Week", "Next Month", "Specific Date"]
+        },
+        where: {
+            question: "Where should we meet?",
+            options: ["My Place", "Your Place", "Restaurant", "Park", "Coffee Shop", "Online/Virtual", "Other"]
+        },
+        what: {
+            question: "What should we do?",
+            options: ["Movie", "Dinner", "Coffee", "Drinks", "Game Night", "Activity", "Other"]
+        },
+        who: {
+            question: "Who should come?",
+            options: ["Just Us", "Small Group (3-5)", "Medium Group (6-10)", "Large Group (10+)", "Open to All"]
+        },
+        how: {
+            question: "How should we meet?",
+            options: ["In Person", "Video Call", "Phone Call", "Text/Chat"]
+        }
+    };
+
+    return templates[templateType] || null;
+}
+
+function handlePollTemplateChange() {
+    const template = document.getElementById('poll-question-template').value;
+    const questionInput = document.getElementById('poll-question');
+    const container = document.getElementById('poll-options-container');
+
+    if (!template) {
+        // User selected "Select a template..." - clear everything
+        questionInput.value = '';
+        container.innerHTML = `
+            <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" class="poll-option" placeholder="Option 1" required style="flex: 1;">
+            </div>
+            <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" class="poll-option" placeholder="Option 2" required style="flex: 1;">
+            </div>
+        `;
+        return;
+    }
+
+    const templateData = getPollTemplateData(template);
+    if (templateData) {
+        // Populate question
+        questionInput.value = templateData.question;
+
+        // Clear and populate options
+        container.innerHTML = '';
+        templateData.options.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'poll-option-input';
+            optionDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+            optionDiv.innerHTML = `
+                <input type="text" class="poll-option" placeholder="Option ${index + 1}" value="${option}" required style="flex: 1;">
+                <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px; width: auto; min-width: 40px; flex-shrink: 0;">✕</button>
+            `;
+            container.appendChild(optionDiv);
+        });
+    }
 }
 
 function toggleChatPollAutoLock() {
