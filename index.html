@@ -3259,7 +3259,7 @@ body.dark-mode .consensus-notification-badge {
         <span class="close-modal-btn" onclick="closeCreatePollModal()">×</span>
         <div class="modal-header">📊 Quick Poll</div>
 
-        <form id="create-poll-form">
+        <form id="create-poll-form" onsubmit="submitPoll(event)">
             <div class="form-group">
                 <label for="poll-question">Question *</label>
                 <input type="text" id="poll-question" required placeholder="When should we meet?" maxlength="200">
@@ -13214,10 +13214,12 @@ function closeLockDetailsModal() {
 
 // Create Poll Modal
 function openCreatePollModal() {
+    console.log('🎯 openCreatePollModal called!');
     if (!currentEvent) {
-        console.error('No current event context for poll');
+        console.error('❌ No current event context for poll');
         return;
     }
+    console.log('✓ Opening poll modal for event:', currentEvent.id);
 
     // Reset form
     document.getElementById('create-poll-form').reset();
@@ -13520,12 +13522,15 @@ async function lockEventDetails(e) {
 
 // Submit a new poll
 async function submitPoll(e) {
+    console.log('🎯 submitPoll called!');
     e.preventDefault();
 
     if (!currentEvent) {
+        console.error('❌ No event context!');
         showNotification('No event context', 'error');
         return;
     }
+    console.log('✓ Event context exists:', currentEvent.id);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.innerHTML;
@@ -13539,6 +13544,8 @@ async function submitPoll(e) {
         const options = Array.from(optionInputs)
             .map(input => input.value.trim())
             .filter(val => val.length > 0);
+
+        console.log('📝 Poll data:', { question, optionsCount: options.length, options });
 
         if (options.length < 2) {
             showNotification('Please add at least 2 options', 'error');
