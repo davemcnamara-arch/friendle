@@ -4582,9 +4582,14 @@ function showNotification(message, type = 'success') {
 function showLoader(message = 'Loading...') {
     // Don't show loader if planning event modal is open (user is filling out the form)
     const planningEventModal = document.getElementById('planning-event-modal');
+    const swipeActionModal = document.getElementById('swipe-action-modal');
 
     if (planningEventModal && planningEventModal.style.display === 'flex') {
         return; // Skip showing loader when planning modal is open
+    }
+
+    if (swipeActionModal && swipeActionModal.style.display === 'flex') {
+        return; // Skip showing loader when swipe action modal is open
     }
 
     // Remove existing loader if any
@@ -12882,25 +12887,49 @@ function openCreateEventModalFromHeader() {
 
 // Swipe Action Modal (Plan Event / Stay Interested)
 let pendingSwipeMatchId = null;
+let pendingSwipeActivity = null;
 
-function openSwipeActionModal(matchId, activityName) {
+function openSwipeActionModal(matchId, activityName, activity = null) {
     pendingSwipeMatchId = matchId;
+    pendingSwipeActivity = activity;
     document.getElementById('swipe-action-title').textContent = `${activityName || '🎯 Activity'} Match!`;
     document.getElementById('swipe-action-description').textContent =
         'You matched! Would you like to plan an event or just stay interested for now?';
     document.getElementById('swipe-action-modal').style.display = 'flex';
 }
 
-function closeSwipeActionModal() {
+async function closeSwipeActionModal() {
     document.getElementById('swipe-action-modal').style.display = 'none';
+
+    // If user closed without choosing, undo the swipe
+    if (pendingSwipeActivity && selectedCircle) {
+        // Remove activity from the activities array
+        const index = activities.findIndex(a => a.id === pendingSwipeActivity.id);
+        if (index !== -1) {
+            activities.splice(index, 1);
+            console.log('Removed activity from array due to modal cancel');
+        }
+
+        // Save updated preferences to database
+        const selectedActivityIds = activities.map(a => a.id);
+        await saveUserPreferences(selectedCircle.id, selectedActivityIds);
+
+        // Reload the swipe view to show the correct cards
+        await initializeSwipeView(false);
+    }
+
     pendingSwipeMatchId = null;
+    pendingSwipeActivity = null;
 }
 
 async function handlePlanEvent() {
     if (!pendingSwipeMatchId) return;
 
-    // Save matchId before closing modal (closeSwipeActionModal sets pendingSwipeMatchId to null)
+    // Save matchId before closing modal
     const matchId = pendingSwipeMatchId;
+
+    // Clear the pending activity so closeSwipeActionModal doesn't undo the swipe
+    pendingSwipeActivity = null;
 
     // Add user to match_participants
     await joinMatchChat(matchId);
@@ -12920,6 +12949,9 @@ async function handlePlanEvent() {
 
 async function handleStayInterested() {
     if (!pendingSwipeMatchId) return;
+
+    // Clear the pending activity so closeSwipeActionModal doesn't undo the swipe
+    pendingSwipeActivity = null;
 
     // Add user to match_participants (but don't create event)
     const success = await joinMatchChat(pendingSwipeMatchId);
@@ -15074,7 +15106,7 @@ let currentMatchNotification = null;
 function showMatchNotification(activity, matchId, otherUsers) {
     // Use new swipe action modal instead of old match notification modal
     const activityName = `${activity.emoji} ${activity.name}`;
-    openSwipeActionModal(matchId, activityName);
+    openSwipeActionModal(matchId, activityName, activity);
 }
 
 window.closeMatchNotification = function() {
@@ -15129,7 +15161,7 @@ let currentFirstToChooseMatch = null;
 function showFirstToChoosePopup(activity, matchId) {
     // Use new swipe action modal instead of old first-to-choose modal
     const activityName = `${activity.emoji} ${activity.name}`;
-    openSwipeActionModal(matchId, activityName);
+    openSwipeActionModal(matchId, activityName, activity);
 }
 
 window.closeFirstToChooseModal = function() {
