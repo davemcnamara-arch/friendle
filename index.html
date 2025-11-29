@@ -508,8 +508,130 @@
         }
 
         /* Match Cards */
+        /* Match Circle Group Styles */
+        .match-circle-group {
+            margin-bottom: 20px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .match-circle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+            border-radius: 12px;
+        }
+
+        .match-circle-header:hover {
+            background: var(--bg-secondary);
+        }
+
+        .match-circle-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .match-circle-header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .match-circle-count {
+            font-size: 14px;
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+        }
+
+        .match-circle-badge {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .match-circle-badge.highlighted {
+            background: #ffeb3b;
+            color: #000;
+        }
+
+        .match-circle-badge.warning {
+            background: #ff4d4f;
+            color: white;
+        }
+
+        .match-circle-badge.unread {
+            background: #14b8a6;
+            color: white;
+        }
+
+        .match-circle-expand-icon {
+            font-size: 1.2em;
+            transition: transform 0.2s ease;
+            color: var(--text-secondary);
+        }
+
+        .match-circle-group.expanded .match-circle-expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .match-circle-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .match-circle-group.expanded .match-circle-content {
+            max-height: 5000px;
+            padding: 0 15px 15px 15px;
+        }
+
+        /* Highlighted state (yellow - highest priority) */
+        .match-circle-group.highlighted {
+            background: #fffbea;
+            border: 2px solid #ffeb3b;
+        }
+
+        body.dark-mode .match-circle-group.highlighted {
+            background: #2a2415;
+            border: 2px solid #ffeb3b;
+        }
+
+        /* Warning state (red - second priority) */
+        .match-circle-group.has-warning {
+            background: #fff1f0;
+            border: 2px solid #ff4d4f;
+        }
+
+        body.dark-mode .match-circle-group.has-warning {
+            background: #2a1a1a;
+            border: 2px solid #ff4d4f;
+        }
+
+        /* Unread state (teal - third priority) */
+        .match-circle-group.unread {
+            background: #ccfbf1;
+            border: 2px solid #14b8a6;
+        }
+
+        body.dark-mode .match-circle-group.unread {
+            background: #134e4a;
+            border: 2px solid #14b8a6;
+        }
+
         .match-card {
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             background: var(--card-bg);
             border-radius: 12px;
             box-shadow: var(--shadow-sm);
@@ -3511,7 +3633,7 @@ body.dark-mode .consensus-notification-badge {
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, matchMessageSubscription = null, currentMatchChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set(), highlightedEventId = null;
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, matchMessageSubscription = null, currentMatchChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set(), expandedMatchCircles = new Set(), highlightedEventId = null;
 
         // Message Pagination State
         const MESSAGE_PAGE_SIZE = 50;
@@ -11594,7 +11716,66 @@ if (!showPastEvents) {
         if (data) missingActivities.push(...data);
     }
 
-    matchesList.innerHTML = matchesWithEvents.map(({ match, events, matchUnreadCount }) => {
+    // Group matches by circle
+    const matchesByCircle = new Map();
+    matchesWithEvents.forEach(matchData => {
+        const circleId = matchData.match.circle_id;
+        if (!matchesByCircle.has(circleId)) {
+            matchesByCircle.set(circleId, []);
+        }
+        matchesByCircle.get(circleId).push(matchData);
+    });
+
+    // Render grouped by circle
+    matchesList.innerHTML = Array.from(matchesByCircle.entries()).map(([circleId, circleMatches]) => {
+        const circleName = circles.find(c => c.id === circleId)?.name || 'Circle';
+        const isExpanded = expandedMatchCircles.has(circleId);
+
+        // Calculate aggregate state for this circle (highlighted > warnings > unread)
+        let hasHighlightedEvent = false;
+        let hasWarning = false;
+        let hasUnread = false;
+
+        circleMatches.forEach(({ match, events }) => {
+            // Check for highlighted events
+            if (events.some(e => e.id === highlightedEventId)) {
+                hasHighlightedEvent = true;
+            }
+            // Check for warnings
+            if (warningsMap.has(match.id)) {
+                hasWarning = true;
+            }
+            // Check for unread events
+            if (events.some(e => e.unreadCount > 0)) {
+                hasUnread = true;
+            }
+        });
+
+        // Determine priority state class
+        let stateClass = '';
+        if (hasHighlightedEvent) {
+            stateClass = 'highlighted';
+        } else if (hasWarning) {
+            stateClass = 'has-warning';
+        } else if (hasUnread) {
+            stateClass = 'unread';
+        }
+
+        // Render circle group
+        return `
+            <div class="match-circle-group ${stateClass} ${isExpanded ? 'expanded' : ''}" data-circle-id="${circleId}">
+                <div class="match-circle-header" onclick="toggleMatchCircleExpand('${circleId}')">
+                    <div class="match-circle-name">${circleName}</div>
+                    <div class="match-circle-header-right">
+                        ${hasHighlightedEvent ? `<span class="match-circle-badge highlighted">⭐ Event</span>` : ''}
+                        ${!hasHighlightedEvent && hasWarning ? `<span class="match-circle-badge warning">⚠️ Action needed</span>` : ''}
+                        ${!hasHighlightedEvent && !hasWarning && hasUnread ? `<span class="match-circle-badge unread">💬 New</span>` : ''}
+                        <span class="match-circle-count">${circleMatches.length} ${circleMatches.length === 1 ? 'match' : 'matches'}</span>
+                        <span class="match-circle-expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="match-circle-content">
+                    ${circleMatches.map(({ match, events, matchUnreadCount }) => {
         let activity = activities.find(a => a.id === match.activity_id);
 
         const activityName = activity ? activity.name : 'Unknown Activity';
@@ -11856,6 +12037,10 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         </div>
     </details>
         `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
     }).join('');
 
     // Update button visibility based on today activities
@@ -11916,6 +12101,16 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             });
 
             if (highlightedElement) {
+                // Find the parent circle group
+                const circleGroup = highlightedElement.closest('.match-circle-group');
+                if (circleGroup) {
+                    const circleId = circleGroup.dataset.circleId;
+                    if (circleId && !expandedMatchCircles.has(circleId)) {
+                        expandedMatchCircles.add(circleId);
+                        circleGroup.classList.add('expanded');
+                    }
+                }
+
                 // Find the parent match card (details element)
                 const matchCard = highlightedElement.closest('.match-card');
                 if (matchCard) {
@@ -11939,6 +12134,19 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         }, 200); // Small delay to ensure DOM is ready
     }
 }
+
+window.toggleMatchCircleExpand = function(circleId) {
+  const card = document.querySelector(`.match-circle-group[data-circle-id="${circleId}"]`);
+  if (!card) return;
+
+  if (expandedMatchCircles.has(circleId)) {
+    expandedMatchCircles.delete(circleId);
+    card.classList.remove('expanded');
+  } else {
+    expandedMatchCircles.add(circleId);
+    card.classList.add('expanded');
+  }
+};
 
 window.joinMatch = async function(matchId) {
     try {
