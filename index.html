@@ -3342,6 +3342,10 @@ body.dark-mode .poll-notification-label {
             📅 Plan Event
         </button>
 
+        <button id="view-existing-event-btn" onclick="handleViewExistingEvent()" class="btn" style="width: 100%; margin-bottom: 10px; background: #28a745; color: white; display: none;">
+            🎉 View Existing Event
+        </button>
+
         <button onclick="handleStayInterested()" class="btn btn-secondary" style="width: 100%; background: #6c757d; color: white;">
             👀 Stay Interested
         </button>
@@ -8304,10 +8308,10 @@ async function animateSwipeRight(card, activity) {
 
         // Show match notification if there are others in the chat
         if (otherUsers.length > 0) {
-            showMatchNotification(activity, existingMatch.id, otherUsers);
+            await showMatchNotification(activity, existingMatch.id, otherUsers);
         } else {
             // User is first to choose this activity - show "You're First!" popup
-            showFirstToChoosePopup(activity, existingMatch.id);
+            await showFirstToChoosePopup(activity, existingMatch.id);
         }
     } else {
         // No match exists yet - it will be created in checkForMatches
@@ -8324,7 +8328,7 @@ async function animateSwipeRight(card, activity) {
             .single();
 
         if (newMatch) {
-            showFirstToChoosePopup(activity, newMatch.id);
+            await showFirstToChoosePopup(activity, newMatch.id);
         }
 
         // Continue to load matches
@@ -13352,10 +13356,31 @@ function openCreateEventModalFromHeader() {
 // Swipe Action Modal (Plan Event / Stay Interested)
 let pendingSwipeMatchId = null;
 let pendingSwipeActivity = null;
+let pendingExistingEventId = null;
 
-function openSwipeActionModal(matchId, activityName, activity = null) {
+async function openSwipeActionModal(matchId, activityName, activity = null) {
     pendingSwipeMatchId = matchId;
     pendingSwipeActivity = activity;
+    pendingExistingEventId = null;
+
+    // Check for existing events for this match
+    const { data: existingEvents } = await supabase
+        .from('events')
+        .select('id, status, activity_id')
+        .eq('match_id', matchId)
+        .in('status', ['planning', 'scheduled'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    // Show or hide the "View Existing Event" button
+    const viewEventBtn = document.getElementById('view-existing-event-btn');
+    if (existingEvents && existingEvents.length > 0) {
+        pendingExistingEventId = existingEvents[0].id;
+        viewEventBtn.style.display = 'block';
+    } else {
+        viewEventBtn.style.display = 'none';
+    }
+
     document.getElementById('swipe-action-title').textContent = `${activityName || '🎯 Activity'} Match!`;
     document.getElementById('swipe-action-description').textContent =
         'You matched! Would you like to plan an event or just stay interested for now?';
@@ -13377,6 +13402,7 @@ async function closeSwipeActionModal() {
 
     pendingSwipeMatchId = null;
     pendingSwipeActivity = null;
+    pendingExistingEventId = null;
 }
 
 async function handlePlanEvent() {
@@ -13421,6 +13447,35 @@ async function handleStayInterested() {
     } else {
         showNotification('Error joining match', 'error');
     }
+
+    // Advance to next card after user made their choice
+    setTimeout(() => {
+        currentCardIndex++;
+        showNextCard();
+    }, 300);
+}
+
+async function handleViewExistingEvent() {
+    if (!pendingExistingEventId || !pendingSwipeMatchId) return;
+
+    // Save IDs before clearing
+    const eventId = pendingExistingEventId;
+    const matchId = pendingSwipeMatchId;
+
+    // Clear the pending activity so closeSwipeActionModal doesn't undo the swipe
+    pendingSwipeActivity = null;
+
+    // Add user to match_participants to ensure they can see the event
+    await joinMatchChat(matchId);
+
+    // Close swipe modal
+    closeSwipeActionModal();
+
+    // Switch to Events tab
+    showTab('events');
+
+    // Open the event chat
+    await openEventChat(eventId);
 
     // Advance to next card after user made their choice
     setTimeout(() => {
@@ -16081,10 +16136,10 @@ window.sharePhoto = function() {
 // Match notification functions
 let currentMatchNotification = null;
 
-function showMatchNotification(activity, matchId, otherUsers) {
+async function showMatchNotification(activity, matchId, otherUsers) {
     // Use new swipe action modal instead of old match notification modal
     const activityName = `${activity.emoji} ${activity.name}`;
-    openSwipeActionModal(matchId, activityName, activity);
+    await openSwipeActionModal(matchId, activityName, activity);
 }
 
 window.closeMatchNotification = function() {
@@ -16136,10 +16191,10 @@ window.joinMatchFromNotification = async function() {
 // First to Choose modal functions
 let currentFirstToChooseMatch = null;
 
-function showFirstToChoosePopup(activity, matchId) {
+async function showFirstToChoosePopup(activity, matchId) {
     // Use new swipe action modal instead of old first-to-choose modal
     const activityName = `${activity.emoji} ${activity.name}`;
-    openSwipeActionModal(matchId, activityName, activity);
+    await openSwipeActionModal(matchId, activityName, activity);
 }
 
 window.closeFirstToChooseModal = function() {
