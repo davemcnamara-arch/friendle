@@ -13590,25 +13590,26 @@ async function createPlanningEvent(e) {
             console.error('Error sending notification:', err);
         });
 
-        // Close modal
+        // IMPORTANT: Capture poll form values BEFORE closing modal (which resets the form)
+        const createPollChecked = document.getElementById('create-poll-on-start')?.checked;
+        const pollQuestion = createPollChecked ? document.getElementById('planning-poll-question')?.value.trim() : null;
+        const pollOptionInputs = createPollChecked ? document.querySelectorAll('.planning-poll-option') : [];
+        const pollOptions = Array.from(pollOptionInputs)
+            .map(input => input.value.trim())
+            .filter(val => val.length > 0);
+        const enableAutoLock = createPollChecked ? document.getElementById('enable-auto-lock')?.checked : false;
+        const autoLockThreshold = enableAutoLock ?
+            parseInt(document.getElementById('auto-lock-threshold')?.value || '3') : null;
+
+        // Close modal (this resets the form, so we captured poll values above)
         closePlanningEventModal();
 
         // Create poll if requested (only in planning mode) - BEFORE opening chat
         let createdPoll = null;
-        const createPollChecked = document.getElementById('create-poll-on-start')?.checked;
         if (!lockDetailsNow && createPollChecked) {
-            const pollQuestion = document.getElementById('planning-poll-question')?.value.trim();
-            const pollOptionInputs = document.querySelectorAll('.planning-poll-option');
-            const pollOptions = Array.from(pollOptionInputs)
-                .map(input => input.value.trim())
-                .filter(val => val.length > 0);
-
             if (pollQuestion && pollOptions.length >= 2) {
                 try {
-                    // Check if auto-lock is enabled
-                    const enableAutoLock = document.getElementById('enable-auto-lock')?.checked;
-                    const autoLockThreshold = enableAutoLock ?
-                        parseInt(document.getElementById('auto-lock-threshold')?.value || '3') : null;
+                    // Check if auto-lock is enabled (already captured above)
 
                     // Store auto-lock metadata with the poll options
                     const pollData = {
