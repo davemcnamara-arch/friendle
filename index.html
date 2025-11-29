@@ -13634,6 +13634,13 @@ async function renderPollMessage(message, poll) {
         return;
     }
 
+    // Check if this message already exists (prevent duplicates)
+    const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
+    if (existingMessage) {
+        console.log('⚠️ Poll message already exists, skipping duplicate render');
+        return;
+    }
+
     // Parse options - handle both old format (array) and new format (object with metadata)
     let pollData = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
     let options, autoLockEnabled, autoLockThreshold;
@@ -13676,11 +13683,9 @@ async function renderPollMessage(message, poll) {
     pollDiv.innerHTML = `
         <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #007bff;">
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <div class="avatar" style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 18px;">
-                    ${sender.avatar || '👤'}
-                </div>
-                <div>
-                    <div style="font-weight: 600; color: #333;">${sender.name}</div>
+                ${renderAvatar(sender.avatar, 32)}
+                <div style="margin-left: 10px;">
+                    <div style="font-weight: 600; color: #333;">${escapeHtml(sender.name)}</div>
                     <div style="font-size: 12px; color: #666;">📊 asked:</div>
                 </div>
             </div>
@@ -14759,6 +14764,13 @@ function appendMessage(message) {
     const placeholder = messagesContainer.querySelector('p');
     if (placeholder && placeholder.textContent.includes('No messages yet')) {
         messagesContainer.innerHTML = '';
+    }
+
+    // Check if message already exists (prevent duplicates)
+    const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
+    if (existingMessage) {
+        console.log('⚠️ Message already exists, skipping duplicate:', message.id);
+        return;
     }
 
     // Handle different message types
