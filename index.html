@@ -14031,7 +14031,8 @@ async function lockEventDetails(e) {
         await openEventChat(currentEvent.id);
 
         // Post system message
-        const dateStr = formatEventDate(document.getElementById('lock-date').value, document.getElementById('lock-time').value);
+        const dateValue = document.getElementById('lock-date').value;
+        const dateStr = formatEventDate(new Date(dateValue));
         const locationStr = document.getElementById('lock-location').value;
 
         const systemMessage = `✅ Event scheduled:\n📅 ${dateStr}\n📍 ${locationStr}`;
