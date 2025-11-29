@@ -12989,8 +12989,8 @@ function openGoogleMapsSearch() {
 
     // If there's already a location entered, search for it. Otherwise, just open Google Maps
     const mapsUrl = searchQuery
-        ? `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`
-        : 'https://www.google.com/maps/search/';
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery)}`
+        : 'https://www.google.com/maps';
 
     // Open in a new tab
     window.open(mapsUrl, '_blank');
