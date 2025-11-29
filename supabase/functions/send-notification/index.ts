@@ -20,7 +20,8 @@ const NOTIFICATION_PREFERENCE_MAP: Record<string, string> = {
   'event_join': 'notify_event_joins',
   'event_created': 'notify_event_joins',
   'chat_message': 'notify_chat_messages',
-  'match_join': 'notify_new_matches'
+  'match_join': 'notify_new_matches',
+  'poll_agreement': 'notify_event_joins'
 }
 
 interface NotificationRequest {
@@ -30,7 +31,7 @@ interface NotificationRequest {
   activityName?: string
   chatType?: 'match' | 'event' | 'circle'
   chatId?: string
-  notificationType: 'new_match' | 'event_join' | 'event_created' | 'chat_message' | 'match_join'
+  notificationType: 'new_match' | 'event_join' | 'event_created' | 'chat_message' | 'match_join' | 'poll_agreement'
 }
 
 serve(async (req) => {
@@ -64,7 +65,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Invalid notification type: ${notificationType}. Must be one of: new_match, match_join, event_join, event_created, chat_message`
+          error: `Invalid notification type: ${notificationType}. Must be one of: new_match, match_join, event_join, event_created, chat_message, poll_agreement`
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -247,6 +248,13 @@ serve(async (req) => {
         notificationData.chatType = chatType  // Use camelCase for consistency with client code
         notificationData.chatId = chatId
         notificationData.message = message
+        break
+
+      case 'poll_agreement':
+        heading = `${activityName || 'Event'} - Agreement Reached!`
+        content = message  // Message includes the agreed option and vote count
+        notificationData.chatType = chatType  // Use camelCase for consistency with client code
+        notificationData.chatId = chatId
         break
     }
 

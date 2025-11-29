@@ -14096,6 +14096,42 @@ async function checkAutoLockThreshold(pollId) {
                 // Show notification to current user
                 showNotification(`🎉 ${maxVotes} people agreed on "${winningOption}"!`, 'success');
 
+                // Get all event participants to send push notifications
+                const { data: participants } = await supabase
+                    .from('event_participants')
+                    .select('profile_id')
+                    .eq('event_id', eventId);
+
+                // Filter out current user (they already got the in-app notification)
+                const recipientIds = (participants || [])
+                    .map(p => p.profile_id)
+                    .filter(id => id !== currentUser.id);
+
+                // Send push notifications via edge function
+                if (recipientIds.length > 0) {
+                    try {
+                        const { data, error } = await supabase.functions.invoke('send-notification', {
+                            body: {
+                                senderId: currentUser.id,
+                                recipientIds: recipientIds,
+                                message: `🎉 ${maxVotes} ${maxVotes === 1 ? 'person' : 'people'} agreed on: "${winningOption}"`,
+                                activityName: event.activity_name || 'Event',
+                                chatType: 'event',
+                                chatId: eventId,
+                                notificationType: 'poll_agreement'
+                            }
+                        });
+
+                        if (error) {
+                            console.error('Error sending poll agreement notifications:', error);
+                        } else {
+                            console.log('Poll agreement notifications sent:', data);
+                        }
+                    } catch (notifError) {
+                        console.error('Failed to send poll agreement notifications:', notifError);
+                    }
+                }
+
                 // Broadcast notification to all participants
                 const channel = supabase.channel(`event_${eventId}`);
                 await channel.send({
