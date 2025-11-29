@@ -13411,8 +13411,7 @@ async function createPlanningEvent(e) {
 
                     createdPoll = { poll: newPoll, message: pollMessage };
 
-                    // Render the poll immediately
-                    await renderPollMessage(pollMessage, newPoll);
+                    // Poll will be rendered when event chat opens and loads messages
 
                 } catch (pollCreationError) {
                     console.error('Error creating poll with event:', pollCreationError);
@@ -13593,6 +13592,9 @@ async function submitPoll(e) {
 
         if (messageError) throw messageError;
 
+        // Render the poll immediately (before broadcasting to prevent race condition)
+        await renderPollMessage(pollMessage, newPoll);
+
         // Broadcast new poll message
         const channel = supabase.channel(`event_${currentEvent.id}`);
         await channel.send({
@@ -13613,9 +13615,6 @@ async function submitPoll(e) {
         // Close modal and reset form
         closeCreatePollModal();
         showNotification('Poll created!');
-
-        // Render the poll immediately
-        await renderPollMessage(pollMessage, newPoll);
 
     } catch (error) {
         console.error('Error creating poll:', error);
