@@ -2122,6 +2122,126 @@ body.dark-mode .consensus-notification-badge {
     border-color: #2e5266 !important;
 }
 
+/* Poll Styles */
+.poll-container {
+    background: #f8f9fa;
+}
+
+.poll-sender-name {
+    color: #333;
+}
+
+.poll-sender-label {
+    color: #666;
+}
+
+.poll-question {
+    color: #222;
+}
+
+.poll-vote-count {
+    color: #666;
+}
+
+.poll-timestamp {
+    color: #999;
+}
+
+.poll-option-btn {
+    background: white;
+    color: #333;
+    border: 2px solid #ddd;
+}
+
+.poll-option-btn.selected {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.poll-option-btn:not(.selected):hover {
+    background: #f0f0f0;
+}
+
+.consensus-notification-badge {
+    background: #e7f3ff;
+    color: #004085;
+    border: 1px solid #b8daff;
+}
+
+/* Dark mode - Polls */
+body.dark-mode .poll-container {
+    background: #2d3748;
+}
+
+body.dark-mode .poll-sender-name {
+    color: #e2e8f0;
+}
+
+body.dark-mode .poll-sender-label {
+    color: #a0aec0;
+}
+
+body.dark-mode .poll-question {
+    color: #f7fafc;
+}
+
+body.dark-mode .poll-vote-count {
+    color: #a0aec0;
+}
+
+body.dark-mode .poll-timestamp {
+    color: #718096;
+}
+
+body.dark-mode .poll-option-btn {
+    background: #1a202c;
+    color: #e2e8f0;
+    border-color: #4a5568;
+}
+
+body.dark-mode .poll-option-btn.selected {
+    background: #3182ce;
+    color: white;
+    border-color: #3182ce;
+}
+
+body.dark-mode .poll-option-btn:not(.selected):hover {
+    background: #2d3748;
+}
+
+/* Poll Notification Section in Modal */
+.poll-notification-section {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+}
+
+.poll-notification-description {
+    color: #666;
+}
+
+.poll-notification-threshold-label {
+    color: #555;
+}
+
+/* Dark mode - Poll Notification Section in Modal */
+body.dark-mode .poll-notification-section {
+    background: #2d3748;
+    border-color: #4a5568;
+}
+
+body.dark-mode .poll-notification-description {
+    color: #a0aec0;
+}
+
+body.dark-mode .poll-notification-threshold-label {
+    color: #cbd5e0;
+}
+
+body.dark-mode .poll-notification-label {
+    color: #e2e8f0;
+}
+
     </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
@@ -3381,7 +3501,7 @@ body.dark-mode .consensus-notification-badge {
         <span class="close-modal-btn" onclick="closeCreatePollModal()">×</span>
         <div class="modal-header">📊 Quick Poll</div>
 
-        <form id="create-poll-form" onsubmit="submitPoll(event)">
+        <form id="create-poll-form">
             <div class="form-group">
                 <label for="poll-question">Question *</label>
                 <input type="text" id="poll-question" required placeholder="When should we meet?" maxlength="200">
@@ -3403,15 +3523,15 @@ body.dark-mode .consensus-notification-badge {
             </div>
 
             <!-- Agreement Notification Section -->
-            <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 5px;">
+            <div class="form-group poll-notification-section" style="padding: 15px; border-radius: 8px;">
+                <label class="poll-notification-label" style="display: flex; align-items: center; cursor: pointer; margin-bottom: 5px;">
                     <input type="checkbox" id="chat-poll-enable-auto-lock" onchange="toggleChatPollAutoLock()" style="margin-right: 10px;">
                     <span style="font-weight: 600;">🔔 Enable Agreement Notifications</span>
                 </label>
-                <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Notify all participants when enough people agree on a poll option</p>
+                <p class="poll-notification-description" style="font-size: 12px; margin: 0 0 10px 0;">Notify all participants when enough people agree on a poll option</p>
 
                 <div id="chat-poll-auto-lock-threshold" style="display: none; margin-top: 10px;">
-                    <label for="chat-poll-threshold-input" style="font-size: 13px; color: #555; margin-bottom: 5px; display: block;">
+                    <label for="chat-poll-threshold-input" class="poll-notification-threshold-label" style="font-size: 13px; margin-bottom: 5px; display: block;">
                         Notify when <input type="number" id="chat-poll-threshold-input" min="2" max="10" value="2" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; text-align: center; margin: 0 5px;"> people agree
                     </label>
                 </div>
@@ -13976,15 +14096,15 @@ async function renderPollMessage(message, poll) {
     const sender = message.sender_id === currentUser.id ? currentUser : (message.sender || { name: 'User', avatar: '👤' });
 
     pollDiv.innerHTML = `
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #007bff; width: 100%;">
+        <div class="poll-container" style="padding: 15px; border-radius: 10px; border-left: 4px solid #007bff; width: 100%;">
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 ${renderAvatar(sender.avatar, 32)}
                 <div style="margin-left: 10px;">
-                    <div style="font-weight: 600; color: #333;">${escapeHtml(sender.name)}</div>
-                    <div style="font-size: 12px; color: #666;">📊 asked:</div>
+                    <div class="poll-sender-name" style="font-weight: 600;">${escapeHtml(sender.name)}</div>
+                    <div class="poll-sender-label" style="font-size: 12px;">📊 asked:</div>
                 </div>
             </div>
-            <div style="font-weight: 500; margin-bottom: 15px; color: #222;">
+            <div class="poll-question" style="font-weight: 500; margin-bottom: 15px;">
                 ${escapeHtml(poll.question)}
             </div>
             <div class="poll-options" style="display: flex; flex-direction: column; gap: 8px;">
@@ -13993,11 +14113,9 @@ async function renderPollMessage(message, poll) {
                     const isSelected = userVote?.option_index === index;
                     return `
                         <button
+                            class="poll-option-btn ${isSelected ? 'selected' : ''}"
                             onclick="voteOnPoll('${poll.id}', ${index})"
                             style="
-                                background: ${isSelected ? '#007bff' : 'white'};
-                                color: ${isSelected ? 'white' : '#333'};
-                                border: 2px solid ${isSelected ? '#007bff' : '#ddd'};
                                 padding: 10px 15px;
                                 border-radius: 8px;
                                 text-align: left;
@@ -14008,8 +14126,6 @@ async function renderPollMessage(message, poll) {
                                 justify-content: space-between;
                                 align-items: center;
                             "
-                            onmouseover="if (!${isSelected}) this.style.background='#f0f0f0'"
-                            onmouseout="if (!${isSelected}) this.style.background='white'"
                         >
                             <span>${isSelected ? '✓ ' : ''}${escapeHtml(option)}</span>
                             <span style="font-weight: 600;">${voteCount} vote${voteCount !== 1 ? 's' : ''}</span>
@@ -14017,15 +14133,15 @@ async function renderPollMessage(message, poll) {
                     `;
                 }).join('')}
             </div>
-            <div style="margin-top: 10px; font-size: 12px; color: #666;">
+            <div class="poll-vote-count" style="margin-top: 10px; font-size: 12px;">
                 ${totalVotes} ${totalVotes === 1 ? 'person' : 'people'} voted
             </div>
             ${autoLockEnabled ? `
-                <div class="consensus-notification-badge" style="margin-top: 8px; padding: 8px; background: #e7f3ff; border-radius: 5px; font-size: 12px; color: #004085; border: 1px solid #b8daff;">
+                <div class="consensus-notification-badge" style="margin-top: 8px; padding: 8px; border-radius: 5px; font-size: 12px;">
                     🔔 Notifications enabled: Everyone will be notified when ${autoLockThreshold} ${autoLockThreshold === 1 ? 'person agrees' : 'people agree'} on the same option
                 </div>
             ` : ''}
-            <div style="margin-top: 8px; font-size: 11px; color: #999;">
+            <div class="poll-timestamp" style="margin-top: 8px; font-size: 11px;">
                 ${formatTime(message.created_at)}
             </div>
         </div>
