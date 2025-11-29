@@ -13578,11 +13578,12 @@ async function createPlanningEvent(e) {
 
         if (participantError) throw participantError;
 
-        // Update match last_interaction
+        // Update creator's last interaction timestamp in match_participants
         await supabase
-            .from('matches')
-            .update({ last_interaction: new Date().toISOString() })
-            .eq('id', matchId);
+            .from('match_participants')
+            .update({ last_interaction_at: new Date().toISOString() })
+            .eq('match_id', matchId)
+            .eq('profile_id', currentUser.id);
 
         // Send notifications to other match participants
         sendEventCreatedNotification(matchId, newEvent).catch(err => {
@@ -13592,10 +13593,7 @@ async function createPlanningEvent(e) {
         // Close modal
         closePlanningEventModal();
 
-        // Open event chat immediately
-        await openEventChat(newEvent.id);
-
-        // Create poll if requested (only in planning mode)
+        // Create poll if requested (only in planning mode) - BEFORE opening chat
         let createdPoll = null;
         const createPollChecked = document.getElementById('create-poll-on-start')?.checked;
         if (!lockDetailsNow && createPollChecked) {
@@ -13652,7 +13650,7 @@ async function createPlanningEvent(e) {
 
                     createdPoll = { poll: newPoll, message: pollMessage };
 
-                    // Poll will be rendered when event chat opens and loads messages
+                    console.log('✓ Poll message created, ready to be displayed when chat opens');
 
                 } catch (pollCreationError) {
                     console.error('Error creating poll with event:', pollCreationError);
@@ -13694,6 +13692,9 @@ async function createPlanningEvent(e) {
         }
 
         await sendSystemMessage(newEvent.id, systemMessage);
+
+        // Open event chat AFTER poll and system message are created
+        await openEventChat(newEvent.id);
 
     } catch (error) {
         console.error('Error creating event:', error);
