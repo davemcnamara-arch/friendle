@@ -3259,7 +3259,7 @@ body.dark-mode .consensus-notification-badge {
         <span class="close-modal-btn" onclick="closeCreatePollModal()">×</span>
         <div class="modal-header">📊 Quick Poll</div>
 
-        <form id="create-poll-form">
+        <form id="create-poll-form" onsubmit="submitPoll(event)">
             <div class="form-group">
                 <label for="poll-question">Question *</label>
                 <input type="text" id="poll-question" required placeholder="When should we meet?" maxlength="200">
@@ -13214,10 +13214,12 @@ function closeLockDetailsModal() {
 
 // Create Poll Modal
 function openCreatePollModal() {
+    console.log('🎯 openCreatePollModal called!');
     if (!currentEvent) {
-        console.error('No current event context for poll');
+        console.error('❌ No current event context for poll');
         return;
     }
+    console.log('✓ Opening poll modal for event:', currentEvent.id);
 
     // Reset form
     document.getElementById('create-poll-form').reset();
@@ -13520,12 +13522,15 @@ async function lockEventDetails(e) {
 
 // Submit a new poll
 async function submitPoll(e) {
+    console.log('🎯 submitPoll called!');
     e.preventDefault();
 
     if (!currentEvent) {
+        console.error('❌ No event context!');
         showNotification('No event context', 'error');
         return;
     }
+    console.log('✓ Event context exists:', currentEvent.id);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.innerHTML;
@@ -13539,6 +13544,8 @@ async function submitPoll(e) {
         const options = Array.from(optionInputs)
             .map(input => input.value.trim())
             .filter(val => val.length > 0);
+
+        console.log('📝 Poll data:', { question, optionsCount: options.length, options });
 
         if (options.length < 2) {
             showNotification('Please add at least 2 options', 'error');
@@ -13612,8 +13619,12 @@ async function submitPoll(e) {
 
 // Render a poll message in the chat
 async function renderPollMessage(message, poll) {
+    console.log('📊 renderPollMessage called:', { messageId: message.id, pollId: poll.id, question: poll.question });
     const messagesContainer = document.getElementById('chat-messages');
-    if (!messagesContainer) return;
+    if (!messagesContainer) {
+        console.error('❌ No messages container found!');
+        return;
+    }
 
     // Parse options - handle both old format (array) and new format (object with metadata)
     let pollData = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
@@ -13652,7 +13663,7 @@ async function renderPollMessage(message, poll) {
     pollDiv.setAttribute('data-message-id', message.id);
     pollDiv.setAttribute('data-poll-id', poll.id);
 
-    const sender = message.sender_id === currentUser.id ? currentUser : { name: 'User', avatar: '👤' };
+    const sender = message.sender_id === currentUser.id ? currentUser : (message.sender || { name: 'User', avatar: '👤' });
 
     pollDiv.innerHTML = `
         <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #007bff;">
@@ -14744,14 +14755,27 @@ function appendMessage(message) {
 
     // Handle different message types
     if (message.message_type === 'poll') {
+        console.log('🎯 Rendering poll message:', { messageId: message.id, pollId: message.poll_id });
         // Render poll message - fetch poll data and call renderPollMessage
         supabase
             .from('polls')
             .select('*')
             .eq('id', message.poll_id)
             .single()
-            .then(({ data: poll }) => {
-                if (poll) renderPollMessage(message, poll);
+            .then(({ data: poll, error }) => {
+                if (error) {
+                    console.error('❌ Error fetching poll:', error);
+                    return;
+                }
+                if (poll) {
+                    console.log('✅ Poll data fetched, rendering:', poll);
+                    renderPollMessage(message, poll);
+                } else {
+                    console.warn('⚠️ No poll data returned for poll_id:', message.poll_id);
+                }
+            })
+            .catch(err => {
+                console.error('❌ Exception fetching poll:', err);
             });
         return;
     }
