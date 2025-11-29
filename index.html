@@ -14336,7 +14336,7 @@ async function refreshPollDisplay(pollId) {
 
     const { data: pollMessage } = await supabase
         .from('event_messages')
-        .select('*')
+        .select('*, sender:profiles(id, name, avatar)')
         .eq('poll_id', pollId)
         .single();
 
