@@ -12942,21 +12942,14 @@ function openSwipeActionModal(matchId, activityName, activity = null) {
 async function closeSwipeActionModal() {
     document.getElementById('swipe-action-modal').style.display = 'none';
 
-    // If user closed without choosing, undo the swipe
-    if (pendingSwipeActivity && selectedCircle) {
-        // Remove activity from the activities array
-        const index = activities.findIndex(a => a.id === pendingSwipeActivity.id);
-        if (index !== -1) {
-            activities.splice(index, 1);
-            console.log('Removed activity from array due to modal cancel');
-        }
-
-        // Save updated preferences to database
-        const selectedActivityIds = activities.map(a => a.id);
-        await saveUserPreferences(selectedCircle.id, selectedActivityIds);
-
-        // Reload the swipe view to show the correct cards
-        await initializeSwipeView(false);
+    // If user closed without choosing, assume they're interested
+    // The activity is already saved in preferences from the swipe right action
+    // Just advance to the next card
+    if (pendingSwipeActivity) {
+        setTimeout(() => {
+            currentCardIndex++;
+            showNextCard();
+        }, 300);
     }
 
     pendingSwipeMatchId = null;
