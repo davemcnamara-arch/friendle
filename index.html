@@ -4580,6 +4580,15 @@ function showNotification(message, type = 'success') {
 }
 
 function showLoader(message = 'Loading...') {
+    // Don't show loader if swipe action modal or planning event modal is open
+    const swipeActionModal = document.getElementById('swipe-action-modal');
+    const planningEventModal = document.getElementById('planning-event-modal');
+
+    if ((swipeActionModal && swipeActionModal.style.display === 'flex') ||
+        (planningEventModal && planningEventModal.style.display === 'flex')) {
+        return; // Skip showing loader when these modals are open
+    }
+
     // Remove existing loader if any
     hideLoader();
 
