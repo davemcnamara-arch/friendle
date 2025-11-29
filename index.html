@@ -3132,6 +3132,47 @@ body.dark-mode .custom-activity-item {
 
             <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
                 <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="create-poll-on-start" onchange="toggleCreatePollFields()" style="margin-right: 10px;">
+                    <span>📊 Create a poll for group decision</span>
+                </label>
+            </div>
+
+            <div id="create-poll-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="planning-poll-question">Poll Question *</label>
+                    <input type="text" id="planning-poll-question" placeholder="e.g., What time works best?" style="width: 100%;">
+                </div>
+
+                <div class="form-group">
+                    <label>Poll Options *</label>
+                    <div id="planning-poll-options-container">
+                        <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" class="planning-poll-option" placeholder="Option 1" style="flex: 1;">
+                        </div>
+                        <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" class="planning-poll-option" placeholder="Option 2" style="flex: 1;">
+                        </div>
+                    </div>
+                    <button type="button" onclick="addPlanningPollOption()" class="btn btn-secondary" style="padding: 8px 12px; font-size: 14px;">+ Add Option</button>
+                </div>
+
+                <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
+                        <input type="checkbox" id="enable-auto-lock" onchange="toggleAutoLockFields()" style="margin-right: 10px;">
+                        <span><strong>🔒 Auto-lock details when consensus reached</strong></span>
+                    </label>
+                    <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Automatically finalize the event when enough people agree on a poll option</p>
+
+                    <div id="auto-lock-fields" style="display: none;">
+                        <label for="auto-lock-threshold">Lock when this many users agree:</label>
+                        <input type="number" id="auto-lock-threshold" min="2" value="3" style="width: 100%; margin-top: 5px;">
+                        <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Event will auto-lock when this many participants vote for the same option</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
                     <input type="checkbox" id="lock-details-now" onchange="toggleLockDetailsFields()" style="margin-right: 10px;">
                     <span>Lock in details now</span>
                 </label>
@@ -12989,10 +13030,55 @@ function openPlanningEventModal(matchId) {
 
 function closePlanningEventModal() {
     document.getElementById('planning-event-modal').style.display = 'none';
+
     // Reset the lock details checkbox and fields
     document.getElementById('lock-details-now').checked = false;
     document.getElementById('lock-details-fields').style.display = 'none';
     document.getElementById('planning-submit-btn').textContent = 'Start Planning';
+
+    // Reset poll creation checkbox and fields
+    const createPollCheckbox = document.getElementById('create-poll-on-start');
+    if (createPollCheckbox) {
+        createPollCheckbox.checked = false;
+        createPollCheckbox.disabled = false;
+    }
+
+    const createPollFields = document.getElementById('create-poll-fields');
+    if (createPollFields) {
+        createPollFields.style.display = 'none';
+    }
+
+    // Reset poll inputs
+    const pollQuestion = document.getElementById('planning-poll-question');
+    if (pollQuestion) pollQuestion.value = '';
+
+    const pollOptionsContainer = document.getElementById('planning-poll-options-container');
+    if (pollOptionsContainer) {
+        pollOptionsContainer.innerHTML = `
+            <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" class="planning-poll-option" placeholder="Option 1" style="flex: 1;">
+            </div>
+            <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" class="planning-poll-option" placeholder="Option 2" style="flex: 1;">
+            </div>
+        `;
+    }
+
+    // Reset auto-lock checkbox and fields
+    const enableAutoLock = document.getElementById('enable-auto-lock');
+    if (enableAutoLock) {
+        enableAutoLock.checked = false;
+    }
+
+    const autoLockFields = document.getElementById('auto-lock-fields');
+    if (autoLockFields) {
+        autoLockFields.style.display = 'none';
+    }
+
+    const autoLockThreshold = document.getElementById('auto-lock-threshold');
+    if (autoLockThreshold) {
+        autoLockThreshold.value = '3';
+    }
 }
 
 function toggleLockDetailsFields() {
@@ -13002,6 +13088,7 @@ function toggleLockDetailsFields() {
     const locationInput = document.getElementById('planning-location');
     const dateInput = document.getElementById('planning-lock-date');
     const timeframeInput = document.getElementById('planning-timeframe');
+    const createPollCheckbox = document.getElementById('create-poll-on-start');
 
     if (checkbox.checked) {
         fieldsDiv.style.display = 'block';
@@ -13013,13 +13100,67 @@ function toggleLockDetailsFields() {
         // Set min date to today
         const today = new Date().toISOString().slice(0, 10);
         dateInput.min = today;
+
+        // Disable poll creation when locking details now
+        if (createPollCheckbox) {
+            createPollCheckbox.checked = false;
+            createPollCheckbox.disabled = true;
+            toggleCreatePollFields();
+        }
     } else {
         fieldsDiv.style.display = 'none';
         submitBtn.textContent = 'Start Planning';
         locationInput.required = false;
         dateInput.required = false;
         timeframeInput.required = true; // Timeframe required for planning mode
+
+        // Re-enable poll creation
+        if (createPollCheckbox) {
+            createPollCheckbox.disabled = false;
+        }
     }
+}
+
+function toggleCreatePollFields() {
+    const checkbox = document.getElementById('create-poll-on-start');
+    const fieldsDiv = document.getElementById('create-poll-fields');
+
+    if (checkbox && checkbox.checked) {
+        fieldsDiv.style.display = 'block';
+    } else {
+        fieldsDiv.style.display = 'none';
+    }
+}
+
+function toggleAutoLockFields() {
+    const checkbox = document.getElementById('enable-auto-lock');
+    const fieldsDiv = document.getElementById('auto-lock-fields');
+
+    if (checkbox && checkbox.checked) {
+        fieldsDiv.style.display = 'block';
+    } else {
+        fieldsDiv.style.display = 'none';
+    }
+}
+
+function addPlanningPollOption() {
+    const container = document.getElementById('planning-poll-options-container');
+    const optionCount = container.querySelectorAll('.poll-option-input').length + 1;
+
+    if (optionCount > 10) {
+        showNotification('Maximum 10 options allowed', 'error');
+        return;
+    }
+
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'poll-option-input';
+    optionDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+    optionDiv.innerHTML = `
+        <input type="text" class="planning-poll-option" placeholder="Option ${optionCount}" style="flex: 1;">
+        <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="padding: 8px 12px;">✕</button>
+    `;
+
+    container.appendChild(optionDiv);
 }
 
 function openGoogleMapsSearch() {
@@ -13188,6 +13329,73 @@ async function createPlanningEvent(e) {
         // Open event chat immediately
         await openEventChat(newEvent.id);
 
+        // Create poll if requested (only in planning mode)
+        let createdPoll = null;
+        const createPollChecked = document.getElementById('create-poll-on-start')?.checked;
+        if (!lockDetailsNow && createPollChecked) {
+            const pollQuestion = document.getElementById('planning-poll-question')?.value.trim();
+            const pollOptionInputs = document.querySelectorAll('.planning-poll-option');
+            const pollOptions = Array.from(pollOptionInputs)
+                .map(input => input.value.trim())
+                .filter(val => val.length > 0);
+
+            if (pollQuestion && pollOptions.length >= 2) {
+                try {
+                    // Check if auto-lock is enabled
+                    const enableAutoLock = document.getElementById('enable-auto-lock')?.checked;
+                    const autoLockThreshold = enableAutoLock ?
+                        parseInt(document.getElementById('auto-lock-threshold')?.value || '3') : null;
+
+                    // Store auto-lock metadata with the poll options
+                    const pollData = {
+                        options: pollOptions,
+                        autoLockEnabled: enableAutoLock || false,
+                        autoLockThreshold: autoLockThreshold
+                    };
+
+                    // Create poll in database
+                    const { data: newPoll, error: pollError } = await supabase
+                        .from('polls')
+                        .insert({
+                            event_id: newEvent.id,
+                            question: pollQuestion,
+                            options: JSON.stringify(pollData),
+                            created_by: currentUser.id
+                        })
+                        .select()
+                        .single();
+
+                    if (pollError) throw pollError;
+
+                    console.log('✓ Poll created with event:', newPoll);
+
+                    // Create a message of type 'poll' in event_messages
+                    const { data: pollMessage, error: messageError } = await supabase
+                        .from('event_messages')
+                        .insert({
+                            event_id: newEvent.id,
+                            sender_id: currentUser.id,
+                            content: pollQuestion,
+                            message_type: 'poll',
+                            poll_id: newPoll.id
+                        })
+                        .select()
+                        .single();
+
+                    if (messageError) throw messageError;
+
+                    createdPoll = { poll: newPoll, message: pollMessage };
+
+                    // Render the poll immediately
+                    await renderPollMessage(pollMessage, newPoll);
+
+                } catch (pollCreationError) {
+                    console.error('Error creating poll with event:', pollCreationError);
+                    showNotification('Event created, but poll creation failed', 'warning');
+                }
+            }
+        }
+
         // Post appropriate system message
         const activity = activities.find(a => a.id === match.activity_id);
         const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
@@ -13216,7 +13424,8 @@ async function createPlanningEvent(e) {
             systemMessage = `🤖 ${currentUser.name} created ${activityName}\n📅 ${dateTimeStr}${locationText}\n\nEvent is locked in!`;
         } else {
             // Event is in planning mode
-            systemMessage = `🤖 ${currentUser.name} started planning ${activityName}\n📅 Thinking: ${newEvent.proposed_timeframe}${locationText}\n\nChat below to finalize details!`;
+            const pollNote = createdPoll ? '\n\n📊 Vote on the poll above to help decide!' : '';
+            systemMessage = `🤖 ${currentUser.name} started planning ${activityName}\n📅 Thinking: ${newEvent.proposed_timeframe}${locationText}\n\nChat below to finalize details!${pollNote}`;
         }
 
         await sendSystemMessage(newEvent.id, systemMessage);
@@ -13391,8 +13600,21 @@ async function renderPollMessage(message, poll) {
     const messagesContainer = document.getElementById('chat-messages');
     if (!messagesContainer) return;
 
-    // Parse options if they're a string
-    const options = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
+    // Parse options - handle both old format (array) and new format (object with metadata)
+    let pollData = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
+    let options, autoLockEnabled, autoLockThreshold;
+
+    if (Array.isArray(pollData)) {
+        // Old format: just an array of option strings
+        options = pollData;
+        autoLockEnabled = false;
+        autoLockThreshold = null;
+    } else {
+        // New format: object with options and metadata
+        options = pollData.options || [];
+        autoLockEnabled = pollData.autoLockEnabled || false;
+        autoLockThreshold = pollData.autoLockThreshold || null;
+    }
 
     // Get vote counts
     const { data: votes } = await supabase
@@ -13464,6 +13686,11 @@ async function renderPollMessage(message, poll) {
             <div style="margin-top: 10px; font-size: 12px; color: #666;">
                 ${totalVotes} ${totalVotes === 1 ? 'person' : 'people'} voted
             </div>
+            ${autoLockEnabled ? `
+                <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 5px; font-size: 12px; color: #856404; border: 1px solid #ffeaa7;">
+                    🔒 Auto-lock enabled: Event will finalize when ${autoLockThreshold} ${autoLockThreshold === 1 ? 'person agrees' : 'people agree'} on the same option
+                </div>
+            ` : ''}
             <div style="margin-top: 8px; font-size: 11px; color: #999;">
                 ${formatTime(message.created_at)}
             </div>
@@ -13490,6 +13717,9 @@ window.voteOnPoll = async function(pollId, optionIndex) {
 
         if (error) throw error;
 
+        // Check for auto-lock threshold
+        await checkAutoLockThreshold(pollId);
+
         // Refresh poll display
         await refreshPollDisplay(pollId);
 
@@ -13506,6 +13736,111 @@ window.voteOnPoll = async function(pollId, optionIndex) {
     } catch (error) {
         console.error('Error voting on poll:', error);
         showNotification('Error submitting vote', 'error');
+    }
+}
+
+// Check if auto-lock threshold has been reached for a poll
+async function checkAutoLockThreshold(pollId) {
+    try {
+        // Get poll data
+        const { data: poll, error: pollError } = await supabase
+            .from('polls')
+            .select('*')
+            .eq('id', pollId)
+            .single();
+
+        if (pollError || !poll) return;
+
+        // Parse poll options to check for auto-lock metadata
+        let pollData;
+        try {
+            pollData = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
+        } catch (e) {
+            // Old format poll without metadata
+            return;
+        }
+
+        // Check if auto-lock is enabled
+        if (!pollData.autoLockEnabled || !pollData.autoLockThreshold) {
+            return;
+        }
+
+        const threshold = pollData.autoLockThreshold;
+        const options = pollData.options;
+
+        // Get all votes for this poll
+        const { data: votes, error: votesError } = await supabase
+            .from('poll_votes')
+            .select('option_index, voter_id')
+            .eq('poll_id', pollId);
+
+        if (votesError || !votes) return;
+
+        // Count votes for each option
+        const voteCounts = {};
+        votes.forEach(vote => {
+            voteCounts[vote.option_index] = (voteCounts[vote.option_index] || 0) + 1;
+        });
+
+        // Check if any option has reached the threshold
+        let winningOptionIndex = null;
+        let maxVotes = 0;
+        for (const [index, count] of Object.entries(voteCounts)) {
+            if (count >= threshold && count > maxVotes) {
+                winningOptionIndex = parseInt(index);
+                maxVotes = count;
+            }
+        }
+
+        // If threshold reached, auto-lock the event
+        if (winningOptionIndex !== null) {
+            const winningOption = options[winningOptionIndex];
+            const eventId = poll.event_id;
+
+            // Get current event
+            const { data: event } = await supabase
+                .from('events')
+                .select('*')
+                .eq('id', eventId)
+                .single();
+
+            // Only auto-lock if event is still in planning mode
+            if (event && event.status === 'planning') {
+                console.log(`🔒 Auto-lock triggered! Winning option: "${winningOption}" with ${maxVotes} votes`);
+
+                // Update event to mark consensus reached
+                // We'll keep it in planning mode but add a note about consensus
+                const consensusNote = `\n\n🔒 GROUP CONSENSUS: ${winningOption} (${maxVotes} votes)`;
+                const updatedNotes = (event.notes || '') + consensusNote;
+
+                await supabase
+                    .from('events')
+                    .update({
+                        notes: updatedNotes,
+                        proposed_timeframe: winningOption // Update timeframe to winning option
+                    })
+                    .eq('id', eventId);
+
+                // Post system message about consensus
+                const systemMessage = `🎉 Consensus reached!\n\n${maxVotes} people agreed on: "${winningOption}"\n\nUse "Lock in Details" to finalize the event with a specific date and time.`;
+                await sendSystemMessage(eventId, systemMessage);
+
+                // Show notification
+                showNotification('Poll consensus reached! 🎉', 'success');
+
+                // Broadcast event update
+                const channel = supabase.channel(`event_${eventId}`);
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'event_updated',
+                    payload: { eventId }
+                });
+            }
+        }
+
+    } catch (error) {
+        console.error('Error checking auto-lock threshold:', error);
+        // Don't show error to user - auto-lock is a background feature
     }
 }
 
