@@ -4580,6 +4580,13 @@ function showNotification(message, type = 'success') {
 }
 
 function showLoader(message = 'Loading...') {
+    // Don't show loader if planning event modal is open (user is filling out the form)
+    const planningEventModal = document.getElementById('planning-event-modal');
+
+    if (planningEventModal && planningEventModal.style.display === 'flex') {
+        return; // Skip showing loader when planning modal is open
+    }
+
     // Remove existing loader if any
     hideLoader();
 
