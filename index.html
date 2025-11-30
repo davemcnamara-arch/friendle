@@ -17551,8 +17551,8 @@ if (extendedActivitiesArray.length === 0) {
         <span style="flex: 1; font-weight: 500;">${activity.name}</span>
     </div>
     <div style="display: flex; gap: 6px;">
-        <button onclick="event.stopPropagation(); editCustomActivity('${activity.id}', \`${activity.name.replace(/`/g, '\\`')}\`, '${activity.emoji}')" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; flex: 1;">✏️ Edit</button>
-        <button onclick="event.stopPropagation(); deleteCustomActivity('${activity.id}', \`${activity.name.replace(/`/g, '\\`')}\`);" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; background: #dc3545; color: white; flex: 1;">🗑️ Delete</button>
+        <button onclick="event.stopPropagation(); editCustomActivity('${activity.id}', '${activity.name.replace(/'/g, "\\'")}', '${activity.emoji}')" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; flex: 1;">✏️ Edit</button>
+        <button onclick="event.stopPropagation(); deleteCustomActivity('${activity.id}', '${activity.name.replace(/'/g, "\\'")}');" class="btn btn-secondary btn-small" style="margin: 0; padding: 6px 10px; font-size: 0.8em; background: #dc3545; color: white; flex: 1;">🗑️ Delete</button>
     </div>
 `;
                 customList.appendChild(item);
