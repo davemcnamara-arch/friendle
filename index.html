@@ -1984,7 +1984,68 @@
             margin-bottom: 20px;
             color: var(--text-primary);
         }
-        
+
+        /* Collapsible Section Styles */
+        .collapsible-section {
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg-color);
+            transition: all var(--transition-speed) ease;
+        }
+
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            cursor: pointer;
+            background: var(--bg-secondary);
+            transition: background var(--transition-speed) ease;
+            user-select: none;
+        }
+
+        .collapsible-header:hover {
+            background: var(--border-color);
+        }
+
+        .collapsible-header.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .collapsible-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .collapsible-icon {
+            transition: transform var(--transition-speed) ease;
+            font-size: 0.8em;
+        }
+
+        .collapsible-header.active .collapsible-icon {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.active {
+            max-height: 1000px;
+        }
+
+        .collapsible-body {
+            padding: 15px;
+        }
+
         .undo-container {
     position: fixed;
     bottom: 70px;
@@ -3392,82 +3453,96 @@ body.dark-mode .poll-notification-label {
                 <textarea id="planning-notes" rows="3" placeholder="Any thoughts on timing, location, etc..."></textarea>
             </div>
 
-            <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
-                <label style="display: flex; align-items: center; cursor: pointer;">
-                    <input type="checkbox" id="create-poll-on-start" onchange="toggleCreatePollFields()" style="margin-right: 10px;">
-                    <span>📊 Create a poll for group decision</span>
-                </label>
-            </div>
-
-            <div id="create-poll-fields" style="display: none;">
-                <div class="form-group">
-                    <label for="planning-poll-question-template">Question Template</label>
-                    <select id="planning-poll-question-template" onchange="handlePlanningPollTemplateChange()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
-                        <option value="">Select a template or write your own...</option>
-                        <option value="when">When? (Scheduling/Timing)</option>
-                        <option value="where">Where? (Location)</option>
-                        <option value="what">What? (Activity/Event)</option>
-                        <option value="who">Who should come? (Group Size)</option>
-                        <option value="how">How? (Method/Format)</option>
-                    </select>
+            <!-- Collapsible Section: Create a Poll -->
+            <div class="collapsible-section" style="margin-top: 20px;">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <div class="collapsible-title">
+                        <span>📊</span>
+                        <span>Create a poll</span>
+                    </div>
+                    <span class="collapsible-icon">▼</span>
                 </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-body">
+                        <input type="hidden" id="create-poll-on-start" value="false">
 
-                <div class="form-group">
-                    <label for="planning-poll-question">Poll Question *</label>
-                    <input type="text" id="planning-poll-question" placeholder="Enter your question or select a template above" style="width: 100%;">
-                </div>
-
-                <div class="form-group">
-                    <label>Poll Options *</label>
-                    <div id="planning-poll-options-container">
-                        <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <input type="text" class="planning-poll-option" placeholder="Option 1" style="flex: 1;">
+                        <div class="form-group">
+                            <label for="planning-poll-question-template">Question Template</label>
+                            <select id="planning-poll-question-template" onchange="handlePlanningPollTemplateChange()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+                                <option value="">Select a template or write your own...</option>
+                                <option value="when">When? (Scheduling/Timing)</option>
+                                <option value="where">Where? (Location)</option>
+                                <option value="what">What? (Activity/Event)</option>
+                                <option value="who">Who should come? (Group Size)</option>
+                                <option value="how">How? (Method/Format)</option>
+                            </select>
                         </div>
-                        <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <input type="text" class="planning-poll-option" placeholder="Option 2" style="flex: 1;">
+
+                        <div class="form-group">
+                            <label for="planning-poll-question">Poll Question *</label>
+                            <input type="text" id="planning-poll-question" placeholder="Enter your question or select a template above" style="width: 100%;">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Poll Options *</label>
+                            <div id="planning-poll-options-container">
+                                <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                    <input type="text" class="planning-poll-option" placeholder="Option 1" style="flex: 1;">
+                                </div>
+                                <div class="poll-option-input" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                    <input type="text" class="planning-poll-option" placeholder="Option 2" style="flex: 1;">
+                                </div>
+                            </div>
+                            <button type="button" onclick="addPlanningPollOption()" class="btn btn-secondary" style="padding: 8px 12px; font-size: 14px;">+ Add Option</button>
+                        </div>
+
+                        <div class="form-group consensus-notification-section" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+                            <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
+                                <input type="checkbox" id="enable-auto-lock" onchange="toggleAutoLockFields()" style="margin-right: 10px;">
+                                <span><strong>🔔 Send notification when users agree</strong></span>
+                            </label>
+                            <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Notify all participants when enough people agree on a poll option</p>
+
+                            <div id="auto-lock-fields" style="display: none;">
+                                <label for="auto-lock-threshold">Notify when this many users agree:</label>
+                                <input type="number" id="auto-lock-threshold" min="2" value="3" style="width: 100%; margin-top: 5px;">
+                                <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Everyone will be notified when this many participants vote for the same option</p>
+                            </div>
                         </div>
                     </div>
-                    <button type="button" onclick="addPlanningPollOption()" class="btn btn-secondary" style="padding: 8px 12px; font-size: 14px;">+ Add Option</button>
                 </div>
+            </div>
 
-                <div class="form-group consensus-notification-section" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
-                    <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                        <input type="checkbox" id="enable-auto-lock" onchange="toggleAutoLockFields()" style="margin-right: 10px;">
-                        <span><strong>🔔 Send notification when users agree</strong></span>
-                    </label>
-                    <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Notify all participants when enough people agree on a poll option</p>
+            <!-- Collapsible Section: Lock in Details -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <div class="collapsible-title">
+                        <span>🔒</span>
+                        <span>Lock in details</span>
+                    </div>
+                    <span class="collapsible-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-body">
+                        <input type="hidden" id="lock-details-now" value="false">
 
-                    <div id="auto-lock-fields" style="display: none;">
-                        <label for="auto-lock-threshold">Notify when this many users agree:</label>
-                        <input type="number" id="auto-lock-threshold" min="2" value="3" style="width: 100%; margin-top: 5px;">
-                        <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Everyone will be notified when this many participants vote for the same option</p>
+                        <div class="form-group">
+                            <label for="planning-lock-date">Date *</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="date" id="planning-lock-date" style="flex: 1;">
+                                <input type="time" id="planning-lock-time" placeholder="Time (optional)" style="flex: 1;">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="planning-lock-max-participants">Max Attendees</label>
+                            <input type="number" id="planning-lock-max-participants" min="1" placeholder="Unlimited">
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
-                <label style="display: flex; align-items: center; cursor: pointer;">
-                    <input type="checkbox" id="lock-details-now" onchange="toggleLockDetailsFields()" style="margin-right: 10px;">
-                    <span>Lock in details now</span>
-                </label>
-            </div>
-
-            <div id="lock-details-fields" style="display: none;">
-                <div class="form-group">
-                    <label for="planning-lock-date">Date *</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="date" id="planning-lock-date" style="flex: 1;">
-                        <input type="time" id="planning-lock-time" placeholder="Time (optional)" style="flex: 1;">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="planning-lock-max-participants">Max Attendees</label>
-                    <input type="number" id="planning-lock-max-participants" min="1" placeholder="Unlimited">
-                </div>
-            </div>
-
-            <button type="submit" class="btn" id="planning-submit-btn">Start Planning</button>
+            <button type="submit" class="btn" id="planning-submit-btn" style="width: 100%; margin-top: 20px;">Start Planning</button>
         </form>
     </div>
 </div>
@@ -13454,54 +13529,97 @@ function closePlanningEventModal() {
     }
 }
 
-function toggleLockDetailsFields() {
-    const checkbox = document.getElementById('lock-details-now');
-    const fieldsDiv = document.getElementById('lock-details-fields');
-    const submitBtn = document.getElementById('planning-submit-btn');
-    const locationInput = document.getElementById('planning-location');
-    const dateInput = document.getElementById('planning-lock-date');
-    const timeframeInput = document.getElementById('planning-timeframe');
-    const createPollCheckbox = document.getElementById('create-poll-on-start');
+// Toggle collapsible sections
+function toggleCollapsible(header) {
+    const content = header.nextElementSibling;
+    const isActive = header.classList.contains('active');
 
-    if (checkbox.checked) {
-        fieldsDiv.style.display = 'block';
-        submitBtn.textContent = 'Create Event';
-        locationInput.required = true;
-        dateInput.required = true;
-        timeframeInput.required = false; // Timeframe not needed when locking with specific date
+    // Toggle active state
+    header.classList.toggle('active');
+    content.classList.toggle('active');
 
-        // Set min date to today
-        const today = new Date().toISOString().slice(0, 10);
-        dateInput.min = today;
+    // Update hidden input to track whether section is open
+    const section = header.closest('.collapsible-section');
+    const hiddenInput = section.querySelector('input[type="hidden"]');
+    if (hiddenInput) {
+        hiddenInput.value = !isActive ? 'true' : 'false';
+    }
 
-        // Disable poll creation when locking details now
-        if (createPollCheckbox) {
-            createPollCheckbox.checked = false;
-            createPollCheckbox.disabled = true;
-            toggleCreatePollFields();
+    // Handle special logic when toggling lock details
+    if (section.querySelector('#lock-details-now')) {
+        const submitBtn = document.getElementById('planning-submit-btn');
+        const locationInput = document.getElementById('planning-location');
+        const dateInput = document.getElementById('planning-lock-date');
+        const timeframeInput = document.getElementById('planning-timeframe');
+
+        if (!isActive) { // Opening lock details section
+            submitBtn.textContent = 'Create Event';
+            locationInput.required = true;
+            dateInput.required = true;
+            timeframeInput.required = false;
+
+            // Set min date to today
+            const today = new Date().toISOString().slice(0, 10);
+            dateInput.min = today;
+
+            // Close poll section if open
+            const pollSection = document.querySelector('.collapsible-section #create-poll-on-start').closest('.collapsible-section');
+            const pollHeader = pollSection.querySelector('.collapsible-header');
+            if (pollHeader.classList.contains('active')) {
+                toggleCollapsible(pollHeader);
+            }
+        } else { // Closing lock details section
+            submitBtn.textContent = 'Start Planning';
+            locationInput.required = false;
+            dateInput.required = false;
+            timeframeInput.required = true;
         }
-    } else {
-        fieldsDiv.style.display = 'none';
-        submitBtn.textContent = 'Start Planning';
-        locationInput.required = false;
-        dateInput.required = false;
-        timeframeInput.required = true; // Timeframe required for planning mode
+    }
 
-        // Re-enable poll creation
-        if (createPollCheckbox) {
-            createPollCheckbox.disabled = false;
+    // Handle special logic when toggling poll creation
+    if (section.querySelector('#create-poll-on-start')) {
+        if (!isActive) { // Opening poll section
+            // Close lock details section if open
+            const lockSection = document.querySelector('.collapsible-section #lock-details-now').closest('.collapsible-section');
+            const lockHeader = lockSection.querySelector('.collapsible-header');
+            if (lockHeader.classList.contains('active')) {
+                toggleCollapsible(lockHeader);
+            }
+        }
+    }
+}
+
+function toggleLockDetailsFields() {
+    // This function is kept for backward compatibility but now handled by toggleCollapsible
+    const checkbox = document.getElementById('lock-details-now');
+    if (!checkbox) return;
+
+    // Find the collapsible section and toggle it
+    const section = checkbox.closest('.collapsible-section');
+    if (section) {
+        const header = section.querySelector('.collapsible-header');
+        if (header && checkbox.value === 'true' && !header.classList.contains('active')) {
+            toggleCollapsible(header);
+        } else if (header && checkbox.value === 'false' && header.classList.contains('active')) {
+            toggleCollapsible(header);
         }
     }
 }
 
 function toggleCreatePollFields() {
+    // This function is kept for backward compatibility but now handled by toggleCollapsible
     const checkbox = document.getElementById('create-poll-on-start');
-    const fieldsDiv = document.getElementById('create-poll-fields');
+    if (!checkbox) return;
 
-    if (checkbox && checkbox.checked) {
-        fieldsDiv.style.display = 'block';
-    } else {
-        fieldsDiv.style.display = 'none';
+    // Find the collapsible section and toggle it
+    const section = checkbox.closest('.collapsible-section');
+    if (section) {
+        const header = section.querySelector('.collapsible-header');
+        if (header && checkbox.value === 'true' && !header.classList.contains('active')) {
+            toggleCollapsible(header);
+        } else if (header && checkbox.value === 'false' && header.classList.contains('active')) {
+            toggleCollapsible(header);
+        }
     }
 }
 
@@ -13753,7 +13871,7 @@ function toggleChatPollAutoLock() {
 async function createPlanningEvent(e) {
     e.preventDefault();
 
-    const lockDetailsNow = document.getElementById('lock-details-now').checked;
+    const lockDetailsNow = document.getElementById('lock-details-now').value === 'true';
     console.log(`🔵 CREATE EVENT: Starting... (${lockDetailsNow ? 'SCHEDULED' : 'PLANNING'} mode)`);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -13825,7 +13943,7 @@ async function createPlanningEvent(e) {
         });
 
         // IMPORTANT: Capture poll form values BEFORE closing modal (which resets the form)
-        const createPollChecked = document.getElementById('create-poll-on-start')?.checked;
+        const createPollChecked = document.getElementById('create-poll-on-start')?.value === 'true';
         const pollQuestion = createPollChecked ? document.getElementById('planning-poll-question')?.value.trim() : null;
         const pollOptionInputs = createPollChecked ? document.querySelectorAll('.planning-poll-option') : [];
         const pollOptions = Array.from(pollOptionInputs)
