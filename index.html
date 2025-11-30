@@ -17825,6 +17825,23 @@ document.getElementById('edit-event-form').addEventListener('submit', saveEventE
 // Planning event form submission
 document.getElementById('planning-event-form').addEventListener('submit', createPlanningEvent);
 
+// Auto-expand collapsible sections when validation fails
+document.querySelectorAll('#planning-event-form input, #planning-event-form select, #planning-event-form textarea').forEach(field => {
+    field.addEventListener('invalid', function(e) {
+        // Find the parent collapsible section
+        const collapsibleSection = this.closest('.collapsible-section');
+        if (collapsibleSection) {
+            const header = collapsibleSection.querySelector('.collapsible-header');
+            const content = collapsibleSection.querySelector('.collapsible-content');
+
+            // If the section is not expanded, expand it
+            if (header && content && !header.classList.contains('active')) {
+                toggleCollapsible(header);
+            }
+        }
+    });
+});
+
 // Lock details form submission
 document.getElementById('lock-details-form').addEventListener('submit', lockEventDetails);
 
