@@ -9712,6 +9712,10 @@ window.openCircleChat = async function(circleId) {
         const createEventBtn = document.getElementById('create-event-header-btn');
         if (createEventBtn) createEventBtn.style.display = 'none';
 
+        // Hide event details banner in circle chats
+        const eventDetailsDiv = document.getElementById('event-details');
+        if (eventDetailsDiv) eventDetailsDiv.style.display = 'none';
+
         // Get all circle members
         const { data: members, error: membersError } = await supabase
             .from('circle_members')
@@ -14611,6 +14615,7 @@ if (participantCount <= 3) {
         
         // Format and display event details based on status
         const eventDetailsDiv = document.getElementById('event-details');
+        eventDetailsDiv.style.display = 'block'; // Show event details banner for event chats
 
         if (event.status === 'planning') {
             // Planning mode: Show proposed timeframe and suggested location
