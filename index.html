@@ -1523,21 +1523,13 @@
             border-top: 1px solid #ddd;
             flex-shrink: 0;
         }
-        
-        .chat-input-top-row {
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-            margin-bottom: 10px;
-        }
 
         .chat-input textarea {
-            flex: 1;
+            width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 20px;
             outline: none;
-            min-width: 50px;
             min-height: 42px;
             max-height: 150px;
             resize: none;
@@ -1545,6 +1537,15 @@
             font-family: inherit;
             font-size: inherit;
             line-height: 1.5;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        .chat-input-button-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            justify-content: flex-start;
         }
         
         .attachment-btn {
@@ -2756,8 +2757,8 @@ body.dark-mode .poll-notification-label {
         <div class="chat-messages" id="chat-messages"></div>
         
         <div class="chat-input">
-            <div class="chat-input-top-row">
-                <textarea id="message-input" placeholder="Type a message..." onkeydown="handleMessageKeyPress(event)" rows="1"></textarea>
+            <textarea id="message-input" placeholder="Type a message..." onkeydown="handleMessageKeyPress(event)" rows="1"></textarea>
+            <div class="chat-input-button-row">
                 <button class="attachment-btn" id="poll-btn" onclick="openCreatePollModal()" title="Create a poll">📊</button>
                 <button class="attachment-btn" id="photo-btn" onclick="sharePhoto()">📷</button>
                 <button class="attachment-btn" id="location-btn" onclick="shareLocation()">📍</button>
