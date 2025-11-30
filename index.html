@@ -14763,15 +14763,15 @@ allActiveSubscriptions.push(eventMessageSubscription);
 }
 
 // Open general match chat from event chat
-window.openGeneralChatFromEvent = function() {
+window.openGeneralChatFromEvent = async function() {
     if (!currentEvent) {
         showNotification('No event context', 'error');
         return;
     }
-    
+
     // Find the match ID from current event
     const matchId = currentEvent.match_id;
-    
+
     if (!matchId) {
         showNotification('Cannot find match for this event', 'error');
         return;
