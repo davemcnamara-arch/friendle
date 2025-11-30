@@ -3491,8 +3491,16 @@ body.dark-mode .poll-notification-label {
                         </div>
 
                         <div class="form-group">
+                            <label for="planning-plan-location">Where? (optional)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="text" id="planning-plan-location" placeholder="Suggest a location or leave blank" style="flex: 1;">
+                                <button type="button" onclick="openGoogleMapsSearchPlan()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
                             <label for="planning-notes">Notes (optional)</label>
-                            <textarea id="planning-notes" rows="3" placeholder="Any thoughts on timing, location, etc..."></textarea>
+                            <textarea id="planning-notes" rows="3" placeholder="Any other thoughts..."></textarea>
                         </div>
                     </div>
                 </div>
@@ -13491,9 +13499,16 @@ function openPlanningEventModal(matchId) {
 function closePlanningEventModal() {
     document.getElementById('planning-event-modal').style.display = 'none';
 
-    // Reset the lock details checkbox and fields
-    document.getElementById('lock-details-now').checked = false;
-    document.getElementById('lock-details-fields').style.display = 'none';
+    // Collapse all collapsible sections
+    document.querySelectorAll('#planning-event-modal .collapsible-header.active').forEach(header => {
+        header.classList.remove('active');
+        header.nextElementSibling.classList.remove('active');
+    });
+
+    // Reset hidden inputs
+    document.getElementById('lock-details-now').value = 'false';
+    document.getElementById('plan-with-others').value = 'false';
+    document.getElementById('create-poll-on-start').value = 'false';
 
     // Reset and re-enable the submit button
     const submitBtn = document.getElementById('planning-submit-btn');
@@ -13771,6 +13786,19 @@ function openGoogleMapsSearch() {
     window.open(mapsUrl, '_blank');
 }
 
+function openGoogleMapsSearchPlan() {
+    const locationInput = document.getElementById('planning-plan-location');
+    const searchQuery = locationInput.value.trim();
+
+    // If there's already a location entered, search for it. Otherwise, just open Google Maps
+    const mapsUrl = searchQuery
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery)}`
+        : 'https://www.google.com/maps';
+
+    // Open in a new tab
+    window.open(mapsUrl, '_blank');
+}
+
 // Lock in Details Modal
 function openLockDetailsModal() {
     if (!currentEvent) {
@@ -13949,12 +13977,17 @@ async function createPlanningEvent(e) {
     const match = matches.find(m => m.id === matchId);
 
     try {
+        // Get location from the appropriate field based on mode
+        const location = lockDetailsNow
+            ? document.getElementById('planning-location').value || null
+            : document.getElementById('planning-plan-location').value || null;
+
         // Prepare event data based on mode
         const eventData = {
             match_id: matchId,
             activity_id: match.activity_id,
             circle_id: match.circle_id,
-            location: document.getElementById('planning-location').value || null,
+            location: location,
             notes: document.getElementById('planning-notes').value || null,
             proposed_timeframe: document.getElementById('planning-timeframe').value,
             created_by: currentUser.id
