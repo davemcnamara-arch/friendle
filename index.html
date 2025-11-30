@@ -11043,7 +11043,7 @@ async function loadEvents() {
 
         const today = new Date().toISOString().split('T')[0];
 
-        // Get upcoming events from user's circles
+        // Get upcoming events from user's circles (including planning events)
         const { data: upcomingEvents, error: upcomingError } = await supabase
             .from('events')
             .select(`
@@ -11051,9 +11051,9 @@ async function loadEvents() {
                 event_participants(profile_id, status, profiles(id, name, avatar))
             `)
             .in('circle_id', userCircles)
-            .gte('scheduled_date', today)
+            .or(`scheduled_date.gte.${today},status.eq.planning`)
             .neq('status', 'cancelled')
-            .order('scheduled_date', { ascending: true })
+            .order('scheduled_date', { ascending: true, nullsFirst: false })
             .order('scheduled_time', { ascending: true });
 
         if (upcomingError) throw upcomingError;
