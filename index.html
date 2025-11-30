@@ -3424,6 +3424,7 @@ body.dark-mode .poll-notification-label {
 
         <form id="planning-event-form">
             <input type="hidden" id="planning-event-match-id">
+            <input type="hidden" id="planning-event-activity-name">
 
             <!-- Collapsible Section: Lock in Details Now -->
             <div class="collapsible-section" style="margin-top: 20px;">
@@ -13490,8 +13491,9 @@ function openPlanningEventModal(matchId) {
     const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
 
     document.getElementById('planning-event-title').textContent = `Plan: ${activityName}`;
-    document.getElementById('planning-event-match-id').value = matchId;
     document.getElementById('planning-event-form').reset();
+    document.getElementById('planning-event-match-id').value = matchId;
+    document.getElementById('planning-event-activity-name').value = activity ? activity.name : '';
 
     document.getElementById('planning-event-modal').style.display = 'flex';
 }
@@ -13767,11 +13769,14 @@ function handlePlanningPollTemplateChange() {
 
 function openGoogleMapsSearch() {
     const locationInput = document.getElementById('planning-location');
+    const activityNameInput = document.getElementById('planning-event-activity-name');
     const searchQuery = locationInput.value.trim();
+    const activityName = activityNameInput ? activityNameInput.value.trim() : '';
 
-    // If there's already a location entered, search for it. Otherwise, just open Google Maps
-    const mapsUrl = searchQuery
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery)}`
+    // If there's a location entered, search for it. Otherwise, search for the activity name
+    const query = searchQuery || activityName || '';
+    const mapsUrl = query
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
         : 'https://www.google.com/maps';
 
     // Open in a new tab
