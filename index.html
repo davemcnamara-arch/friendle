@@ -3526,9 +3526,7 @@ body.dark-mode .poll-notification-label {
                                 <option value="">Select a template or write your own...</option>
                                 <option value="when">When? (Scheduling/Timing)</option>
                                 <option value="where">Where? (Location)</option>
-                                <option value="what">What? (Activity/Event)</option>
                                 <option value="who">Who should come? (Group Size)</option>
-                                <option value="how">How? (Method/Format)</option>
                             </select>
                         </div>
 
@@ -3620,9 +3618,7 @@ body.dark-mode .poll-notification-label {
                     <option value="">Select a template or write your own...</option>
                     <option value="when">When? (Scheduling/Timing)</option>
                     <option value="where">Where? (Location)</option>
-                    <option value="what">What? (Activity/Event)</option>
                     <option value="who">Who should come? (Group Size)</option>
-                    <option value="how">How? (Method/Format)</option>
                 </select>
             </div>
 
@@ -13886,23 +13882,15 @@ function getPollTemplateData(templateType) {
     const templates = {
         when: {
             question: "When should we meet?",
-            options: ["Today", "Tomorrow", "This Weekend", "Next Week", "Next Month", "Specific Date"]
+            options: ["Today", "Tomorrow", "This Weekend", "Next Week", "Next Month"]
         },
         where: {
             question: "Where should we meet?",
-            options: ["My Place", "Your Place", "Restaurant", "Park", "Coffee Shop", "Online/Virtual", "Other"]
-        },
-        what: {
-            question: "What should we do?",
-            options: ["Movie", "Dinner", "Coffee", "Drinks", "Game Night", "Activity", "Other"]
+            options: ["My Place", "Restaurant", "Park", "Coffee Shop", "Online/Virtual", "Other"]
         },
         who: {
             question: "Who should come?",
-            options: ["Just Us", "Small Group (3-5)", "Medium Group (6-10)", "Large Group (10+)", "Open to All"]
-        },
-        how: {
-            question: "How should we meet?",
-            options: ["In Person", "Video Call", "Phone Call", "Text/Chat"]
+            options: ["Small Group (3-5)", "Medium Group (6-10)", "Large Group (10+)", "Open to All"]
         }
     };
 
