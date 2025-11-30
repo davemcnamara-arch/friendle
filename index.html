@@ -12002,6 +12002,10 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             if (this.style.background && this.style.background.includes('rgb(255, 235, 59)')) {
                 return; // Keep the yellow highlight
             }
+            // Don't change background on hover if this is a planning event (yellow)
+            if (this.style.background && (this.style.background.includes('rgb(255, 243, 205)') || this.style.background.includes('#fff3cd'))) {
+                return; // Keep the planning yellow
+            }
             const isDarkMode = document.body.classList.contains('dark-mode');
             this.style.background = isDarkMode ? '#2a2a2e' : '#e8e8e8';
         });
