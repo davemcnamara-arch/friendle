@@ -2478,7 +2478,9 @@ body.dark-mode .poll-notification-label {
 
             // Navigate directly to the chat
             if (data.chatType === 'match') {
-              await openMatchChatThreaded(data.chatId);
+              // Match chat deprecated - redirect to matches page
+              await loadMatches();
+              showPage('matches');
             } else if (data.chatType === 'event') {
               await openEventChat(data.chatId);
             } else if (data.chatType === 'circle') {
@@ -3593,29 +3595,7 @@ body.dark-mode .poll-notification-label {
     </div>
 </div>
 
-<!-- Match Notification Modal -->
-<div class="modal-overlay" id="match-notification-modal" style="z-index: 10000;">
-    <div class="modal-content" style="max-width: 350px; text-align: center; animation: slideUp 0.3s ease-out;">
-        <div style="font-size: 4em; margin-bottom: 15px; animation: bounce 0.6s ease-in-out;">🎉</div>
-        <div id="match-notification-heading" style="font-size: 1.5em; font-weight: 700; color: #667eea; margin-bottom: 10px;">It's a Match!</div>
-        <div id="match-notification-activity" style="font-size: 2em; margin-bottom: 15px;">🎯</div>
-        <div id="match-notification-text" style="color: #666; margin-bottom: 20px; line-height: 1.6;"></div>
-        <button id="match-notification-join-btn" class="btn" onclick="joinMatchFromNotification()" style="margin-bottom: 10px; background: #4CAF50;">✓ Join Match</button>
-        <button class="btn btn-secondary" onclick="closeMatchNotification()">Keep Swiping</button>
-    </div>
-</div>
-
-<!-- First to Choose Modal -->
-<div class="modal-overlay" id="first-to-choose-modal" style="z-index: 10000;">
-    <div class="modal-content" style="max-width: 350px; text-align: center; animation: slideUp 0.3s ease-out;">
-        <div style="font-size: 4em; margin-bottom: 15px; animation: bounce 0.6s ease-in-out;">🎉</div>
-        <div style="font-size: 1.5em; font-weight: 700; color: #667eea; margin-bottom: 10px;">You're First!</div>
-        <div id="first-to-choose-activity" style="font-size: 2em; margin-bottom: 15px;">🎯</div>
-        <div style="color: #666; margin-bottom: 20px; line-height: 1.6;">Want to put it out there? Others will see and can join.</div>
-        <button id="first-to-choose-join-btn" class="btn" onclick="joinMatchFromFirstToChoose()" style="margin-bottom: 10px; background: #4CAF50;">Join Chat & Coordinate</button>
-        <button class="btn btn-secondary" onclick="closeFirstToChooseModal()">Keep Swiping</button>
-    </div>
-</div>
+<!-- Removed: Old match notification and first-to-choose modals - replaced with swipe action modal -->
 
 <!-- Tutorial Modals -->
 <!-- Activities Tutorial Modal -->
@@ -3789,7 +3769,7 @@ body.dark-mode .poll-notification-label {
     <script>
 
         // App State
-        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, matchMessageSubscription = null, currentMatchChat = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set(), expandedMatchCircles = new Set(), highlightedEventId = null;
+        let currentUser = null, circles = [], selectedCircle = null, activities = [], lastActivitiesState = [], activityCounts = {}, matches = [], undoTimeout = null, showingArchivedMessages = false, currentCircleChat = null, circleMessageSubscription = null, allActiveSubscriptions = [], skipAutoLoad = false, currentMatchId = null, expandedCircles = new Set(), expandedMatchCircles = new Set(), highlightedEventId = null;
 
         // Message Pagination State
         const MESSAGE_PAGE_SIZE = 50;
@@ -4019,7 +3999,6 @@ body.dark-mode .poll-notification-label {
 function clearAllChatContexts() {
     console.log('🧹 Clearing all chat contexts');
     currentEvent = null;
-    currentMatchChat = null;
     currentCircleChat = null;
     currentMatchId = null;
 }
@@ -4033,7 +4012,6 @@ function setEventContext(event) {
 function setMatchContext(match) {
     console.log('📍 Setting match context:', match.id);
     clearAllChatContexts();
-    currentMatchChat = match;
     currentMatchId = match.id; // Keep for backwards compatibility during refactor
 }
 
@@ -4046,8 +4024,6 @@ function setCircleChatContext(circle) {
 function getCurrentChatContext() {
     if (currentEvent) {
         return { type: 'event', id: currentEvent.id, data: currentEvent };
-    } else if (currentMatchChat) {
-        return { type: 'match', id: currentMatchChat.id, data: currentMatchChat };
     } else if (currentCircleChat) {
         return { type: 'circle', id: currentCircleChat.id, data: currentCircleChat };
     }
@@ -4694,7 +4670,9 @@ async function processPendingChat() {
                 console.log(`🔄 Attempt ${attempt}/${maxRetries} to open chat`);
 
                 if (pendingChatType === 'match') {
-                    await openMatchChatThreaded(pendingChatId);
+                    // Match chat deprecated - redirect to matches page
+                    await loadMatches();
+                    showPage('matches');
                 } else if (pendingChatType === 'event') {
                     await openEventChat(pendingChatId);
                 } else if (pendingChatType === 'circle') {
@@ -9331,101 +9309,7 @@ window.joinMatchChatNormal = async function(matchId) {
 // Open threaded chat view
 // Match chat has been replaced with event-based planning
 // This stub exists for backward compatibility with old notifications
-window.openMatchChatThreaded = async function(matchId) {
-    console.log('⚠️ Match chat deprecated - redirecting to matches page');
-    showNotification('Match chat is now event-based. Plan an event to start coordinating!');
-    await loadMatches();
-    showPage('matches');
-}
-
-async function renderThreadedChat(matchId, events) {
-    const messagesContainer = document.getElementById('chat-messages');
-    messagesContainer.innerHTML = '';
-
-    console.log('🔍 renderThreadedChat called with events:', events);
-
-    // Separate events into upcoming and past
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    console.log('📅 Today date for comparison:', today);
-
-    const upcomingEvents = events.filter(e => {
-        const eventDate = e.scheduled_date ? new Date(e.scheduled_date) : null;
-        const isUpcoming = (!e.scheduled_date || eventDate >= today) && e.status === 'scheduled';
-        console.log(`Event ${e.id}: date=${e.scheduled_date}, status=${e.status}, isUpcoming=${isUpcoming}`);
-        return isUpcoming;
-    });
-    const pastEvents = events.filter(e =>
-        e.scheduled_date && new Date(e.scheduled_date) < today || e.status !== 'scheduled'
-    );
-
-    console.log('✅ Upcoming events count:', upcomingEvents.length);
-    console.log('📦 Past events count:', pastEvents.length);
-
-    // UPCOMING EVENTS FIRST (pinned at top)
-    if (upcomingEvents.length > 0) {
-        console.log('📌 Creating UPCOMING EVENTS section with', upcomingEvents.length, 'events');
-        const upcomingSection = document.createElement('div');
-        upcomingSection.style.cssText = 'margin-bottom: 20px; background: var(--bg-secondary); padding: 15px; border-radius: 10px;';
-        upcomingSection.id = 'upcoming-events-section';
-
-        // Create heading using createElement instead of innerHTML
-        const heading = document.createElement('h4');
-        heading.style.cssText = 'margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary); font-weight: 600;';
-        heading.textContent = '📌 UPCOMING EVENTS';
-        upcomingSection.appendChild(heading);
-
-        console.log('  Heading appended, children count:', upcomingSection.children.length);
-
-        upcomingEvents.forEach((event, index) => {
-            console.log(`  Adding event card ${index + 1}/${upcomingEvents.length}:`, event);
-            const eventCard = createEventCard(event, matchId);
-            console.log('  Event card created:', eventCard);
-            console.log('  Event card outerHTML preview:', eventCard.outerHTML.substring(0, 200));
-            upcomingSection.appendChild(eventCard);
-            console.log('  After appendChild, children count:', upcomingSection.children.length);
-        });
-
-        console.log('📦 Final upcomingSection children count:', upcomingSection.children.length);
-        messagesContainer.appendChild(upcomingSection);
-        console.log('✅ UPCOMING EVENTS section appended to messages container');
-        console.log('✅ messagesContainer first child:', messagesContainer.firstChild);
-    } else {
-        console.log('⚠️ No upcoming events to display');
-    }
-
-    // PAST EVENTS SECOND (collapsed)
-    if (pastEvents.length > 0) {
-        const pastSection = document.createElement('details');
-        pastSection.style.cssText = 'margin-bottom: 20px; padding: 10px; background: var(--bg-secondary); border-radius: 10px;';
-        pastSection.innerHTML = `
-            <summary style="cursor: pointer; font-size: 14px; color: var(--text-secondary); font-weight: 600; padding: 5px;">
-                📂 Past Events (${pastEvents.length})
-            </summary>
-        `;
-
-        const pastContainer = document.createElement('div');
-        pastContainer.style.marginTop = '10px';
-
-        pastEvents.forEach(event => {
-            const eventCard = createEventCard(event, matchId, true);
-            pastContainer.appendChild(eventCard);
-        });
-
-        pastSection.appendChild(pastContainer);
-        messagesContainer.appendChild(pastSection);
-    }
-
-    // Load and display general messages (this function will add the "GENERAL CHAT" header)
-    await loadAndDisplayGeneralMessages(matchId);
-    
-    // Scroll to bottom after a delay to let images load
-    setTimeout(() => {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        console.log('📜 Scrolled to bottom');
-    }, 500);
-}
+// Deprecated match chat functions removed - now using event-based planning system
 
 function createEventCard(event, matchId, isPast = false) {
     const eventCard = document.createElement('div');
@@ -9611,7 +9495,7 @@ async function loadOlderMessages(chatType) {
         const offset = messagePagination[chatType].loadedCount;
 
         if (chatType === 'match') {
-            const matchId = currentMatchChat?.id || currentMatchId;
+            const matchId = currentMatchId;
             const result = await supabase
                 .from('match_messages')
                 .select('*, sender:profiles(id, name, avatar)')
@@ -9792,204 +9676,8 @@ async function loadOlderMessages(chatType) {
     }
 }
 
-async function loadAndDisplayGeneralMessages(matchId, preserveScroll = false, savedScrollPosition = null) {
-    try {
-        const messagesContainer = document.getElementById('chat-messages');
-
-        // Save scroll position if preserving
-        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
-
-        // Reset pagination state for initial load
-        if (!preserveScroll) {
-            messagePagination.match = { loadedCount: 0, hasMore: true, loading: false };
-        }
-
-        // Load most recent messages (descending order, then reverse)
-        const { data: messages, error } = await supabase
-            .from('match_messages')
-            .select(`
-                *,
-                sender:profiles(id, name, avatar)
-            `)
-            .eq('match_id', matchId)
-            .order('created_at', { ascending: false })
-            .limit(MESSAGE_PAGE_SIZE);
-
-        if (error) throw error;
-
-        // Reverse to show oldest-to-newest
-        if (messages) {
-            messages.reverse();
-        }
-
-        // Update pagination state
-        messagePagination.match.loadedCount = messages?.length || 0;
-        messagePagination.match.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
-
-        // Preserve upcoming events section and past events section before clearing
-        const upcomingEventsSection = messagesContainer.querySelector('#upcoming-events-section');
-        const pastEventsSection = messagesContainer.querySelector('details'); // Past events use <details>
-
-        console.log('🧹 Preserving sections before clear:', {
-            upcomingEvents: !!upcomingEventsSection,
-            pastEvents: !!pastEventsSection
-        });
-
-        messagesContainer.innerHTML = '';
-
-        // Re-add preserved sections in order
-        if (upcomingEventsSection) {
-            messagesContainer.appendChild(upcomingEventsSection);
-            console.log('✅ Re-added upcoming events section');
-        }
-        if (pastEventsSection) {
-            messagesContainer.appendChild(pastEventsSection);
-            console.log('✅ Re-added past events section');
-        }
-
-        // Add general chat header
-        const headerContainer = document.createElement('div');
-        headerContainer.style.cssText = 'margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #e0e0e0;';
-        headerContainer.innerHTML = '<h4 style="margin: 0; font-size: 14px; color: #666; font-weight: 600;">💬 GENERAL CHAT</h4>';
-        messagesContainer.appendChild(headerContainer);
-        console.log('✅ Added general chat header');
-
-        if (!messages || messages.length === 0) {
-            const placeholder = document.createElement('p');
-            placeholder.style.cssText = 'text-align: center; color: #999; padding: 20px; font-size: 14px;';
-            placeholder.textContent = 'No messages yet. Start the conversation!';
-            messagesContainer.appendChild(placeholder);
-            messagePagination.match.hasMore = false;
-            return;
-        }
-
-        // Display each message
-        messages.forEach(message => {
-            appendMessage(message);
-        });
-
-        // Add "Load older messages" button if there are more messages
-        if (messagePagination.match.hasMore) {
-            createLoadOlderButton('match');
-        }
-
-        // Scroll handling - preserve position or scroll to bottom
-        setTimeout(() => {
-            if (preserveScroll && scrollPos !== null) {
-                messagesContainer.scrollTop = scrollPos;
-                console.log('📜 Restored scroll position to:', scrollPos);
-            } else {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }, 50);
-
-        // Mark all visible messages as read
-        setTimeout(() => {
-            markAllVisibleMessagesAsRead('match');
-        }, 500);
-
-    } catch (error) {
-        console.error('Error loading general messages:', error);
-    }
-}
-
-async function setupMatchChatSubscription(matchId) {
-    console.log('🔔 Setting up match chat subscription for:', matchId);
-    
-    // Clean up existing subscription
-    if (matchMessageSubscription) {
-        await supabase.removeChannel(matchMessageSubscription);
-        const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
-        if (index > -1) allActiveSubscriptions.splice(index, 1);
-        matchMessageSubscription = null;
-    }
-    
-    // Subscribe to broadcast messages only
-    matchMessageSubscription = supabase
-        .channel(`match_chat_${matchId}`)
-        .on('broadcast', { event: 'new_general_message' }, (payload) => {
-            console.log('📨 Broadcast message received:', payload.payload);
-
-            // Don't duplicate messages we sent ourselves
-            if (payload.payload.sender_id === currentUser.id) {
-                console.log('⏭️ Skipping own message');
-                return;
-            }
-
-            // Append message to general chat
-            const message = {
-                id: payload.payload.id,
-                sender_id: payload.payload.sender_id,
-                content: payload.payload.content,
-                created_at: payload.payload.created_at,
-                sender: {
-                    id: payload.payload.sender_id,
-                    name: payload.payload.sender_name,
-                    avatar: payload.payload.sender_avatar
-                }
-            };
-
-            appendMessage(message);
-
-            // Update badge if we're not currently viewing this match
-            const currentContext = getCurrentChatContext();
-            if (!currentContext || currentContext.id !== payload.payload.match_id) {
-                updateNotificationBadge();
-            }
-        })
-        .on('broadcast', { event: 'message_edited' }, (payload) => {
-            console.log('✏️ Match message edited:', payload);
-            loadAndDisplayGeneralMessages(matchId);
-        })
-        .on('broadcast', { event: 'message_deleted' }, (payload) => {
-            console.log('🗑️ Match message deleted:', payload);
-            loadAndDisplayGeneralMessages(matchId);
-        })
-        .on('broadcast', { event: 'reaction_changed' }, async (payload) => {
-            console.log('👍 Match message reaction changed:', payload);
-            const messageId = payload.payload.messageId;
-            await fetchMessageReactions(messageId, 'match');
-            updateReactionDisplay(messageId, 'match');
-        })
-        .on('broadcast', { event: 'message_read' }, async (payload) => {
-            console.log('👁️ Match message read:', payload);
-            const messageId = payload.payload.messageId;
-            // Find the message and update its read count if it's the current user's message
-            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-            if (messageElement) {
-                // Get the sender_id from the message element or refetch
-                const { data: message } = await supabase
-                    .from('match_messages')
-                    .select('sender_id')
-                    .eq('id', messageId)
-                    .single();
-                if (message) {
-                    updateReadCountDisplay(messageId, 'match', message.sender_id);
-                }
-            }
-        })
-        .on('broadcast', { event: 'messages_read' }, async (payload) => {
-            console.log('👁️ Match messages read by user:', payload.payload.userId);
-            // Refresh read counts for all user's own messages
-            const messageElements = document.querySelectorAll('[data-message-id]');
-            for (const messageElement of messageElements) {
-                const messageId = messageElement.getAttribute('data-message-id');
-                const { data: message } = await supabase
-                    .from('match_messages')
-                    .select('sender_id')
-                    .eq('id', messageId)
-                    .single();
-                if (message && message.sender_id === currentUser.id) {
-                    updateReadCountDisplay(messageId, 'match', message.sender_id);
-                }
-            }
-        })
-        .subscribe((status) => {
-            console.log('Match chat subscription status:', status);
-        });
-
-    allActiveSubscriptions.push(matchMessageSubscription);
-}
+// Removed: loadAndDisplayGeneralMessages() - deprecated with match chat system
+// Removed: setupMatchChatSubscription() - deprecated with match chat system
 
 // ========== CIRCLE CHAT FUNCTIONS ==========
 
@@ -10171,15 +9859,15 @@ async function setupCircleChatSubscription(circleId) {
     console.log('🔔 Setting up circle chat subscription for:', circleId);
 
     // Clean up existing subscription
-    if (matchMessageSubscription) {
-        await supabase.removeChannel(matchMessageSubscription);
-        const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
+    if (circleMessageSubscription) {
+        await supabase.removeChannel(circleMessageSubscription);
+        const index = allActiveSubscriptions.indexOf(circleMessageSubscription);
         if (index > -1) allActiveSubscriptions.splice(index, 1);
-        matchMessageSubscription = null;
+        circleMessageSubscription = null;
     }
 
     // Subscribe to broadcast messages
-    matchMessageSubscription = supabase
+    circleMessageSubscription = supabase
         .channel(`circle_chat_${circleId}`)
         .on('broadcast', { event: 'new_circle_message' }, (payload) => {
             console.log('📨 Circle message received:', payload.payload);
@@ -10262,7 +9950,7 @@ async function setupCircleChatSubscription(circleId) {
             console.log('Circle chat subscription status:', status);
         });
 
-    allActiveSubscriptions.push(matchMessageSubscription);
+    allActiveSubscriptions.push(circleMessageSubscription);
 }
 
 async function markCircleAsRead(circleId) {
@@ -10394,8 +10082,8 @@ window.joinEventFromChat = async function(eventId, matchId) {
                 `)
                 .eq('match_id', matchId)
                 .order('scheduled_date', { ascending: true });
-            
-            await renderThreadedChat(matchId, allEvents || []);
+
+            // Match chat deprecated - user already joined event, no need to refresh chat
         }
         
     } catch (error) {
@@ -12511,12 +12199,7 @@ window.joinEvent = async function(eventId) {
             await loadEvents();
         }
 
-        // If we're currently viewing the match chat, refresh it to show updated event cards
-        const currentContext = getCurrentChatContext();
-        if (currentContext && currentContext.type === 'match' && event && event.match_id === currentContext.id) {
-            console.log('🔄 Refreshing current match chat after joining event');
-            await openMatchChatThreaded(event.match_id);
-        }
+        // Match chat deprecated - no need to refresh after joining event
 
     } catch (error) {
         hideLoader();
@@ -14806,14 +14489,7 @@ async function openEventChat(eventId) {
             if (index > -1) allActiveSubscriptions.splice(index, 1);
             eventMessageSubscription = null;
         }
-        
-        if (matchMessageSubscription) {
-            await supabase.removeChannel(matchMessageSubscription);
-            const index = allActiveSubscriptions.indexOf(matchMessageSubscription);
-            if (index > -1) allActiveSubscriptions.splice(index, 1);
-            matchMessageSubscription = null;
-        }
-        
+
         // Load event details
         const { data: event, error: eventError } = await supabase
             .from('events')
@@ -15100,9 +14776,11 @@ window.openGeneralChatFromEvent = function() {
         showNotification('Cannot find match for this event', 'error');
         return;
     }
-    
-    // Open the general match chat
-    openMatchChatThreaded(matchId);
+
+    // Match chat deprecated - redirect to matches page
+    await loadMatches();
+    showPage('matches');
+    showNotification('Match chat is now event-based. View your matches to plan events!');
 }
 
 // Load messages for current event
@@ -15579,41 +15257,7 @@ async function sendEventMessage(e) {
     }
 
     try {
-        // Check if we're in match chat or event chat
-        if (currentMatchChat) {
-            console.log('Attempting to delete from match_messages');
-            console.log('Message ID:', msgId);
-            console.log('Sender ID:', currentUser.id);
-            
-            const { error } = await supabase
-                .from('match_messages')
-                .delete()
-                .eq('id', msgId)
-                .eq('sender_id', currentUser.id);
-            
-            console.log('Delete result - error:', error);
-            
-            if (error) throw error;
-            
-            console.log('Delete successful, broadcasting...');
-            
-            appendMessage(data);
-            
-            const channel = supabase.channel(`match_chat_${currentMatchChat.id}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'new_message',
-                payload: {
-                    id: data.id,
-                    sender_id: currentUser.id,
-                    sender_name: currentUser.name,
-                    sender_avatar: currentUser.avatar,
-                    content: data.content,
-                    created_at: data.created_at
-                }
-            });
-            
-        } else if (currentEvent) {
+        if (currentEvent) {
             // Event chat
             const { data, error } = await supabase
                 .from('event_messages')
@@ -15895,76 +15539,7 @@ async function deleteEmptyEvent(eventId) {
     }
 }
 
-async function loadMatchMessages(matchId, preserveScroll = false, savedScrollPosition = null) {
-    try {
-        // Make sure currentMatchId is set
-        if (!currentMatchId) {
-            currentMatchId = matchId;
-        }
-
-        // Make sure currentMatchChat is set
-        if (!currentMatchChat) {
-            currentMatchChat = matches.find(m => m.id === matchId);
-        }
-
-        const messagesContainer = document.getElementById('chat-messages');
-
-        // Save scroll position if preserving
-        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
-
-        // Reset pagination state for initial load
-        if (!preserveScroll) {
-            messagePagination.match = { loadedCount: 0, hasMore: true, loading: false };
-        }
-
-        // Load most recent messages (descending order, then reverse)
-        const { data: messages, error } = await supabase
-    .from('match_messages')
-    .select(`
-        *,
-        sender:profiles(id, name, avatar)
-    `)
-    .eq('match_id', matchId)
-    .order('created_at', { ascending: false })
-    .limit(MESSAGE_PAGE_SIZE);
-
-        if (error) throw error;
-
-        // Reverse to show oldest-to-newest
-        if (messages) {
-            messages.reverse();
-        }
-
-        // Update pagination state
-        messagePagination.match.loadedCount = messages?.length || 0;
-        messagePagination.match.hasMore = messages?.length === MESSAGE_PAGE_SIZE;
-
-        messagesContainer.innerHTML = '';
-
-        if (messages.length === 0) {
-            messagesContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No messages yet. Start planning your activity!</p>';
-            messagePagination.match.hasMore = false;
-        } else {
-            messages.forEach(message => appendMessage(message));
-        }
-
-        // Add "Load older messages" button if there are more messages
-        if (messagePagination.match.hasMore) {
-            createLoadOlderButton('match');
-        }
-
-        // Scroll handling - preserve position or scroll to bottom
-        if (preserveScroll && scrollPos !== null) {
-            messagesContainer.scrollTop = scrollPos;
-            console.log('📜 Restored scroll position to:', scrollPos);
-        } else {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-    } catch (error) {
-        console.error('Error loading match messages:', error);
-    }
-}
+// Removed: loadMatchMessages() - deprecated with match chat system
  
 
        
@@ -16141,63 +15716,12 @@ window.sharePhoto = function() {
     input.click();
 }
 
-// Match notification functions
-let currentMatchNotification = null;
-
+// Match notification functions - redirects to new swipe action modal
 function showMatchNotification(activity, matchId, otherUsers) {
     // Use new swipe action modal instead of old match notification modal
     const activityName = `${activity.emoji} ${activity.name}`;
     openSwipeActionModal(matchId, activityName, activity);
 }
-
-window.closeMatchNotification = function() {
-    document.getElementById('match-notification-modal').style.display = 'none';
-    currentMatchNotification = null;
-}
-
-window.joinMatchFromNotification = async function() {
-    if (!currentMatchNotification) {
-        closeMatchNotification();
-        return;
-    }
-
-    showLoader('Joining match...');
-
-    try {
-        // Add user to match participants
-        const { error } = await supabase
-            .from('match_participants')
-            .insert([{
-                match_id: currentMatchNotification,
-                profile_id: currentUser.id
-            }]);
-
-        if (error) {
-            // If error is duplicate key (user already joined), that's fine
-            if (error.code !== '23505') {
-                throw error;
-            }
-        }
-
-        closeMatchNotification();
-        hideLoader();
-
-        // Reload matches and go to matches page
-        await loadMatches();
-        showPage('matches');
-
-        showNotification('Joined match! You can now chat and schedule events.');
-
-    } catch (error) {
-        hideLoader();
-        closeMatchNotification();
-        console.error('Error joining match:', error);
-        showNotification('Error joining match', 'error');
-    }
-}
-
-// First to Choose modal functions
-let currentFirstToChooseMatch = null;
 
 function showFirstToChoosePopup(activity, matchId) {
     // Use new swipe action modal instead of old first-to-choose modal
@@ -16205,51 +15729,8 @@ function showFirstToChoosePopup(activity, matchId) {
     openSwipeActionModal(matchId, activityName, activity);
 }
 
-window.closeFirstToChooseModal = function() {
-    document.getElementById('first-to-choose-modal').style.display = 'none';
-    currentFirstToChooseMatch = null;
-}
-
-window.joinMatchFromFirstToChoose = async function() {
-    if (!currentFirstToChooseMatch) {
-        closeFirstToChooseModal();
-        return;
-    }
-
-    showLoader('Joining chat...');
-
-    try {
-        // Add user to match participants
-        const { error } = await supabase
-            .from('match_participants')
-            .insert([{
-                match_id: currentFirstToChooseMatch,
-                profile_id: currentUser.id
-            }]);
-
-        if (error) {
-            // If error is duplicate key (user already joined), that's fine
-            if (error.code !== '23505') {
-                throw error;
-            }
-        }
-
-        closeFirstToChooseModal();
-        hideLoader();
-
-        // Reload matches and go to matches page
-        await loadMatches();
-        showPage('matches');
-
-        showNotification('You\'re in the chat! Others will see and can join.');
-
-    } catch (error) {
-        hideLoader();
-        closeFirstToChooseModal();
-        console.error('Error joining match:', error);
-        showNotification('Error joining chat', 'error');
-    }
-}
+// Removed: Old match notification modal functions (closeMatchNotification, joinMatchFromNotification)
+// Removed: Old first-to-choose modal functions (closeFirstToChooseModal, joinMatchFromFirstToChoose)
 
 function openLocationPermissionModal() {
     document.getElementById('location-permission-modal').style.display = 'flex';
@@ -16653,28 +16134,7 @@ async function updateNotificationBadge() {
     console.log('Badge updates now handled per-card in displayMatches');
 }
 
-async function markMatchAsRead(matchId) {
-    try {
-        // Update last_read_at to now
-        const { error } = await supabase
-            .from('match_participants')
-            .update({ last_read_at: new Date().toISOString() })
-            .eq('match_id', matchId)
-            .eq('profile_id', currentUser.id);
-
-        if (error) throw error;
-
-        console.log('✅ Marked match as read:', matchId);
-
-        // Refresh match list to update badges
-        if (window.location.hash === '#matches') {
-            await loadMatches();
-        }
-
-    } catch (error) {
-        console.error('Error marking match as read:', error);
-    }
-}
+// Removed: markMatchAsRead() - deprecated with match chat system
 
 async function markEventAsRead(eventId) {
     try {
@@ -16826,13 +16286,6 @@ if (pageId !== 'chat') {
         if (index1 > -1) allActiveSubscriptions.splice(index1, 1);
         eventMessageSubscription = null;
         currentEvent = null;
-    }
-    if (matchMessageSubscription) {
-        supabase.removeChannel(matchMessageSubscription);
-        const index2 = allActiveSubscriptions.indexOf(matchMessageSubscription);
-        if (index2 > -1) allActiveSubscriptions.splice(index2, 1);
-        matchMessageSubscription = null;
-        currentMatchChat = null;
     }
     currentMatchId = null; // Clear match ID when leaving chat
     localStorage.removeItem('friendle_current_chat_context'); // Clear saved chat context
@@ -17537,7 +16990,9 @@ if (pageId === 'settings') {
                             console.log(`🚀 Attempt ${attempt}/${maxRetries}: Opening chat...`, openChatType, openChatId);
 
                             if (openChatType === 'match') {
-                                await openMatchChatThreaded(openChatId);
+                                // Match chat deprecated - redirect to matches page
+                                await loadMatches();
+                                showPage('matches');
                             } else if (openChatType === 'event') {
                                 await openEventChat(openChatId);
                             } else if (openChatType === 'circle') {
@@ -17576,7 +17031,9 @@ if (pageId === 'settings') {
                         if (chatContext.type === 'circle') {
                             await openCircleChat(chatContext.id);
                         } else if (chatContext.type === 'match') {
-                            await openMatchChatThreaded(chatContext.id);
+                            // Match chat deprecated - redirect to matches page
+                            await loadMatches();
+                            showPage('matches');
                         } else if (chatContext.type === 'event') {
                             await openEventChat(chatContext.id);
                         } else {
