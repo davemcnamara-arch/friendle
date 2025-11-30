@@ -13499,16 +13499,8 @@ function openPlanningEventModal(matchId) {
 function closePlanningEventModal() {
     document.getElementById('planning-event-modal').style.display = 'none';
 
-    // Collapse all collapsible sections
-    document.querySelectorAll('#planning-event-modal .collapsible-header.active').forEach(header => {
-        header.classList.remove('active');
-        header.nextElementSibling.classList.remove('active');
-    });
-
-    // Reset hidden inputs
+    // Reset the lock details hidden input
     document.getElementById('lock-details-now').value = 'false';
-    document.getElementById('plan-with-others').value = 'false';
-    document.getElementById('create-poll-on-start').value = 'false';
 
     // Reset and re-enable the submit button
     const submitBtn = document.getElementById('planning-submit-btn');
