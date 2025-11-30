@@ -13127,13 +13127,175 @@ function openCreateEventModalFromHeader() {
 let pendingSwipeMatchId = null;
 let pendingSwipeActivity = null;
 
-function openSwipeActionModal(matchId, activityName, activity = null) {
+async function openSwipeActionModal(matchId, activityName, activity = null) {
     pendingSwipeMatchId = matchId;
     pendingSwipeActivity = activity;
     document.getElementById('swipe-action-title').textContent = `${activityName || '🎯 Activity'} Match!`;
-    document.getElementById('swipe-action-description').textContent =
-        'You matched! Would you like to plan an event or just stay interested for now?';
-    document.getElementById('swipe-action-modal').style.display = 'flex';
+
+    // Fetch events for this match to check if any exist
+    const { data: events, error } = await supabase
+        .from('events')
+        .select(`
+            *,
+            event_participants(profile_id)
+        `)
+        .eq('match_id', matchId)
+        .in('status', ['planning', 'scheduled']);
+
+    if (error) {
+        console.error('Error fetching events:', error);
+        // Fall back to default modal
+        document.getElementById('swipe-action-description').textContent =
+            'You matched! Would you like to plan an event or just stay interested for now?';
+        document.getElementById('swipe-action-modal').style.display = 'flex';
+        return;
+    }
+
+    // Filter to upcoming events and mark if user has joined
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcomingEvents = (events || []).filter(e => {
+        // Include planning events
+        if (e.status === 'planning') {
+            return true;
+        }
+        // Include scheduled events in the future
+        const isScheduled = e.status === 'scheduled';
+        const isFuture = new Date(e.scheduled_date) >= today;
+        return isScheduled && isFuture;
+    }).map(e => ({
+        ...e,
+        isUserJoined: e.event_participants?.some(p => p.profile_id === currentUser.id) || false
+    }));
+
+    // Check if user hasn't joined any events
+    const unjoinedEvents = upcomingEvents.filter(e => !e.isUserJoined);
+
+    // Get the modal content container (we'll need to modify the HTML structure)
+    const modal = document.getElementById('swipe-action-modal');
+    const modalContent = modal.querySelector('.modal-content');
+
+    if (unjoinedEvents.length > 0) {
+        // Show join buttons for unjoined events
+        const firstEvent = unjoinedEvents[0];
+        const buttonText = firstEvent.status === 'planning' ? '✓ Join Planning' : '✓ Join Event';
+        const buttonColor = firstEvent.status === 'planning' ? '#ffc107' : '#4CAF50';
+        const textColor = firstEvent.status === 'planning' ? '#000' : '#fff';
+
+        let eventDetails = '';
+        if (firstEvent.status === 'planning') {
+            const timeframe = firstEvent.proposed_timeframe || 'TBD';
+            eventDetails = `<p style="font-size: 14px; color: #666; margin: 10px 0;">📅 Proposed: ${timeframe}</p>`;
+            if (firstEvent.location) {
+                eventDetails += `<p style="font-size: 14px; color: #666; margin: 10px 0;">📍 Suggested: ${firstEvent.location}</p>`;
+            }
+        } else {
+            const date = new Date(firstEvent.scheduled_date);
+            const dateStr = date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+            eventDetails = `<p style="font-size: 14px; color: #666; margin: 10px 0;">📅 ${dateStr}</p>`;
+            if (firstEvent.location) {
+                eventDetails += `<p style="font-size: 14px; color: #666; margin: 10px 0;">📍 ${firstEvent.location}</p>`;
+            }
+        }
+
+        const participantCount = firstEvent.event_participants?.length || 0;
+        const participantText = participantCount === 1 ? '1 person' : `${participantCount} people`;
+
+        modalContent.innerHTML = `
+            <span class="close-modal-btn" onclick="closeSwipeActionModal()">×</span>
+            <div class="modal-header">${activityName || '🎯 Activity'} Match!</div>
+
+            <div style="margin-bottom: 20px; color: #666; line-height: 1.6; text-align: center;">
+                <p>${firstEvent.status === 'planning' ? 'There\'s a planning session you can join!' : 'There\'s an event you can join!'}</p>
+                ${eventDetails}
+                <p style="font-size: 13px; color: #999; margin-top: 5px;">${participantText} interested</p>
+            </div>
+
+            <button onclick="joinEventFromSwipe('${firstEvent.id}')" class="btn" style="width: 100%; margin-bottom: 10px; background: ${buttonColor}; color: ${textColor};">
+                ${buttonText}
+            </button>
+
+            <button onclick="handleStayInterested()" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; background: #6c757d; color: white;">
+                👀 Just Stay Interested
+            </button>
+
+            <button onclick="handlePlanEvent()" class="btn btn-secondary" style="width: 100%; background: #6c757d; color: white;">
+                📅 Plan Another Event
+            </button>
+
+            <div style="margin-top: 15px; font-size: 12px; color: #999; text-align: center;">
+                "Stay Interested" lets you watch for events without joining this one.
+            </div>
+        `;
+    } else if (upcomingEvents.length > 0 && upcomingEvents.every(e => e.isUserJoined)) {
+        // User has already joined all events
+        modalContent.innerHTML = `
+            <span class="close-modal-btn" onclick="closeSwipeActionModal()">×</span>
+            <div class="modal-header">${activityName || '🎯 Activity'} Match!</div>
+
+            <div style="margin-bottom: 20px; color: #666; line-height: 1.6; text-align: center;">
+                <p>You've already joined the event(s) for this activity!</p>
+            </div>
+
+            <button onclick="handlePlanEvent()" class="btn" style="width: 100%; margin-bottom: 10px; background: #007bff;">
+                📅 Plan Another Event
+            </button>
+
+            <button onclick="handleStayInterested()" class="btn btn-secondary" style="width: 100%; background: #6c757d; color: white;">
+                👀 Stay Interested
+            </button>
+        `;
+    } else {
+        // No events exist - show default flow
+        modalContent.innerHTML = `
+            <span class="close-modal-btn" onclick="closeSwipeActionModal()">×</span>
+            <div class="modal-header">${activityName || '🎯 Activity'} Match!</div>
+
+            <div style="margin-bottom: 20px; color: #666; line-height: 1.6; text-align: center;">
+                <p id="swipe-action-description">You matched! Would you like to plan an event or just stay interested for now?</p>
+            </div>
+
+            <button onclick="handlePlanEvent()" class="btn" style="width: 100%; margin-bottom: 10px; background: #007bff;">
+                📅 Plan Event
+            </button>
+
+            <button onclick="handleStayInterested()" class="btn btn-secondary" style="width: 100%; background: #6c757d; color: white;">
+                👀 Stay Interested
+            </button>
+
+            <div style="margin-top: 15px; font-size: 12px; color: #999; text-align: center;">
+                "Stay Interested" lets you watch for events others create without planning one yourself.
+            </div>
+        `;
+    }
+
+    modal.style.display = 'flex';
+}
+
+async function joinEventFromSwipe(eventId) {
+    // Join the event
+    await joinEvent(eventId);
+
+    // Close the swipe modal
+    document.getElementById('swipe-action-modal').style.display = 'none';
+
+    // Clear pending state
+    pendingSwipeActivity = null;
+
+    // Advance to next card
+    setTimeout(() => {
+        currentCardIndex++;
+        showNextCard();
+    }, 300);
+
+    pendingSwipeMatchId = null;
 }
 
 async function closeSwipeActionModal() {
