@@ -7186,7 +7186,9 @@ window.finalizeCircleCreation = async function() {
     });
 
     // Get upcoming events count for each circle
-    const today = new Date().toISOString().split('T')[0];
+    // Use local timezone for "today" instead of UTC to avoid timezone bugs
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const { data: upcomingEvents, error: eventsError } = await supabase
       .from('events')
       .select('circle_id')
@@ -7556,7 +7558,9 @@ window.viewUpcomingEvents = async function(circleId) {
         showLoader('Loading upcoming events...');
 
         // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
+        // Use local timezone for "today" instead of UTC to avoid timezone bugs
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         // Query events for this circle that are today or in the future
         const { data: events, error } = await supabase
@@ -11041,7 +11045,9 @@ async function loadEvents() {
             return;
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        // Use local timezone for "today" instead of UTC to avoid timezone bugs
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         // Get upcoming events from user's circles (including planning events)
         const { data: upcomingEvents, error: upcomingError } = await supabase
