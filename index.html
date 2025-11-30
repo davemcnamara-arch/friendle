@@ -3450,6 +3450,17 @@ body.dark-mode .poll-notification-label {
                             <label for="planning-lock-max-participants">Max Attendees</label>
                             <input type="number" id="planning-lock-max-participants" min="1" placeholder="Unlimited">
                         </div>
+
+                        <div class="form-group">
+                            <label for="planning-location">Where? *</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="text" id="planning-location" placeholder="Enter location" style="flex: 1;">
+                                <button type="button" onclick="openGoogleMapsSearch()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
+                            </div>
+                            <div id="planning-location-suggestions" style="margin-top: 5px; font-size: 12px; color: #666;">
+                                <!-- Suggestions will appear here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3480,19 +3491,16 @@ body.dark-mode .poll-notification-label {
                         </div>
 
                         <div class="form-group">
-                            <label for="planning-location">Where?</label>
+                            <label for="planning-plan-location">Where? (optional)</label>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="text" id="planning-location" placeholder="Enter location or leave blank" style="flex: 1;">
-                                <button type="button" onclick="openGoogleMapsSearch()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
-                            </div>
-                            <div id="planning-location-suggestions" style="margin-top: 5px; font-size: 12px; color: #666;">
-                                <!-- Suggestions will appear here -->
+                                <input type="text" id="planning-plan-location" placeholder="Suggest a location or leave blank" style="flex: 1;">
+                                <button type="button" onclick="openGoogleMapsSearchPlan()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label for="planning-notes">Notes (optional)</label>
-                            <textarea id="planning-notes" rows="3" placeholder="Any thoughts on timing, location, etc..."></textarea>
+                            <textarea id="planning-notes" rows="3" placeholder="Any other thoughts..."></textarea>
                         </div>
                     </div>
                 </div>
@@ -13770,6 +13778,19 @@ function openGoogleMapsSearch() {
     window.open(mapsUrl, '_blank');
 }
 
+function openGoogleMapsSearchPlan() {
+    const locationInput = document.getElementById('planning-plan-location');
+    const searchQuery = locationInput.value.trim();
+
+    // If there's already a location entered, search for it. Otherwise, just open Google Maps
+    const mapsUrl = searchQuery
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery)}`
+        : 'https://www.google.com/maps';
+
+    // Open in a new tab
+    window.open(mapsUrl, '_blank');
+}
+
 // Lock in Details Modal
 function openLockDetailsModal() {
     if (!currentEvent) {
@@ -13948,12 +13969,17 @@ async function createPlanningEvent(e) {
     const match = matches.find(m => m.id === matchId);
 
     try {
+        // Get location from the appropriate field based on mode
+        const location = lockDetailsNow
+            ? document.getElementById('planning-location').value || null
+            : document.getElementById('planning-plan-location').value || null;
+
         // Prepare event data based on mode
         const eventData = {
             match_id: matchId,
             activity_id: match.activity_id,
             circle_id: match.circle_id,
-            location: document.getElementById('planning-location').value || null,
+            location: location,
             notes: document.getElementById('planning-notes').value || null,
             proposed_timeframe: document.getElementById('planning-timeframe').value,
             created_by: currentUser.id
@@ -17823,6 +17849,23 @@ document.getElementById('edit-event-form').addEventListener('submit', saveEventE
 
 // Planning event form submission
 document.getElementById('planning-event-form').addEventListener('submit', createPlanningEvent);
+
+// Auto-expand collapsible sections when validation fails
+document.querySelectorAll('#planning-event-form input, #planning-event-form select, #planning-event-form textarea').forEach(field => {
+    field.addEventListener('invalid', function(e) {
+        // Find the parent collapsible section
+        const collapsibleSection = this.closest('.collapsible-section');
+        if (collapsibleSection) {
+            const header = collapsibleSection.querySelector('.collapsible-header');
+            const content = collapsibleSection.querySelector('.collapsible-content');
+
+            // If the section is not expanded, expand it
+            if (header && content && !header.classList.contains('active')) {
+                toggleCollapsible(header);
+            }
+        }
+    });
+});
 
 // Lock details form submission
 document.getElementById('lock-details-form').addEventListener('submit', lockEventDetails);
