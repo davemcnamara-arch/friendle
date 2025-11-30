@@ -11199,6 +11199,10 @@ function renderEvents(events, pastEvents = []) {
     const planningEvents = (events || []).filter(e => e.status === 'planning');
     const scheduledEvents = (events || []).filter(e => e.status !== 'planning');
 
+    console.log('renderEvents called with:', events?.length, 'events');
+    console.log('Planning events:', planningEvents.length, planningEvents);
+    console.log('Scheduled events:', scheduledEvents.length);
+
     // Show empty state if no events at all
     if (planningEvents.length === 0 && scheduledEvents.length === 0 && (!pastEvents || pastEvents.length === 0)) {
         eventsList.innerHTML = `
