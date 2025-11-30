@@ -3425,36 +3425,81 @@ body.dark-mode .poll-notification-label {
         <form id="planning-event-form">
             <input type="hidden" id="planning-event-match-id">
 
-            <div class="form-group">
-                <label for="planning-timeframe">When works for you? *</label>
-                <select id="planning-timeframe" required style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
-                    <option value="">Select a timeframe...</option>
-                    <option value="Today">Today</option>
-                    <option value="Tomorrow">Tomorrow</option>
-                    <option value="This week">This week</option>
-                    <option value="Next week">Next week</option>
-                    <option value="Flexible">Flexible</option>
-                </select>
+            <!-- Collapsible Section: Lock in Details Now -->
+            <div class="collapsible-section" style="margin-top: 20px;">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <div class="collapsible-title">
+                        <span>🔒</span>
+                        <span>Lock in details now</span>
+                    </div>
+                    <span class="collapsible-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-body">
+                        <input type="hidden" id="lock-details-now" value="false">
+
+                        <div class="form-group">
+                            <label for="planning-lock-date">Date *</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="date" id="planning-lock-date" style="flex: 1;">
+                                <input type="time" id="planning-lock-time" placeholder="Time (optional)" style="flex: 1;">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="planning-lock-max-participants">Max Attendees</label>
+                            <input type="number" id="planning-lock-max-participants" min="1" placeholder="Unlimited">
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="planning-location">Where?</label>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="text" id="planning-location" placeholder="Enter location or leave blank" style="flex: 1;">
-                    <button type="button" onclick="openGoogleMapsSearch()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
+            <!-- Collapsible Section: Plan with Others -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <div class="collapsible-title">
+                        <span>👥</span>
+                        <span>Plan with others</span>
+                    </div>
+                    <span class="collapsible-icon">▼</span>
                 </div>
-                <div id="planning-location-suggestions" style="margin-top: 5px; font-size: 12px; color: #666;">
-                    <!-- Suggestions will appear here -->
-                </div>
-            </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-body">
+                        <input type="hidden" id="plan-with-others" value="false">
 
-            <div class="form-group">
-                <label for="planning-notes">Notes (optional)</label>
-                <textarea id="planning-notes" rows="3" placeholder="Any thoughts on timing, location, etc..."></textarea>
+                        <div class="form-group">
+                            <label for="planning-timeframe">When works for you? *</label>
+                            <select id="planning-timeframe" required style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+                                <option value="">Select a timeframe...</option>
+                                <option value="Today">Today</option>
+                                <option value="Tomorrow">Tomorrow</option>
+                                <option value="This week">This week</option>
+                                <option value="Next week">Next week</option>
+                                <option value="Flexible">Flexible</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="planning-location">Where?</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="text" id="planning-location" placeholder="Enter location or leave blank" style="flex: 1;">
+                                <button type="button" onclick="openGoogleMapsSearch()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
+                            </div>
+                            <div id="planning-location-suggestions" style="margin-top: 5px; font-size: 12px; color: #666;">
+                                <!-- Suggestions will appear here -->
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="planning-notes">Notes (optional)</label>
+                            <textarea id="planning-notes" rows="3" placeholder="Any thoughts on timing, location, etc..."></textarea>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Collapsible Section: Create a Poll -->
-            <div class="collapsible-section" style="margin-top: 20px;">
+            <div class="collapsible-section">
                 <div class="collapsible-header" onclick="toggleCollapsible(this)">
                     <div class="collapsible-title">
                         <span>📊</span>
@@ -3508,35 +3553,6 @@ body.dark-mode .poll-notification-label {
                                 <input type="number" id="auto-lock-threshold" min="2" value="3" style="width: 100%; margin-top: 5px;">
                                 <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Everyone will be notified when this many participants vote for the same option</p>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Collapsible Section: Lock in Details -->
-            <div class="collapsible-section">
-                <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                    <div class="collapsible-title">
-                        <span>🔒</span>
-                        <span>Lock in details</span>
-                    </div>
-                    <span class="collapsible-icon">▼</span>
-                </div>
-                <div class="collapsible-content">
-                    <div class="collapsible-body">
-                        <input type="hidden" id="lock-details-now" value="false">
-
-                        <div class="form-group">
-                            <label for="planning-lock-date">Date *</label>
-                            <div style="display: flex; gap: 10px;">
-                                <input type="date" id="planning-lock-date" style="flex: 1;">
-                                <input type="time" id="planning-lock-time" placeholder="Time (optional)" style="flex: 1;">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="planning-lock-max-participants">Max Attendees</label>
-                            <input type="number" id="planning-lock-max-participants" min="1" placeholder="Unlimited">
                         </div>
                     </div>
                 </div>
@@ -13562,6 +13578,15 @@ function toggleCollapsible(header) {
             const today = new Date().toISOString().slice(0, 10);
             dateInput.min = today;
 
+            // Close plan with others section if open
+            const planSection = document.querySelector('.collapsible-section #plan-with-others')?.closest('.collapsible-section');
+            if (planSection) {
+                const planHeader = planSection.querySelector('.collapsible-header');
+                if (planHeader?.classList.contains('active')) {
+                    toggleCollapsible(planHeader);
+                }
+            }
+
             // Close poll section if open
             const pollSection = document.querySelector('.collapsible-section #create-poll-on-start').closest('.collapsible-section');
             const pollHeader = pollSection.querySelector('.collapsible-header');
@@ -13576,6 +13601,37 @@ function toggleCollapsible(header) {
         }
     }
 
+    // Handle special logic when toggling plan with others
+    if (section.querySelector('#plan-with-others')) {
+        const submitBtn = document.getElementById('planning-submit-btn');
+        const timeframeInput = document.getElementById('planning-timeframe');
+
+        if (!isActive) { // Opening plan with others section
+            submitBtn.textContent = 'Start Planning';
+            timeframeInput.required = true;
+
+            // Close lock details section if open
+            const lockSection = document.querySelector('.collapsible-section #lock-details-now')?.closest('.collapsible-section');
+            if (lockSection) {
+                const lockHeader = lockSection.querySelector('.collapsible-header');
+                if (lockHeader?.classList.contains('active')) {
+                    toggleCollapsible(lockHeader);
+                }
+            }
+
+            // Close poll section if open
+            const pollSection = document.querySelector('.collapsible-section #create-poll-on-start')?.closest('.collapsible-section');
+            if (pollSection) {
+                const pollHeader = pollSection.querySelector('.collapsible-header');
+                if (pollHeader?.classList.contains('active')) {
+                    toggleCollapsible(pollHeader);
+                }
+            }
+        } else { // Closing plan with others section
+            timeframeInput.required = false;
+        }
+    }
+
     // Handle special logic when toggling poll creation
     if (section.querySelector('#create-poll-on-start')) {
         if (!isActive) { // Opening poll section
@@ -13584,6 +13640,15 @@ function toggleCollapsible(header) {
             const lockHeader = lockSection.querySelector('.collapsible-header');
             if (lockHeader.classList.contains('active')) {
                 toggleCollapsible(lockHeader);
+            }
+
+            // Close plan with others section if open
+            const planSection = document.querySelector('.collapsible-section #plan-with-others')?.closest('.collapsible-section');
+            if (planSection) {
+                const planHeader = planSection.querySelector('.collapsible-header');
+                if (planHeader?.classList.contains('active')) {
+                    toggleCollapsible(planHeader);
+                }
             }
         }
     }
