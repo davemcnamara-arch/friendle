@@ -9154,7 +9154,8 @@ async function findMatches(circleId) {
                 .from('preferences')
                 .select('profile_id')
                 .eq('circle_id', circleId)
-                .eq('activity_id', activityId);
+                .eq('activity_id', activityId)
+                .eq('selected', true);
 
             if (prefsError) {
                 console.error('Error loading interested users:', prefsError);
@@ -11480,6 +11481,7 @@ async function loadMatches() {
             .from('preferences')
             .select('activity_id, circle_id')
             .eq('profile_id', currentUser.id)
+            .eq('selected', true)
             .in('circle_id', userCircles);
         
         if (!userPrefs || userPrefs.length === 0) {
@@ -11532,7 +11534,8 @@ async function loadMatches() {
         // Build OR conditions for batch query
         let interestedQuery = supabase
             .from('preferences')
-            .select('profile_id, circle_id, activity_id');
+            .select('profile_id, circle_id, activity_id')
+            .eq('selected', true);
 
         // Add filters to match any circle+activity pair
         const orConditions = circleActivityPairs
