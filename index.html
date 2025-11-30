@@ -13785,11 +13785,14 @@ function openGoogleMapsSearch() {
 
 function openGoogleMapsSearchPlan() {
     const locationInput = document.getElementById('planning-plan-location');
+    const activityNameInput = document.getElementById('planning-event-activity-name');
     const searchQuery = locationInput.value.trim();
+    const activityName = activityNameInput ? activityNameInput.value.trim() : '';
 
-    // If there's already a location entered, search for it. Otherwise, just open Google Maps
-    const mapsUrl = searchQuery
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery)}`
+    // If there's a location entered, search for it. Otherwise, search for the activity name
+    const query = searchQuery || activityName || '';
+    const mapsUrl = query
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
         : 'https://www.google.com/maps';
 
     // Open in a new tab
