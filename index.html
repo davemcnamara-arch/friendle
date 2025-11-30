@@ -11954,7 +11954,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                                     ✓ Join Event
                                 </button>
                             `}
-                            ${participantCount === 0 && !event.isUserJoined ? `
+                            ${participantCount === 0 && event.created_by === currentUser.id ? `
                                 <button onclick="event.stopPropagation(); deleteEmptyEvent('${event.id}');" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
                                     🗑️ Delete
                                 </button>
