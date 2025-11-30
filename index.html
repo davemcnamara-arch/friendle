@@ -13491,9 +13491,8 @@ function openPlanningEventModal(matchId) {
 function closePlanningEventModal() {
     document.getElementById('planning-event-modal').style.display = 'none';
 
-    // Reset the lock details checkbox and fields
-    document.getElementById('lock-details-now').checked = false;
-    document.getElementById('lock-details-fields').style.display = 'none';
+    // Reset the lock details hidden input
+    document.getElementById('lock-details-now').value = 'false';
 
     // Reset and re-enable the submit button
     const submitBtn = document.getElementById('planning-submit-btn');
