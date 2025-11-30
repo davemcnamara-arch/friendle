@@ -11195,8 +11195,12 @@ async function loadEvents() {
 function renderEvents(events, pastEvents = []) {
     const eventsList = document.getElementById('events-list');
 
+    // Separate planning events from scheduled events
+    const planningEvents = (events || []).filter(e => e.status === 'planning');
+    const scheduledEvents = (events || []).filter(e => e.status !== 'planning');
+
     // Show empty state if no events at all
-    if ((!events || events.length === 0) && (!pastEvents || pastEvents.length === 0)) {
+    if (planningEvents.length === 0 && scheduledEvents.length === 0 && (!pastEvents || pastEvents.length === 0)) {
         eventsList.innerHTML = `
             <div class="events-empty-state">
                 <div class="events-empty-icon">📅</div>
@@ -11210,8 +11214,26 @@ function renderEvents(events, pastEvents = []) {
 
     let html = '';
 
-    // Show empty state for upcoming events if none, but continue to render past events below
-    if (!events || events.length === 0) {
+    // Render planning events section (collapsed by default)
+    if (planningEvents.length > 0) {
+        html += `
+            <details class="event-period" style="margin-bottom: 20px;">
+                <summary class="event-period-header">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span class="event-period-chevron">▶</span>
+                        🗓️ PLANNING
+                    </span>
+                    <span>${planningEvents.length} ${planningEvents.length === 1 ? 'event' : 'events'}</span>
+                </summary>
+                <div class="event-period-content">
+                    ${planningEvents.map(event => renderEventCard(event)).join('')}
+                </div>
+            </details>
+        `;
+    }
+
+    // Show empty state for upcoming scheduled events if none, but continue to render past events below
+    if (scheduledEvents.length === 0 && pastEvents && pastEvents.length > 0) {
         html += `
             <div class="events-empty-state">
                 <div class="events-empty-icon">📅</div>
@@ -11222,8 +11244,8 @@ function renderEvents(events, pastEvents = []) {
         `;
     }
 
-    // Render upcoming events
-    if (events && events.length > 0) {
+    // Render upcoming scheduled events
+    if (scheduledEvents.length > 0) {
         // Group events by time periods
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -11240,7 +11262,7 @@ function renderEvents(events, pastEvents = []) {
             'LATER': []
         };
 
-        events.forEach(event => {
+        scheduledEvents.forEach(event => {
             const eventDate = new Date(event.scheduled_date);
             const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
 
