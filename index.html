@@ -10322,7 +10322,24 @@ window.viewEventThread = async function(eventId) {
 window.joinEventFromChat = async function(eventId, matchId) {
     try {
         showLoader('Joining event...');
-        
+
+        // First, check if event has a participant limit
+        const { data: eventCheck, error: checkError } = await supabase
+            .from('events')
+            .select('max_participants, event_participants(profile_id)')
+            .eq('id', eventId)
+            .single();
+
+        if (checkError) throw checkError;
+
+        // Check if event is full
+        const currentCount = eventCheck.event_participants?.length || 0;
+        if (eventCheck.max_participants && currentCount >= eventCheck.max_participants) {
+            hideLoader();
+            showNotification('This event is full', 'error');
+            return;
+        }
+
         // Add user to event participants
         const { error } = await supabase
             .from('event_participants')
@@ -10331,7 +10348,7 @@ window.joinEventFromChat = async function(eventId, matchId) {
                 profile_id: currentUser.id,
                 status: 'accepted'
             }]);
-        
+
         if (error) throw error;
 
         // Auto-join general chat if not already in it (and notify others if this is a new join)
