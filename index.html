@@ -8052,24 +8052,37 @@ window.initializeSwipeView = async function(useCache = true) {
 
     // Load and sort activities in background
     const newActivities = await loadActivitiesForSwiping(selectedCircle.id);
-    sortedActivities = newActivities;
-    currentCardIndex = 0;
-    swipeHistory = [];
 
-    // Cache the new state
-    cachedSwipeState = {
-        circleId: selectedCircle.id,
-        sortedActivities: newActivities,
-        currentCardIndex: 0
-    };
+    // Only update if user hasn't started swiping (to avoid race condition)
+    const userHasStartedSwiping = currentCardIndex > 0 || swipeHistory.length > 0;
 
-    if (sortedActivities.length === 0) {
-        document.getElementById('card-stack').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">No Activities Available</div><div class="empty-state-description">Add some activities to your circle to get started!</div></div>';
-        return;
+    if (!userHasStartedSwiping) {
+        sortedActivities = newActivities;
+        currentCardIndex = 0;
+        swipeHistory = [];
+
+        // Cache the new state
+        cachedSwipeState = {
+            circleId: selectedCircle.id,
+            sortedActivities: newActivities,
+            currentCardIndex: 0
+        };
+
+        if (sortedActivities.length === 0) {
+            document.getElementById('card-stack').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">No Activities Available</div><div class="empty-state-description">Add some activities to your circle to get started!</div></div>';
+            return;
+        }
+
+        // Update card with fresh data
+        showNextCard();
+    } else {
+        // User is already swiping, just update the cache for next time
+        cachedSwipeState = {
+            circleId: selectedCircle.id,
+            sortedActivities: newActivities,
+            currentCardIndex: 0
+        };
     }
-
-    // Update card with fresh data
-    showNextCard();
 }
 
 async function loadActivitiesForSwiping(circleId) {
