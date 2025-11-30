@@ -29,5 +29,6 @@
   "display_override": ["standalone", "fullscreen"],
   "launch_handler": {
     "client_mode": "focus-existing"
-  }
+  },
+  "capture_links": "new-client"
 }
