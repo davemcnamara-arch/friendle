@@ -3450,6 +3450,17 @@ body.dark-mode .poll-notification-label {
                             <label for="planning-lock-max-participants">Max Attendees</label>
                             <input type="number" id="planning-lock-max-participants" min="1" placeholder="Unlimited">
                         </div>
+
+                        <div class="form-group">
+                            <label for="planning-location">Where? *</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="text" id="planning-location" placeholder="Enter location" style="flex: 1;">
+                                <button type="button" onclick="openGoogleMapsSearch()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
+                            </div>
+                            <div id="planning-location-suggestions" style="margin-top: 5px; font-size: 12px; color: #666;">
+                                <!-- Suggestions will appear here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3477,17 +3488,6 @@ body.dark-mode .poll-notification-label {
                                 <option value="Next week">Next week</option>
                                 <option value="Flexible">Flexible</option>
                             </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="planning-location">Where?</label>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="text" id="planning-location" placeholder="Enter location or leave blank" style="flex: 1;">
-                                <button type="button" onclick="openGoogleMapsSearch()" style="padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; font-size: 16px;" title="Search location on Google Maps">🔍</button>
-                            </div>
-                            <div id="planning-location-suggestions" style="margin-top: 5px; font-size: 12px; color: #666;">
-                                <!-- Suggestions will appear here -->
-                            </div>
                         </div>
 
                         <div class="form-group">
