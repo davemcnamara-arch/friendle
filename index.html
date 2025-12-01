@@ -3569,14 +3569,14 @@ body.dark-mode .poll-notification-label {
     </div>
 </div>
 
-<!-- Interested Users Modal -->
+<!-- Going Users Modal -->
 <div class="modal-overlay" id="event-attendees-modal">
     <div class="modal-content" style="max-width: 400px;">
         <span class="close-modal-btn" onclick="closeEventAttendeesModal()">×</span>
-        <div class="modal-header" id="attendees-modal-title">👥 Interested Users</div>
+        <div class="modal-header" id="attendees-modal-title">✓ Going</div>
 
         <div id="attendees-list" style="margin-top: 20px;">
-            <!-- Interested users will be populated here -->
+            <!-- Going users will be populated here -->
         </div>
     </div>
 </div>
@@ -11875,8 +11875,26 @@ if (!showPastEvents) {
 
         // Calculate counts for display
         const totalInterestedCount = match.interestedCount || 0;
-        const joinedCount = match.inChatCount || 0;
-        const watchingCount = Math.max(0, totalInterestedCount - joinedCount); // Watching but haven't joined yet
+
+        // Get unique users who have joined any upcoming event (these are "going")
+        const goingUserIds = new Set();
+        const goingUsers = [];
+        upcomingEvents.forEach(event => {
+            (event.event_participants || []).forEach(participant => {
+                if (!goingUserIds.has(participant.profile_id)) {
+                    goingUserIds.add(participant.profile_id);
+                    if (participant.profiles) {
+                        goingUsers.push(participant.profiles);
+                    }
+                }
+            });
+        });
+
+        const goingCount = goingUserIds.size;
+        const watchingCount = Math.max(0, totalInterestedCount - goingCount); // Watching but haven't joined an event yet
+
+        // Store going users for the modal
+        match.goingUsers = goingUsers;
 
         // Get in-chat users display (these are revealed)
         const inChatNames = match.chatParticipants?.slice(0, 2).map(u => u.name).join(', ') || '';
@@ -11945,7 +11963,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                     ${userIsInMatch && userEvents.length === 0 ? `<span class="match-summary-stat">👀 Watching</span>` : ''}
                     ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
                     ${watchingCount > 0 ? `<span class="match-summary-stat">👁️ ${watchingCount} watching</span>` : ''}
-                    ${joinedCount > 0 ? `<span class="match-summary-stat" onclick="event.stopPropagation(); openEventAttendeesModal('${match.id}')" style="cursor: pointer; text-decoration: underline;">👥 ${joinedCount} interested</span>` : ''}
+                    ${goingCount > 0 ? `<span class="match-summary-stat" onclick="event.stopPropagation(); openEventAttendeesModal('${match.id}')" style="cursor: pointer; text-decoration: underline;">✓ ${goingCount} going</span>` : ''}
                 </div>
             </div>
         </summary>
@@ -11953,7 +11971,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
         <div style="flex: 1; padding-right: 15px;">
             ${watchingCount > 0 ? `<p style="margin: 0; font-size: 14px; line-height: 1.4;">👁️ ${watchingCount} ${watchingCount === 1 ? 'person' : 'people'} watching</p>` : ''}
-            ${joinedCount > 0 ? `<p style="margin: ${watchingCount > 0 ? '4px' : '0'} 0 0 0; font-size: 14px; line-height: 1.4; cursor: pointer; text-decoration: underline;" onclick="openEventAttendeesModal('${match.id}')">👥 ${joinedCount} ${joinedCount === 1 ? 'person' : 'people'} interested</p>` : ''}
+            ${goingCount > 0 ? `<p style="margin: ${watchingCount > 0 ? '4px' : '0'} 0 0 0; font-size: 14px; line-height: 1.4; cursor: pointer; text-decoration: underline;" onclick="openEventAttendeesModal('${match.id}')">✓ ${goingCount} ${goingCount === 1 ? 'person' : 'people'} going</p>` : ''}
             ${userIsInMatch && userEvents.length === 0 ? `
                 <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 13px;">
                     👀 You're watching for events
@@ -11999,7 +12017,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                     ${buttonText}
                 </button>
                 ${watchingCount > 0 ? `<p style="font-size: 11px; color: var(--text-secondary); margin: 0 0 4px 0; text-align: center; line-height: 1.3;">👁️ ${watchingCount} watching</p>` : ''}
-                ${joinedCount > 0 ? `<p style="font-size: 11px; color: var(--text-secondary); margin: 0 0 8px 0; text-align: center; line-height: 1.3; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); openEventAttendeesModal('${match.id}')">👥 ${joinedCount} interested</p>` : ''}
+                ${goingCount > 0 ? `<p style="font-size: 11px; color: var(--text-secondary); margin: 0 0 8px 0; text-align: center; line-height: 1.3; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); openEventAttendeesModal('${match.id}')">✓ ${goingCount} going</p>` : ''}
                 <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; width: 100%; margin: 0; background: #6c757d; opacity: 0.7;">
                     🚫 No Longer Interested
                 </button>
@@ -12010,7 +12028,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                     👀 Stay Interested
                 </button>
                 ${watchingCount > 0 ? `<p style="font-size: 11px; color: var(--text-secondary); margin: 0 0 4px 0; text-align: center; line-height: 1.3;">👁️ ${watchingCount} watching</p>` : ''}
-                ${joinedCount > 0 ? `<p style="font-size: 11px; color: var(--text-secondary); margin: 0 0 8px 0; text-align: center; line-height: 1.3; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); openEventAttendeesModal('${match.id}')">👥 ${joinedCount} interested</p>` : ''}
+                ${goingCount > 0 ? `<p style="font-size: 11px; color: var(--text-secondary); margin: 0 0 8px 0; text-align: center; line-height: 1.3; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); openEventAttendeesModal('${match.id}')">✓ ${goingCount} going</p>` : ''}
                 <button onclick="markAsUninterested('${match.id}', '${match.activity_id}', '${match.circle_id}')" class="btn" style="font-size: 12px; padding: 6px 12px; width: 100%; margin: 0; background: #6c757d; opacity: 0.7;">
                     🚫 No Longer Interested
                 </button>
@@ -13276,8 +13294,6 @@ async function openSwipeActionModal(matchId, activityName, activity = null) {
     // Get match data for interested counts
     const match = matches.find(m => m.id === matchId);
     const totalInterestedCount = match?.interestedCount || 0;
-    const joinedCount = match?.inChatCount || 0;
-    const watchingCount = Math.max(0, totalInterestedCount - joinedCount);
 
     // Fetch events for this match to check if any exist
     const { data: events, error } = await supabase
@@ -13288,6 +13304,26 @@ async function openSwipeActionModal(matchId, activityName, activity = null) {
         `)
         .eq('match_id', matchId)
         .in('status', ['planning', 'scheduled']);
+
+    // Calculate going count from event participants (upcoming events only)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcomingEvents = (events || []).filter(e => {
+        if (e.status === 'planning') return true;
+        const isScheduled = e.status === 'scheduled';
+        const isFuture = new Date(e.scheduled_date) >= today;
+        return isScheduled && isFuture;
+    });
+
+    const goingUserIds = new Set();
+    upcomingEvents.forEach(event => {
+        (event.event_participants || []).forEach(participant => {
+            goingUserIds.add(participant.profile_id);
+        });
+    });
+
+    const goingCount = goingUserIds.size;
+    const watchingCount = Math.max(0, totalInterestedCount - goingCount);
 
     // Get the modal content container
     const modal = document.getElementById('swipe-action-modal');
@@ -13381,7 +13417,7 @@ async function openSwipeActionModal(matchId, activityName, activity = null) {
                 <p>${firstEvent.status === 'planning' ? 'There\'s a planning session you can join!' : 'There\'s an event you can join!'}</p>
                 ${eventDetails}
                 ${watchingCount > 0 ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 5px;">👁️ ${watchingCount} watching</p>` : ''}
-                ${joinedCount > 0 ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 5px; cursor: pointer; text-decoration: underline;" onclick="openEventAttendeesModal('${matchId}')">👥 ${joinedCount} interested</p>` : ''}
+                ${goingCount > 0 ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 5px; cursor: pointer; text-decoration: underline;" onclick="openEventAttendeesModal('${matchId}')">✓ ${goingCount} going</p>` : ''}
             </div>
 
             <button onclick="joinEventFromSwipe('${firstEvent.id}')" class="btn" style="width: 100%; margin-bottom: 10px; background: ${buttonColor}; color: ${textColor};">
@@ -13612,18 +13648,18 @@ function openEventAttendeesModal(matchId) {
     const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
 
     // Update modal title
-    document.getElementById('attendees-modal-title').textContent = `👥 ${activityName} - Interested`;
+    document.getElementById('attendees-modal-title').textContent = `✓ ${activityName} - Going`;
 
-    // Get users who have joined the match (interested users)
-    const attendees = match.interestedUsers || [];
+    // Get users who have joined events (going users)
+    const attendees = match.goingUsers || [];
 
     // Populate attendees list
     const attendeesList = document.getElementById('attendees-list');
     if (attendees.length === 0) {
         attendeesList.innerHTML = `
             <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
-                <p>No one has joined yet</p>
-                <p style="font-size: 12px; margin-top: 10px;">Be the first to plan an event!</p>
+                <p>No one is going yet</p>
+                <p style="font-size: 12px; margin-top: 10px;">Be the first to join an event!</p>
             </div>
         `;
     } else {
