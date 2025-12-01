@@ -3573,7 +3573,7 @@ body.dark-mode .poll-notification-label {
 <div class="modal-overlay" id="event-attendees-modal">
     <div class="modal-content" style="max-width: 400px;">
         <span class="close-modal-btn" onclick="closeEventAttendeesModal()">×</span>
-        <div class="modal-header" id="attendees-modal-title">✓ Going</div>
+        <div class="modal-header" id="attendees-modal-title">👥 Going</div>
 
         <div id="attendees-list" style="margin-top: 20px;">
             <!-- Going users will be populated here -->
@@ -13369,7 +13369,7 @@ async function openSwipeActionModal(matchId, activityName, activity = null) {
                 <p>${firstEvent.status === 'planning' ? 'There\'s a planning session you can join!' : 'There\'s an event you can join!'}</p>
                 ${eventDetails}
                 ${watchingCount > 0 ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 5px;">👁️ ${watchingCount} watching</p>` : ''}
-                ${goingCount > 0 ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 5px; cursor: pointer; text-decoration: underline;" onclick="openEventAttendeesModal('${matchId}')">✓ ${goingCount} going</p>` : ''}
+                ${goingCount > 0 ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 5px; cursor: pointer; text-decoration: underline;" onclick="openEventAttendeesModal('${matchId}')">👥 ${goingCount} going</p>` : ''}
             </div>
 
             <button onclick="joinEventFromSwipe('${firstEvent.id}')" class="btn" style="width: 100%; margin-bottom: 10px; background: ${buttonColor}; color: ${textColor};">
@@ -13600,7 +13600,7 @@ function openEventAttendeesModal(matchId) {
     const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
 
     // Update modal title
-    document.getElementById('attendees-modal-title').textContent = `✓ ${activityName} - Going`;
+    document.getElementById('attendees-modal-title').textContent = `👥 ${activityName} - Going`;
 
     // Get users who have joined events (going users)
     const attendees = match.goingUsers || [];
