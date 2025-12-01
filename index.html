@@ -11845,29 +11845,6 @@ if (!showPastEvents) {
         // Check for inactivity warning
         const hasWarning = warningsMap.has(match.id);
 
-        // Calculate counts for display
-        const totalInterestedCount = match.interestedCount || 0;
-
-        // Get unique users who have joined any upcoming event (these are "going")
-        const goingUserIds = new Set();
-        const goingUsers = [];
-        upcomingEvents.forEach(event => {
-            (event.event_participants || []).forEach(participant => {
-                if (!goingUserIds.has(participant.profile_id)) {
-                    goingUserIds.add(participant.profile_id);
-                    if (participant.profiles) {
-                        goingUsers.push(participant.profiles);
-                    }
-                }
-            });
-        });
-
-        const goingCount = goingUserIds.size;
-        const watchingCount = Math.max(0, totalInterestedCount - goingCount); // Watching but haven't joined an event yet
-
-        // Store going users for the modal
-        match.goingUsers = goingUsers;
-
         // Get in-chat users display (these are revealed)
         const inChatNames = match.chatParticipants?.slice(0, 2).map(u => u.name).join(', ') || '';
         const inChatMoreCount = match.inChatCount > 2 ? match.inChatCount - 2 : 0;
@@ -11911,6 +11888,29 @@ const pastEvents = events.filter(e =>
 console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
         const circleName = circles.find(c => c.id === match.circle_id)?.name || 'Circle';
+
+        // Calculate counts for display
+        const totalInterestedCount = match.interestedCount || 0;
+
+        // Get unique users who have joined any upcoming event (these are "going")
+        const goingUserIds = new Set();
+        const goingUsers = [];
+        upcomingEvents.forEach(event => {
+            (event.event_participants || []).forEach(participant => {
+                if (!goingUserIds.has(participant.profile_id)) {
+                    goingUserIds.add(participant.profile_id);
+                    if (participant.profiles) {
+                        goingUsers.push(participant.profiles);
+                    }
+                }
+            });
+        });
+
+        const goingCount = goingUserIds.size;
+        const watchingCount = Math.max(0, totalInterestedCount - goingCount); // Watching but haven't joined an event yet
+
+        // Store going users for the modal
+        match.goingUsers = goingUsers;
 
         // Calculate total interested people across all upcoming events
         const totalInterestedInEvents = upcomingEvents.reduce((sum, event) => {
