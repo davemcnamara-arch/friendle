@@ -11541,7 +11541,7 @@ async function loadMatches() {
         // Build OR conditions for batch query
         let interestedQuery = supabase
             .from('preferences')
-            .select('profile_id, circle_id, activity_id')
+            .select('profile_id, circle_id, activity_id, profiles(id, name, avatar)')
             .eq('selected', true);
 
         // Add filters to match any circle+activity pair
@@ -11563,11 +11563,14 @@ async function loadMatches() {
             // Attach activity
             match.activity = activities.find(a => a.id === match.activity_id);
 
-            // Get interested count for this specific circle+activity (anonymous count)
+            // Get interested count for this specific circle+activity
             const interested = (allInterested || []).filter(i =>
                 i.circle_id === match.circle_id && i.activity_id === match.activity_id
             );
             match.interestedCount = interested.length;
+
+            // Store all interested users with their profile data
+            match.interestedUsers = interested.map(i => i.profiles).filter(p => p); // filter out nulls
 
             // Attach chat participants for this match
             const chatParticipants = (allChatParticipants || []).filter(p =>
@@ -11576,9 +11579,6 @@ async function loadMatches() {
             match.chatParticipants = chatParticipants.map(p => p.profiles);
             match.inChatCount = match.chatParticipants.length;
             match.userInChat = chatParticipants.some(p => p.profile_id === currentUser.id);
-
-            // For display: only show names of people actually in chat
-            match.interestedUsers = match.chatParticipants;
         }
         
         await displayMatches();
@@ -13342,7 +13342,7 @@ async function openSwipeActionModal(matchId, activityName, activity = null) {
             <div style="margin-bottom: 20px; color: #666; line-height: 1.6; text-align: center;">
                 <p>${firstEvent.status === 'planning' ? 'There\'s a planning session you can join!' : 'There\'s an event you can join!'}</p>
                 ${eventDetails}
-                <p style="font-size: 13px; color: #999; margin-top: 5px;">${participantText} interested</p>
+                <p style="font-size: 13px; color: #999; margin-top: 5px; cursor: pointer; text-decoration: underline;" onclick="openEventAttendeesModal('${matchId}')">${participantText} interested</p>
             </div>
 
             <button onclick="joinEventFromSwipe('${firstEvent.id}')" class="btn" style="width: 100%; margin-bottom: 10px; background: ${buttonColor}; color: ${textColor};">
@@ -13593,10 +13593,15 @@ function openEventAttendeesModal(matchId) {
             const name = user.name || 'Anonymous User';
             const isCurrentUser = user.id === currentUser.id;
 
+            // Check if avatar is a URL or emoji
+            const avatarHtml = avatar.startsWith('http')
+                ? `<img src="${avatar}" alt="${name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
+                : avatar;
+
             return `
                 <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; ${isCurrentUser ? 'background: #f0f8ff;' : ''}">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px;">
-                        ${avatar}
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; overflow: hidden;">
+                        ${avatarHtml}
                     </div>
                     <div style="flex: 1;">
                         <div style="font-weight: 500; font-size: 14px;">
