@@ -11541,7 +11541,7 @@ async function loadMatches() {
         // Build OR conditions for batch query
         let interestedQuery = supabase
             .from('preferences')
-            .select('profile_id, circle_id, activity_id, profiles(id, name, avatar)')
+            .select('profile_id, circle_id, activity_id')
             .eq('selected', true);
 
         // Add filters to match any circle+activity pair
@@ -11563,14 +11563,11 @@ async function loadMatches() {
             // Attach activity
             match.activity = activities.find(a => a.id === match.activity_id);
 
-            // Get interested count for this specific circle+activity
+            // Get interested count for this specific circle+activity (anonymous count)
             const interested = (allInterested || []).filter(i =>
                 i.circle_id === match.circle_id && i.activity_id === match.activity_id
             );
             match.interestedCount = interested.length;
-
-            // Store all interested users with their profile data
-            match.interestedUsers = interested.map(i => i.profiles).filter(p => p); // filter out nulls
 
             // Attach chat participants for this match
             const chatParticipants = (allChatParticipants || []).filter(p =>
@@ -11579,6 +11576,9 @@ async function loadMatches() {
             match.chatParticipants = chatParticipants.map(p => p.profiles);
             match.inChatCount = match.chatParticipants.length;
             match.userInChat = chatParticipants.some(p => p.profile_id === currentUser.id);
+
+            // For display: only show names of people who have actually joined (in chat)
+            match.interestedUsers = match.chatParticipants;
         }
         
         await displayMatches();
@@ -13582,7 +13582,7 @@ function openEventAttendeesModal(matchId) {
     const attendeesList = document.getElementById('attendees-list');
     if (attendees.length === 0) {
         attendeesList.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #666;">
+            <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
                 <p>No one has joined yet</p>
                 <p style="font-size: 12px; margin-top: 10px;">Be the first to plan an event!</p>
             </div>
@@ -13599,12 +13599,12 @@ function openEventAttendeesModal(matchId) {
                 : avatar;
 
             return `
-                <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; ${isCurrentUser ? 'background: #f0f8ff;' : ''}">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; overflow: hidden;">
+                <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid var(--border-color); ${isCurrentUser ? 'background: rgba(91, 79, 199, 0.1);' : ''}">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; overflow: hidden;">
                         ${avatarHtml}
                     </div>
                     <div style="flex: 1;">
-                        <div style="font-weight: 500; font-size: 14px;">
+                        <div style="font-weight: 500; font-size: 14px; color: var(--text-primary);">
                             ${name} ${isCurrentUser ? '(You)' : ''}
                         </div>
                     </div>
