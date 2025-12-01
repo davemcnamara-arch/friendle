@@ -13328,26 +13328,14 @@ async function openSwipeActionModal(matchId, activityName, activity = null) {
         return;
     }
 
-    // Filter to upcoming events and mark if user has joined
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const upcomingEvents = (events || []).filter(e => {
-        // Include planning events
-        if (e.status === 'planning') {
-            return true;
-        }
-        // Include scheduled events in the future
-        const isScheduled = e.status === 'scheduled';
-        const isFuture = new Date(e.scheduled_date) >= today;
-        return isScheduled && isFuture;
-    }).map(e => ({
+    // Mark which events user has joined (upcomingEvents already filtered above)
+    const upcomingEventsWithUserStatus = upcomingEvents.map(e => ({
         ...e,
         isUserJoined: e.event_participants?.some(p => p.profile_id === currentUser.id) || false
     }));
 
     // Check if user hasn't joined any events
-    const unjoinedEvents = upcomingEvents.filter(e => !e.isUserJoined);
+    const unjoinedEvents = upcomingEventsWithUserStatus.filter(e => !e.isUserJoined);
 
     if (unjoinedEvents.length > 0) {
         // Show join buttons for unjoined events
@@ -13408,7 +13396,7 @@ async function openSwipeActionModal(matchId, activityName, activity = null) {
                 "Stay Interested" lets you watch for events without joining this one.
             </div>
         `;
-    } else if (upcomingEvents.length > 0 && upcomingEvents.every(e => e.isUserJoined)) {
+    } else if (upcomingEventsWithUserStatus.length > 0 && upcomingEventsWithUserStatus.every(e => e.isUserJoined)) {
         // User has already joined all events
         modalContent.innerHTML = `
             <span class="close-modal-btn" onclick="closeSwipeActionModal()">×</span>
