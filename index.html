@@ -15916,6 +15916,8 @@ async function deleteEvent() {
 
         console.log('✅ Event deleted successfully');
         closeEventOptionsModal();
+        showNotification('Event deleted');
+        await loadMatches();
         await goToPreviousPage();
 
     } catch (error) {
