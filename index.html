@@ -2795,7 +2795,6 @@ body.dark-mode .poll-notification-label {
             <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
             <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
         </div>
-        <button id="open-general-chat-btn" onclick="openGeneralChatFromEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">💬 General Chat</button>
     </div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
         <button id="lock-details-btn" onclick="openLockDetailsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️ Lock in Details</button>
@@ -14950,13 +14949,11 @@ async function openEventChat(eventId) {
         setEventContext(event);
         
         // Show/hide buttons based on event status (planning vs scheduled)
-        const generalChatBtn = document.getElementById('open-general-chat-btn');
         const calendarBtn = document.getElementById('add-to-calendar-btn');
         const eventOptionsBtn = document.getElementById('event-options-btn');
         const leaveEventBtn = document.getElementById('leave-event-btn');
         const lockDetailsBtn = document.getElementById('lock-details-btn');
 
-        if (generalChatBtn) generalChatBtn.style.display = 'inline-block';
         if (leaveEventBtn) leaveEventBtn.style.display = 'inline-block';
 
         // Show different buttons based on event status
@@ -15176,27 +15173,6 @@ allActiveSubscriptions.push(eventMessageSubscription);
         console.error('Error loading event chat:', error);
         alert('Failed to load event chat');
     }
-}
-
-// Open general match chat from event chat
-window.openGeneralChatFromEvent = async function() {
-    if (!currentEvent) {
-        showNotification('No event context', 'error');
-        return;
-    }
-
-    // Find the match ID from current event
-    const matchId = currentEvent.match_id;
-
-    if (!matchId) {
-        showNotification('Cannot find match for this event', 'error');
-        return;
-    }
-
-    // Match chat deprecated - redirect to matches page
-    await loadMatches();
-    showPage('matches');
-    showNotification('Match chat is now event-based. View your matches to plan events!');
 }
 
 // Load messages for current event
