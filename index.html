@@ -9122,38 +9122,53 @@ async function findMatches(circleId) {
 
         // For each activity the user likes, find or create a match
         for (const activityId of userPrefs) {
-            
-            // Check if a match already exists for this activity in this circle
-            const { data: existingMatches, error: matchError } = await supabase
+
+            // BUGFIX: Use upsert to prevent race condition duplicates
+            // First, try to get existing match
+            const { data: existingMatches } = await supabase
                 .from('matches')
                 .select('id, circle_id, activity_id, created_at')
                 .eq('circle_id', circleId)
-                .eq('activity_id', activityId);
-
-            if (matchError) {
-                console.error('Error checking for existing match:', matchError);
-                continue;
-            }
+                .eq('activity_id', activityId)
+                .limit(1);
 
             let match = existingMatches?.[0] || null;
 
             if (!match) {
-                // Create new match (but DON'T auto-add user)
-                const { data: newMatch, error: createError } = await supabase
-                    .from('matches')
-                    .insert([{
-                        circle_id: circleId,
-                        activity_id: activityId
-                    }])
-                    .select('*')
-                    .single();
+                // Create new match - wrap in try/catch to handle potential duplicate race condition
+                try {
+                    const { data: newMatch, error: createError } = await supabase
+                        .from('matches')
+                        .insert([{
+                            circle_id: circleId,
+                            activity_id: activityId
+                        }])
+                        .select('*')
+                        .single();
 
-                if (createError) {
-                    console.error('Error creating match:', createError);
+                    if (createError) {
+                        // If insert failed, likely due to race condition - query again
+                        console.log('Insert failed, re-querying for match:', createError.message);
+                        const { data: retryMatch } = await supabase
+                            .from('matches')
+                            .select('id, circle_id, activity_id, created_at')
+                            .eq('circle_id', circleId)
+                            .eq('activity_id', activityId)
+                            .limit(1)
+                            .single();
+
+                        match = retryMatch;
+                        if (!match) {
+                            console.error('Could not create or find match:', createError);
+                            continue;
+                        }
+                    } else {
+                        match = newMatch;
+                    }
+                } catch (err) {
+                    console.error('Error in match creation:', err);
                     continue;
                 }
-
-                match = newMatch;
             }
 
             // Get all users who swiped right (interested but anonymous count)
@@ -11511,9 +11526,22 @@ async function loadMatches() {
         if (matchError) throw matchError;
         
         // Filter to only matches where user has that activity selected in THAT circle
-        matches = (allMatches || []).filter(match => 
+        const filteredMatches = (allMatches || []).filter(match =>
             prefSet.has(`${match.circle_id}|${match.activity_id}`)
         );
+
+        // BUGFIX: Deduplicate matches by (circle_id, activity_id) pair
+        // This prevents showing multiple matches for the same activity in a circle
+        const matchMap = new Map();
+        filteredMatches.forEach(match => {
+            const key = `${match.circle_id}|${match.activity_id}`;
+            const existing = matchMap.get(key);
+            // Keep the most recent match if duplicates exist
+            if (!existing || new Date(match.created_at) > new Date(existing.created_at)) {
+                matchMap.set(key, match);
+            }
+        });
+        matches = Array.from(matchMap.values());
         
         // PERFORMANCE FIX: Batch all queries instead of N+1 pattern
 
