@@ -153,7 +153,6 @@ CREATE INDEX IF NOT EXISTS idx_function_execution_logs_function
 -- Add helpful comments
 -- ============================================================================
 
-COMMENT ON TABLE public.messages IS 'Generic messages table with RLS enabled';
 COMMENT ON TABLE public.function_execution_logs IS 'System logging table for edge function execution tracking';
 COMMENT ON POLICY backup_service_role_all ON public.event_participants_backup_20251026 IS 'Backup tables restricted to service role access only';
 
