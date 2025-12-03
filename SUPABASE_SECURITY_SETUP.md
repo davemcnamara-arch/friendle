@@ -6,17 +6,19 @@ This document outlines manual security configuration steps that need to be compl
 
 ### Enable Leaked Password Protection
 
-**Status:** ⚠️ Action Required
+**Status:** ⚠️ Not Enabled (Pro Plan Required)
 
 **Description:** Supabase Auth can prevent users from using compromised passwords by checking against the HaveIBeenPwned.org database. This feature is currently disabled.
 
-**Steps to Enable:**
+**⚠️ Note:** This feature requires a **Pro plan or higher**. It is not available on the Free tier.
+
+**Steps to Enable (if on Pro plan):**
 
 1. Go to your Supabase Dashboard: https://app.supabase.com
 2. Navigate to your project
-3. Go to **Authentication** > **Policies** > **Password Settings**
-4. Enable **"Check for leaked passwords"**
-5. Save the changes
+3. Go to **Authentication** > **Providers** > **Email**
+4. Toggle on **"Prevent use of leaked passwords"**
+5. The setting will auto-save
 
 **Reference:** https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
@@ -24,6 +26,8 @@ This document outlines manual security configuration steps that need to be compl
 - Prevents users from using passwords that have been compromised in data breaches
 - Reduces the risk of account takeover attacks
 - Improves overall application security
+
+**Decision:** Leaving this disabled on Free tier is acceptable. Consider enabling when upgrading to Pro.
 
 ---
 
