@@ -71,48 +71,11 @@ END $$;
 -- 2.1: messages table
 -- ============================================================================
 -- Note: This table exists in the database but is not used in the codebase
--- We enable RLS to fix the linter error, but it will be dropped in a subsequent cleanup migration
+-- It doesn't have the expected schema, so we'll just drop it here
 -- ============================================================================
 
--- Enable RLS on messages table (only if it exists)
-ALTER TABLE IF EXISTS public.messages ENABLE ROW LEVEL SECURITY;
-
--- Drop existing policies if any
-DROP POLICY IF EXISTS messages_select_own ON public.messages;
-DROP POLICY IF EXISTS messages_insert_own ON public.messages;
-DROP POLICY IF EXISTS messages_update_own ON public.messages;
-DROP POLICY IF EXISTS messages_delete_own ON public.messages;
-
--- Create policies for messages table (only if table exists)
-DO $$
-BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'messages') THEN
-    -- Users can read their own messages
-    EXECUTE 'CREATE POLICY messages_select_own ON public.messages
-      FOR SELECT
-      TO authenticated
-      USING (auth.uid() = user_id)';
-
-    -- Users can insert their own messages
-    EXECUTE 'CREATE POLICY messages_insert_own ON public.messages
-      FOR INSERT
-      TO authenticated
-      WITH CHECK (auth.uid() = user_id)';
-
-    -- Users can update their own messages
-    EXECUTE 'CREATE POLICY messages_update_own ON public.messages
-      FOR UPDATE
-      TO authenticated
-      USING (auth.uid() = user_id)
-      WITH CHECK (auth.uid() = user_id)';
-
-    -- Users can delete their own messages
-    EXECUTE 'CREATE POLICY messages_delete_own ON public.messages
-      FOR DELETE
-      TO authenticated
-      USING (auth.uid() = user_id)';
-  END IF;
-END $$;
+-- Drop the unused messages table
+DROP TABLE IF EXISTS public.messages CASCADE;
 
 -- ============================================================================
 -- 2.2: hidden_activities table

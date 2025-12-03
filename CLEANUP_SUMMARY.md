@@ -1,7 +1,9 @@
 # Database Cleanup - Obsolete Tables Removed
 
 ## Summary
-Removed 22 obsolete tables to free up database storage and reduce maintenance overhead.
+Removed 21 obsolete backup tables to free up database storage and reduce maintenance overhead.
+
+**Note:** The unused `messages` table is dropped in the first migration (`20251203_fix_rls_errors.sql`), not this cleanup migration.
 
 ## What Was Removed
 
@@ -33,10 +35,6 @@ All backup tables created on October 26, 2025 (~5 weeks old):
 - `match_messages` and `match_message_reactions` tables were removed in the "remove match chat" migration
 - Backing up these obsolete tables was unnecessary
 
-### 2. Unused Generic Table (1 table)
-- `messages` - Generic messages table that exists in database but is not used in the codebase
-  - The app uses specific message tables instead: `event_messages`, `circle_messages`
-
 ## Migration File
 `supabase/migrations/20251203_cleanup_obsolete_tables.sql`
 
@@ -54,7 +52,7 @@ supabase db push
 
 ## Benefits
 
-✅ **Freed up database storage** - Removed 22 obsolete tables
+✅ **Freed up database storage** - Removed 21 obsolete backup tables
 ✅ **Reduced complexity** - Fewer tables to maintain and backup
 ✅ **Cleaner schema** - Removed tables that backed up data that no longer exists
 ✅ **Better security** - Fewer attack surfaces and data exposure points
