@@ -70,21 +70,12 @@ END $$;
 -- ============================================================================
 -- 2.1: messages table
 -- ============================================================================
--- Note: This might be a generic messages table or needs to be created
--- Check if it exists, if not create it with RLS enabled
+-- Note: This table exists in the database but is not used in the codebase
+-- We enable RLS to fix the linter error, but it will be dropped in a subsequent cleanup migration
 -- ============================================================================
 
--- Create messages table if it doesn't exist
-CREATE TABLE IF NOT EXISTS public.messages (
-  id BIGSERIAL PRIMARY KEY,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  content TEXT,
-  metadata JSONB
-);
-
--- Enable RLS on messages table
-ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+-- Enable RLS on messages table (only if it exists)
+ALTER TABLE IF EXISTS public.messages ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if any
 DROP POLICY IF EXISTS messages_select_own ON public.messages;
@@ -92,31 +83,36 @@ DROP POLICY IF EXISTS messages_insert_own ON public.messages;
 DROP POLICY IF EXISTS messages_update_own ON public.messages;
 DROP POLICY IF EXISTS messages_delete_own ON public.messages;
 
--- Create policies for messages table
--- Users can read their own messages
-CREATE POLICY messages_select_own ON public.messages
-  FOR SELECT
-  TO authenticated
-  USING (auth.uid() = user_id);
+-- Create policies for messages table (only if table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'messages') THEN
+    -- Users can read their own messages
+    EXECUTE 'CREATE POLICY messages_select_own ON public.messages
+      FOR SELECT
+      TO authenticated
+      USING (auth.uid() = user_id)';
 
--- Users can insert their own messages
-CREATE POLICY messages_insert_own ON public.messages
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+    -- Users can insert their own messages
+    EXECUTE 'CREATE POLICY messages_insert_own ON public.messages
+      FOR INSERT
+      TO authenticated
+      WITH CHECK (auth.uid() = user_id)';
 
--- Users can update their own messages
-CREATE POLICY messages_update_own ON public.messages
-  FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+    -- Users can update their own messages
+    EXECUTE 'CREATE POLICY messages_update_own ON public.messages
+      FOR UPDATE
+      TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id)';
 
--- Users can delete their own messages
-CREATE POLICY messages_delete_own ON public.messages
-  FOR DELETE
-  TO authenticated
-  USING (auth.uid() = user_id);
+    -- Users can delete their own messages
+    EXECUTE 'CREATE POLICY messages_delete_own ON public.messages
+      FOR DELETE
+      TO authenticated
+      USING (auth.uid() = user_id)';
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 2.2: hidden_activities table

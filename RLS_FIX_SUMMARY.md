@@ -41,10 +41,11 @@ All backup tables with suffix `_backup_20251026`:
 #### 2. Active Tables
 
 ##### `messages` table
-- ✅ Created if doesn't exist
-- ✅ RLS enabled
-- ✅ Policies: Users can only CRUD their own messages
-- 📝 Policies created:
+- ✅ RLS enabled (if table exists)
+- ✅ Policies: Users can only CRUD their own messages (if table exists)
+- 📝 Note: This table exists in the database but is not used in the codebase
+- 📝 Will be dropped in the cleanup migration (20251203_cleanup_obsolete_tables.sql)
+- 📝 Policies created (if table exists):
   - `messages_select_own` - Read own messages
   - `messages_insert_own` - Create own messages
   - `messages_update_own` - Update own messages
