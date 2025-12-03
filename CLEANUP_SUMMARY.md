@@ -3,7 +3,7 @@
 ## Summary
 Removed 21 obsolete backup tables to free up database storage and reduce maintenance overhead.
 
-**Note:** The unused `messages` table is dropped in the first migration (`20251203_fix_rls_errors.sql`), not this cleanup migration.
+**Note:** The unused `messages` and `hidden_activities` tables are dropped in the first migration (`20251203_fix_rls_errors.sql`), not this cleanup migration.
 
 ## What Was Removed
 

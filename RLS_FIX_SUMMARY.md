@@ -40,18 +40,10 @@ All backup tables with suffix `_backup_20251026`:
 
 #### 2. Active Tables
 
-##### `messages` table
-- ✅ Dropped - This table exists in the database but is not used in the codebase
-- 📝 The app uses specific message tables instead: `event_messages`, `circle_messages`
-- 📝 The existing table didn't have the expected schema, so it's dropped rather than having RLS enabled
-
-##### `hidden_activities` table
-- ✅ RLS enabled
-- ✅ Policies: Users can only view/manage their own hidden activities
-- 📝 Policies created:
-  - `hidden_activities_select_own` - Read own hidden activities
-  - `hidden_activities_insert_own` - Create own hidden activities
-  - `hidden_activities_delete_own` - Delete own hidden activities
+##### Unused tables dropped
+- ✅ `messages` - Generic messages table (unused - app uses `event_messages`, `circle_messages`)
+- ✅ `hidden_activities` - Orphaned table not used in codebase
+- 📝 Both tables existed in the database but didn't have expected schemas and weren't referenced in the codebase
 
 ##### `function_execution_logs` table
 - ✅ Created if doesn't exist

@@ -68,46 +68,17 @@ END $$;
 -- ============================================================================
 
 -- ============================================================================
--- 2.1: messages table
+-- 2.1: Drop unused tables
 -- ============================================================================
--- Note: This table exists in the database but is not used in the codebase
--- It doesn't have the expected schema, so we'll just drop it here
+-- These tables exist in the database but are not used in the codebase
+-- They don't have the expected schema, so we'll just drop them
 -- ============================================================================
 
--- Drop the unused messages table
 DROP TABLE IF EXISTS public.messages CASCADE;
+DROP TABLE IF EXISTS public.hidden_activities CASCADE;
 
 -- ============================================================================
--- 2.2: hidden_activities table
--- ============================================================================
-
--- Enable RLS on hidden_activities table
-ALTER TABLE IF EXISTS public.hidden_activities ENABLE ROW LEVEL SECURITY;
-
--- Drop existing policies if any
-DROP POLICY IF EXISTS hidden_activities_select_own ON public.hidden_activities;
-DROP POLICY IF EXISTS hidden_activities_insert_own ON public.hidden_activities;
-DROP POLICY IF EXISTS hidden_activities_delete_own ON public.hidden_activities;
-
--- Create policies for hidden_activities table
--- Assuming it has a user_id column - users can only see/manage their own hidden activities
-CREATE POLICY hidden_activities_select_own ON public.hidden_activities
-  FOR SELECT
-  TO authenticated
-  USING (auth.uid() = user_id);
-
-CREATE POLICY hidden_activities_insert_own ON public.hidden_activities
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY hidden_activities_delete_own ON public.hidden_activities
-  FOR DELETE
-  TO authenticated
-  USING (auth.uid() = user_id);
-
--- ============================================================================
--- 2.3: function_execution_logs table
+-- 2.2: function_execution_logs table
 -- ============================================================================
 
 -- Create function_execution_logs table if it doesn't exist
