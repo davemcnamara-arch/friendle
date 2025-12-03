@@ -36,21 +36,12 @@ DROP TABLE IF EXISTS public.preferences_backup_20251026 CASCADE;
 DROP TABLE IF EXISTS public.auth_users_backup_20251026 CASCADE;
 DROP TABLE IF EXISTS public.auth_identities_backup_20251026 CASCADE;
 
--- ============================================================================
--- Part 2: Drop Unused Generic Messages Table
--- ============================================================================
--- The generic 'messages' table was created in the RLS fix but is not used
--- The app uses specific message tables: event_messages, circle_messages
--- ============================================================================
-
-DROP TABLE IF EXISTS public.messages CASCADE;
-
 COMMIT;
 
 -- ============================================================================
 -- Summary
 -- ============================================================================
 -- Dropped 21 backup tables (freeing up database storage)
--- Dropped 1 unused generic messages table
--- Total: 22 tables removed
+-- Note: The unused 'messages' table was already dropped in 20251203_fix_rls_errors.sql
+-- Total: 21 tables removed
 -- ============================================================================

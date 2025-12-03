@@ -41,15 +41,9 @@ All backup tables with suffix `_backup_20251026`:
 #### 2. Active Tables
 
 ##### `messages` table
-- ✅ RLS enabled (if table exists)
-- ✅ Policies: Users can only CRUD their own messages (if table exists)
-- 📝 Note: This table exists in the database but is not used in the codebase
-- 📝 Will be dropped in the cleanup migration (20251203_cleanup_obsolete_tables.sql)
-- 📝 Policies created (if table exists):
-  - `messages_select_own` - Read own messages
-  - `messages_insert_own` - Create own messages
-  - `messages_update_own` - Update own messages
-  - `messages_delete_own` - Delete own messages
+- ✅ Dropped - This table exists in the database but is not used in the codebase
+- 📝 The app uses specific message tables instead: `event_messages`, `circle_messages`
+- 📝 The existing table didn't have the expected schema, so it's dropped rather than having RLS enabled
 
 ##### `hidden_activities` table
 - ✅ RLS enabled
