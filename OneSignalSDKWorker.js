@@ -1,6 +1,6 @@
 importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 
-const CACHE_NAME = 'friendle-v3';
+const CACHE_NAME = 'friendle-v4';
 const urlsToCache = [
   '/',
   '/index.html'
