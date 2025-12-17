@@ -2310,8 +2310,30 @@ body.dark-mode .poll-notification-label {
   const SUPABASE_URL = "https://kxsewkjbhxtfqbytftbu.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2V3a2piaHh0ZnFieXRmdGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NTE4ODQsImV4cCI6MjA3NDQyNzg4NH0.-A-7VOQWOaQqYOO6NxiKxGywddfS-pmwvzHISJqz2AQ";
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  
+  // Initialize Supabase client with error handling
+  let supabase;
+  try {
+    if (!window.supabase) {
+      console.error('❌ Supabase library not loaded');
+      throw new Error('Supabase library not loaded');
+    }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (!supabase) {
+      console.error('❌ Failed to create Supabase client');
+      throw new Error('Failed to create Supabase client');
+    }
+    console.log('✅ Supabase client initialized successfully');
+  } catch (error) {
+    console.error('❌ Error initializing Supabase:', error);
+    // Create a minimal fallback to prevent undefined errors
+    supabase = {
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: null }, error: new Error('Supabase not initialized') }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
+      }
+    };
+  }
+
   // Add global Supabase error handler
   supabase.auth.onAuthStateChange((event, session) => {
     console.log('Auth state changed:', event);
