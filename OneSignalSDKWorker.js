@@ -1,6 +1,6 @@
 importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 
-const CACHE_NAME = 'friendle-v2';
+const CACHE_NAME = 'friendle-v3';
 const urlsToCache = [
   '/',
   '/index.html'
@@ -47,12 +47,31 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - network first for HTML, then cache for offline
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    fetch(event.request)
-      .catch(() => caches.match(event.request))
-  );
+  // For HTML pages, always try network first and update cache
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Update cache with fresh HTML
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    // For other resources, network first with cache fallback
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match(event.request))
+    );
+  }
 });
 
 // Handle notification clicks - focus existing client instead of opening new window
