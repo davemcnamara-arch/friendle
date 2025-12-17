@@ -2311,12 +2311,13 @@ body.dark-mode .poll-notification-label {
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2V3a2piaHh0ZnFieXRmdGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NTE4ODQsImV4cCI6MjA3NDQyNzg4NH0.-A-7VOQWOaQqYOO6NxiKxGywddfS-pmwvzHISJqz2AQ";
 
   // Initialize Supabase client with error handling
-  let supabase;
+  // Don't declare - just assign to avoid conflicts with non-configurable globals
   try {
     if (!window.supabase) {
       console.error('❌ Supabase library not loaded');
       throw new Error('Supabase library not loaded');
     }
+    // Assign directly without declaration to avoid redeclaration errors
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     if (!supabase) {
       console.error('❌ Failed to create Supabase client');
@@ -2335,7 +2336,8 @@ body.dark-mode .poll-notification-label {
   }
 
   // Add global Supabase error handler
-  supabase.auth.onAuthStateChange((event, session) => {
+  if (supabase && supabase.auth) {
+    supabase.auth.onAuthStateChange((event, session) => {
     console.log('Auth state changed:', event);
 
     if (event === 'SIGNED_OUT') {
@@ -2352,7 +2354,8 @@ body.dark-mode .poll-notification-label {
         showPasswordResetModal();
       }, 100);
     }
-  });
+    });
+  }
 </script>
 
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
