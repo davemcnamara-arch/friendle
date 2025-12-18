@@ -9707,10 +9707,7 @@ async function loadOlderMessages(chatType) {
 
             messages.forEach(message => {
                 const isOwnMessage = message.sender_id === currentUser.id;
-                const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit'
-                });
+                const messageTime = formatMessageTimestamp(message.created_at);
 
                 const context = getCurrentChatContext();
                 const messageType = context.type;
@@ -11507,6 +11504,64 @@ function formatTime(timeString) {
     const hour12 = hour % 12 || 12;
 
     return `${hour12}:${minutes} ${ampm}`;
+}
+
+function formatMessageTimestamp(timestamp) {
+    if (!timestamp) return '';
+
+    const messageDate = new Date(timestamp);
+    const now = new Date();
+
+    // Get start of today (midnight)
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    // Get start of yesterday
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    // Get start of this week (Sunday)
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+    // Format time
+    const timeStr = messageDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+
+    // Today: just show time
+    if (messageDate >= startOfToday) {
+        return timeStr;
+    }
+
+    // Yesterday: show "Yesterday" + time
+    if (messageDate >= startOfYesterday) {
+        return `Yesterday ${timeStr}`;
+    }
+
+    // This week: show day name + time
+    if (messageDate >= startOfWeek) {
+        const dayName = messageDate.toLocaleDateString('en-US', { weekday: 'short' });
+        return `${dayName} ${timeStr}`;
+    }
+
+    // This year: show month/day + time
+    if (messageDate.getFullYear() === now.getFullYear()) {
+        const dateStr = messageDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric'
+        });
+        return `${dateStr}, ${timeStr}`;
+    }
+
+    // Older: show full date + time
+    const dateStr = messageDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+    return `${dateStr}, ${timeStr}`;
 }
 
 window.openEventMenu = function(eventId) {
@@ -15549,10 +15604,7 @@ function forceScrollToBottom(attempts = 0) {
 // Helper to append message to specific container
 function appendMessageToContainer(message, container) {
     const isOwnMessage = message.sender_id === currentUser.id;
-    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit'
-    });
+    const messageTime = formatMessageTimestamp(message.created_at);
 
     // Determine message type from current context
     const context = getCurrentChatContext();
@@ -15699,10 +15751,7 @@ function appendMessage(message) {
     }
 
     const isOwnMessage = message.sender_id === currentUser.id;
-    const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit'
-    });
+    const messageTime = formatMessageTimestamp(message.created_at);
 
     // Determine message type from current context
     const context = getCurrentChatContext();
