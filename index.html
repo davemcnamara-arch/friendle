@@ -11766,11 +11766,19 @@ async function loadMatches() {
             let eventUnreadCount = 0;
             if (isUserJoined) {
                 const eventParticipation = eventParticipationMap.get(event.id);
-                if (eventParticipation?.last_read_at) {
-                    const latestMessage = latestEventMessageMap.get(event.id);
-                    if (latestMessage &&
-                        new Date(latestMessage.created_at) > new Date(eventParticipation.last_read_at) &&
-                        latestMessage.sender_id !== currentUser.id) {
+                const latestMessage = latestEventMessageMap.get(event.id);
+
+                // Count as unread if there's a message that's either:
+                // 1. Newer than last_read_at (if user has read before), OR
+                // 2. Any message exists (if user has never read the chat)
+                if (latestMessage && latestMessage.sender_id !== currentUser.id) {
+                    if (eventParticipation?.last_read_at) {
+                        // User has read before - check if message is newer
+                        if (new Date(latestMessage.created_at) > new Date(eventParticipation.last_read_at)) {
+                            eventUnreadCount = 1;
+                        }
+                    } else {
+                        // User has never read the chat - any message counts as unread
                         eventUnreadCount = 1;
                     }
                 }
@@ -12074,9 +12082,13 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
             if (event.status === 'planning') {
                 const timeframeText = event.proposed_timeframe || 'TBD';
                 const isHighlighted = highlightedEventId === event.id;
-                const bgColor = isHighlighted ? '#ffeb3b' : '#fff3cd';
+                const hasUnread = event.unreadCount > 0;
+                const isDarkMode = document.body.classList.contains('dark-mode');
+                // Priority: highlighted (yellow) > unread (teal) > default (planning yellow)
+                const bgColor = isHighlighted ? '#ffeb3b' : (hasUnread ? (isDarkMode ? '#134e4a' : '#ccfbf1') : '#fff3cd');
+                const borderColor = hasUnread ? '#14b8a6' : '#ffc107';
                 return `
-                    <div class="event-item" style="background: ${bgColor}; border-left: 4px solid #ffc107;" data-joined="${event.isUserJoined}">
+                    <div class="event-item${hasUnread ? ' unread' : ''}" style="background: ${bgColor}; border-left: 4px solid ${borderColor};" data-joined="${event.isUserJoined}" data-unread="${hasUnread}">
                         <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
                             <div style="flex: 1;">
                                 <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
