@@ -7434,7 +7434,7 @@ window.finalizeCircleCreation = async function() {
               <span onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="cursor: pointer; font-size: 1.2em;" title="Copy code">⧉</span>
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-              <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%; background: #667eea;">💬 Open Circle Chat</button>
+              <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%;">💬 Open Circle Chat</button>
               <div style="display: flex; gap: 8px;">
                 <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
                 <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
@@ -12230,7 +12230,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
                             ${event.isUserJoined ? `
-                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #ffc107; color: #000;">
+                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                                     💬 Open Chat
                                 </button>
                             ` : `
