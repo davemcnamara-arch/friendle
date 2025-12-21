@@ -52,14 +52,172 @@ WHERE u.id IS NULL
 ORDER BY c.name, p.name;
 
 -- ============================================================================
--- STEP 3: CLEANUP - Remove orphaned circle memberships
+-- STEP 3: CLEANUP - Remove all data for orphaned profiles
 -- ============================================================================
 
--- Uncomment to delete orphaned circle memberships:
+-- IMPORTANT: Data must be deleted in the correct order due to foreign key constraints
+-- Uncomment ALL of these queries together to perform the cleanup:
+
+-- Step 3.1: Delete reactions
+-- DELETE FROM match_message_reactions
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM event_message_reactions
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM circle_message_reactions
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.2: Delete messages
+-- DELETE FROM match_messages
+-- WHERE sender_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM event_messages
+-- WHERE sender_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM circle_messages
+-- WHERE sender_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.3: Delete event/match participants
+-- DELETE FROM event_participants
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM match_participants
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.4: Delete inactivity warnings and muted chats
+-- DELETE FROM inactivity_warnings
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM muted_chats
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.5: Delete message reads (if these tables exist)
+-- DELETE FROM message_reads_match
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM message_reads_event
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- DELETE FROM message_reads_circle
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.6: Delete preferences
+-- DELETE FROM preferences
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.7: Delete circle memberships
 -- DELETE FROM circle_members
 -- WHERE profile_id IN (
---     SELECT p.id
---     FROM profiles p
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.8: Delete hidden activities
+-- DELETE FROM hidden_activities
+-- WHERE profile_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.9: Delete blocked users
+-- DELETE FROM blocked_users
+-- WHERE blocker_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- ) OR blocked_id IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.10: Delete circles owned by orphaned profiles
+-- DELETE FROM circles
+-- WHERE created_by IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.11: Delete activities created by orphaned profiles
+-- DELETE FROM activities
+-- WHERE created_by IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.12: Delete matches created by orphaned profiles
+-- DELETE FROM matches
+-- WHERE created_by IN (
+--     SELECT p.id FROM profiles p
+--     LEFT JOIN auth.users u ON p.id = u.id
+--     WHERE u.id IS NULL
+-- );
+
+-- Step 3.13: Delete events created by orphaned profiles
+-- DELETE FROM events
+-- WHERE created_by IN (
+--     SELECT p.id FROM profiles p
 --     LEFT JOIN auth.users u ON p.id = u.id
 --     WHERE u.id IS NULL
 -- );
@@ -68,7 +226,7 @@ ORDER BY c.name, p.name;
 -- STEP 4: CLEANUP - Remove orphaned profiles
 -- ============================================================================
 
--- Uncomment to delete orphaned profiles (after removing memberships):
+-- Step 4: Finally, delete the orphaned profiles themselves
 -- DELETE FROM profiles
 -- WHERE id IN (
 --     SELECT p.id
