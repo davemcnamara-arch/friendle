@@ -17003,7 +17003,7 @@ if (pageId === 'settings') {
         };
 
         // Delete all local data
-        window.resetApp = () => {
+        window.resetApp = async () => {
             const confirmed = confirm(
                 'DELETE ALL YOUR DATA?\n\n' +
                 'This will permanently delete:\n' +
@@ -17023,9 +17023,35 @@ if (pageId === 'settings') {
                 );
 
                 if (doubleCheck) {
-                    localStorage.clear();
-                    alert('All data has been deleted. The app will now reload.');
-                    location.reload();
+                    try {
+                        // Get current user before deleting
+                        const currentUser = await getCurrentUser();
+                        if (!currentUser) {
+                            throw new Error('No user logged in');
+                        }
+
+                        // Call database function to delete all user data
+                        const { error } = await supabase.rpc('delete_user_account', {
+                            user_id: currentUser.id
+                        });
+
+                        if (error) {
+                            console.error('Error deleting account:', error);
+                            throw error;
+                        }
+
+                        // Sign out the user
+                        await supabase.auth.signOut();
+
+                        // Clear local storage
+                        localStorage.clear();
+
+                        alert('All data has been deleted. The app will now reload.');
+                        location.reload();
+                    } catch (error) {
+                        console.error('Failed to delete account:', error);
+                        alert('Failed to delete account: ' + error.message + '\n\nPlease try again or contact support.');
+                    }
                 }
             }
         };
