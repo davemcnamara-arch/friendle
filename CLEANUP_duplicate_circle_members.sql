@@ -70,22 +70,24 @@ ORDER BY circle_name, email;
 -- SELECT
 --     cm1.circle_id,
 --     c.name as circle_name,
---     p1.email,
+--     u1.email,
 --     cm1.profile_id as old_profile_id,
 --     cm2.profile_id as new_profile_id,
 --     p1.name as old_name,
 --     p2.name as new_name,
---     p1.created_at as old_created_at,
---     p2.created_at as new_created_at
+--     u1.created_at as old_created_at,
+--     u2.created_at as new_created_at
 -- FROM circle_members cm1
 -- JOIN circle_members cm2
 --     ON cm1.circle_id = cm2.circle_id
 --     AND cm1.profile_id < cm2.profile_id
 -- JOIN profiles p1 ON cm1.profile_id = p1.id
 -- JOIN profiles p2 ON cm2.profile_id = p2.id
+-- JOIN auth.users u1 ON cm1.profile_id = u1.id
+-- JOIN auth.users u2 ON cm2.profile_id = u2.id
 -- JOIN circles c ON cm1.circle_id = c.id
--- WHERE p1.email = p2.email
--- ORDER BY c.name, p1.email;
+-- WHERE u1.email = u2.email
+-- ORDER BY c.name, u1.email;
 --
 -- 2. Delete specific old membership (replace UUIDs):
 -- DELETE FROM circle_members
