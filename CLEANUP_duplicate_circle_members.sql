@@ -70,7 +70,7 @@ ORDER BY circle_name, email;
 -- SELECT
 --     cm1.circle_id,
 --     c.name as circle_name,
---     u1.email,
+--     u1.email::text,
 --     cm1.profile_id as old_profile_id,
 --     cm2.profile_id as new_profile_id,
 --     p1.name as old_name,

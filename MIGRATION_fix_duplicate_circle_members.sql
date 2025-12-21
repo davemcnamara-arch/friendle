@@ -217,7 +217,7 @@ BEGIN
     SELECT
         cm1.circle_id,
         c.name as circle_name,
-        u1.email,
+        u1.email::text,
         cm1.profile_id as profile_id_1,
         cm2.profile_id as profile_id_2,
         p1.name as name_1,
