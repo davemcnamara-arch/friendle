@@ -58,6 +58,9 @@ ON DELETE CASCADE;
 -- STEP 2: Create Function to Properly Delete User Account
 -- ============================================================================
 
+-- Drop the function if it exists (to ensure clean replacement)
+DROP FUNCTION IF EXISTS delete_user_account(UUID);
+
 -- This function deletes a user's profile and ALL related data
 -- The CASCADE constraint on circle_members will automatically remove memberships
 CREATE OR REPLACE FUNCTION delete_user_account(user_id UUID)
@@ -131,6 +134,9 @@ COMMENT ON FUNCTION delete_user_account(UUID) IS
 -- STEP 3: Create Function to Cleanup Duplicate Circle Memberships
 -- ============================================================================
 
+-- Drop the function if it exists (to ensure clean replacement)
+DROP FUNCTION IF EXISTS cleanup_duplicate_circle_members();
+
 -- This function removes duplicate circle memberships
 -- Keeps only the most recent membership (by last_read_at or implicit row order)
 CREATE OR REPLACE FUNCTION cleanup_duplicate_circle_members()
@@ -188,6 +194,9 @@ COMMENT ON FUNCTION cleanup_duplicate_circle_members() IS
 -- ============================================================================
 -- STEP 4: Create Function to Find Duplicate Memberships (Read-Only)
 -- ============================================================================
+
+-- Drop the function if it exists (to ensure clean replacement)
+DROP FUNCTION IF EXISTS find_duplicate_circle_members();
 
 -- This allows checking for duplicates without deleting them
 CREATE OR REPLACE FUNCTION find_duplicate_circle_members()
