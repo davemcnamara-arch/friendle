@@ -6135,6 +6135,81 @@ function closePhotoMenu() {
     menu.style.display = 'none';
 }
 
+// Chat Photo Menu Functions
+function showChatPhotoMenu(x, y) {
+    const menu = document.getElementById('chat-photo-menu');
+    menu.style.display = 'block';
+
+    // Position the menu
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    // Adjust if menu goes off screen
+    setTimeout(() => {
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+        }
+        // Ensure menu doesn't go above viewport
+        if (rect.top < 0) {
+            menu.style.top = '10px';
+        }
+    }, 0);
+
+    // Close menu when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', closeChatPhotoMenu, { once: true });
+    }, 0);
+}
+
+function closeChatPhotoMenu() {
+    const menu = document.getElementById('chat-photo-menu');
+    menu.style.display = 'none';
+}
+
+window.handleChatPhotoMenuAction = function(action) {
+    closeChatPhotoMenu();
+
+    if (action === 'camera') {
+        takePhotoFromCamera();
+    } else if (action === 'library') {
+        chooseFromLibrary();
+    }
+}
+
+// Take photo from camera
+function takePhotoFromCamera() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Use rear camera on mobile
+
+    input.onchange = async function(event) {
+        const file = event.target.files[0];
+        await uploadChatPhoto(file);
+    };
+
+    input.click();
+}
+
+// Choose photo from library
+function chooseFromLibrary() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    // No capture attribute - this will open the file picker/gallery
+
+    input.onchange = async function(event) {
+        const file = event.target.files[0];
+        await uploadChatPhoto(file);
+    };
+
+    input.click();
+}
+
 window.handlePhotoMenuAction = async function(action) {
     closePhotoMenu();
 
@@ -16217,124 +16292,124 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
 
 // Attachments & Modals
 window.sharePhoto = function() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    
-    input.onchange = async function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        const context = getCurrentChatContext();
-        
-        if (context.type === 'none') {
-            return showNotification('No active chat to send photo to', 'error');
-        }
-        
-        console.log('📸 Sharing photo in context:', context.type);
-        
-        showLoader('Compressing image...');
-        
-        try {
-            const compressedFile = await compressImage(file);
-            
-            if (compressedFile.size > 5 * 1024 * 1024) {
-                hideLoader();
-                return showNotification('Photo too large even after compression. Please try a smaller image.', 'error');
-            }
-            
-            showLoader('Uploading photo...');
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
-            
-            const { data, error } = await supabase.storage
-                .from('chat-photos')
-                .upload(fileName, compressedFile, {
-                    cacheControl: '3600',
-                    upsert: false
-                });
-            
-            if (error) throw error;
-            
-            const { data: urlData } = supabase.storage
-                .from('chat-photos')
-                .getPublicUrl(fileName);
-            
-            const photoUrl = urlData.publicUrl;
-            
-            if (context.type === 'event') {
-                // EVENT CHAT (check this first!)
-                const { data: messageData, error: messageError } = await supabase
-                    .from('event_messages')
-                    .insert({
-                        event_id: context.id,
-                        sender_id: currentUser.id,
-                        content: `<img src="${photoUrl}" style="max-width: 200px; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
-                    })
-                    .select(`*, sender:profiles(id, name, avatar)`)
-                    .single();
-                
-                if (messageError) throw messageError;
-                
-                appendMessage(messageData);
-                
-                const channel = supabase.channel(`event_${context.id}`);
-                await channel.send({
-                    type: 'broadcast',
-                    event: 'new_message',
-                    payload: {
-                        id: messageData.id,
-                        sender_id: currentUser.id,
-                        sender_name: currentUser.name,
-                        sender_avatar: currentUser.avatar,
-                        content: messageData.content,
-                        created_at: messageData.created_at
-                    }
-                });
+    // Get the photo button to position the menu near it
+    const photoBtn = document.getElementById('photo-btn');
+    const rect = photoBtn.getBoundingClientRect();
 
-            } else if (context.type === 'circle') {
-                // CIRCLE CHAT
-                const { data: messageData, error: messageError } = await supabase
-                    .from('circle_messages')
-                    .insert({
-                        circle_id: context.id,
-                        sender_id: currentUser.id,
-                        content: `<img src="${photoUrl}" style="max-width: 100%; max-height: 300px; width: auto; height: auto; display: block; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
-                    })
-                    .select(`*, sender:profiles(id, name, avatar)`)
-                    .single();
+    // Position menu above the button
+    showChatPhotoMenu(rect.left, rect.top - 10);
+}
 
-                if (messageError) throw messageError;
+// Chat photo upload function (shared by camera and library)
+async function uploadChatPhoto(file) {
+    if (!file) return;
 
-                appendMessage(messageData);
+    const context = getCurrentChatContext();
 
-                const channel = supabase.channel(`circle_chat_${context.id}`);
-                await channel.send({
-                    type: 'broadcast',
-                    event: 'new_circle_message',
-                    payload: {
-                        id: messageData.id,
-                        sender_id: currentUser.id,
-                        sender_name: currentUser.name,
-                        sender_avatar: currentUser.avatar,
-                        content: messageData.content,
-                        created_at: messageData.created_at
-                    }
-                });
-            }
-            
+    if (context.type === 'none') {
+        return showNotification('No active chat to send photo to', 'error');
+    }
+
+    console.log('📸 Sharing photo in context:', context.type);
+
+    showLoader('Compressing image...');
+
+    try {
+        const compressedFile = await compressImage(file);
+
+        if (compressedFile.size > 5 * 1024 * 1024) {
             hideLoader();
-            showNotification('Photo shared!');
-            
-        } catch (error) {
-            hideLoader();
-            console.error('Error uploading photo:', error);
-            showNotification('Failed to upload photo. Please try again.', 'error');
+            return showNotification('Photo too large even after compression. Please try a smaller image.', 'error');
         }
-    };
-    
-    input.click();
+
+        showLoader('Uploading photo...');
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+
+        const { data, error } = await supabase.storage
+            .from('chat-photos')
+            .upload(fileName, compressedFile, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage
+            .from('chat-photos')
+            .getPublicUrl(fileName);
+
+        const photoUrl = urlData.publicUrl;
+
+        if (context.type === 'event') {
+            // EVENT CHAT (check this first!)
+            const { data: messageData, error: messageError } = await supabase
+                .from('event_messages')
+                .insert({
+                    event_id: context.id,
+                    sender_id: currentUser.id,
+                    content: `<img src="${photoUrl}" style="max-width: 200px; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
+                })
+                .select(`*, sender:profiles(id, name, avatar)`)
+                .single();
+
+            if (messageError) throw messageError;
+
+            appendMessage(messageData);
+
+            const channel = supabase.channel(`event_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'new_message',
+                payload: {
+                    id: messageData.id,
+                    sender_id: currentUser.id,
+                    sender_name: currentUser.name,
+                    sender_avatar: currentUser.avatar,
+                    content: messageData.content,
+                    created_at: messageData.created_at
+                }
+            });
+
+        } else if (context.type === 'circle') {
+            // CIRCLE CHAT
+            const { data: messageData, error: messageError } = await supabase
+                .from('circle_messages')
+                .insert({
+                    circle_id: context.id,
+                    sender_id: currentUser.id,
+                    content: `<img src="${photoUrl}" style="max-width: 100%; max-height: 300px; width: auto; height: auto; display: block; border-radius: 10px; cursor: pointer;" onclick="openImageModal('${photoUrl}')">`
+                })
+                .select(`*, sender:profiles(id, name, avatar)`)
+                .single();
+
+            if (messageError) throw messageError;
+
+            appendMessage(messageData);
+
+            const channel = supabase.channel(`circle_chat_${context.id}`);
+            await channel.send({
+                type: 'broadcast',
+                event: 'new_circle_message',
+                payload: {
+                    id: messageData.id,
+                    sender_id: currentUser.id,
+                    sender_name: currentUser.name,
+                    sender_avatar: currentUser.avatar,
+                    content: messageData.content,
+                    created_at: messageData.created_at
+                }
+            });
+        }
+
+        hideLoader();
+        showNotification('Photo shared!');
+
+    } catch (error) {
+        hideLoader();
+        console.error('Error uploading photo:', error);
+        showNotification('Failed to upload photo. Please try again.', 'error');
+    }
 }
 
 // Match notification functions - redirects to new swipe action modal
@@ -18594,6 +18669,22 @@ window.saveActivityVisibility = async function() {
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 1.2em;">🗑️</span>
                 <span style="color: var(--text-primary);">Remove Photo</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Photo Menu Popup -->
+    <div id="chat-photo-menu" style="display: none; position: fixed; z-index: 9999; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); overflow: hidden; min-width: 180px;">
+        <div onclick="handleChatPhotoMenuAction('camera')" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='transparent'">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2em;">📷</span>
+                <span style="color: var(--text-primary);">Take Photo</span>
+            </div>
+        </div>
+        <div onclick="handleChatPhotoMenuAction('library')" style="padding: 12px 16px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='transparent'">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2em;">🖼️</span>
+                <span style="color: var(--text-primary);">Choose from Library</span>
             </div>
         </div>
     </div>
