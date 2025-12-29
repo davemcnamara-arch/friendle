@@ -8346,6 +8346,45 @@ window.openActivityDetail = async function(activity) {
     currentDetailActivity = activity;
     currentDetailCircle = selectedCircle; // Store the circle with the activity
 
+    // Auto-select this activity as an interest if not already selected
+    try {
+        const { data: existingPref, error: checkError } = await supabase
+            .from('preferences')
+            .select('selected')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', currentDetailCircle.id)
+            .eq('activity_id', activity.id)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found
+            console.error('Error checking preference:', checkError);
+        }
+
+        // If not already selected, auto-select it
+        if (!existingPref || !existingPref.selected) {
+            const { error: upsertError } = await supabase
+                .from('preferences')
+                .upsert({
+                    profile_id: currentUser.id,
+                    circle_id: currentDetailCircle.id,
+                    activity_id: activity.id,
+                    selected: true
+                }, {
+                    onConflict: 'profile_id,circle_id,activity_id'
+                });
+
+            if (upsertError) {
+                console.error('Error auto-selecting activity:', upsertError);
+            } else {
+                // Refresh the activities grid to show the new heart badge
+                await renderActivitiesGrid();
+                showNotification(`Added ${activity.name} to your interests`, 'success');
+            }
+        }
+    } catch (error) {
+        console.error('Error in auto-select:', error);
+    }
+
     // Set title
     document.getElementById('activity-detail-title').textContent = `${activity.emoji} ${activity.name}`;
 
