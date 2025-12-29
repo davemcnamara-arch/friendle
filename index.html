@@ -8362,19 +8362,32 @@ window.openActivityDetail = async function(activity) {
 
         // If not already selected, auto-select it
         if (!existingPref || !existingPref.selected) {
-            const { error: upsertError } = await supabase
-                .from('preferences')
-                .upsert({
-                    profile_id: currentUser.id,
-                    circle_id: currentDetailCircle.id,
-                    activity_id: activity.id,
-                    selected: true
-                }, {
-                    onConflict: 'profile_id,circle_id,activity_id'
-                });
+            let saveError;
 
-            if (upsertError) {
-                console.error('Error auto-selecting activity:', upsertError);
+            if (existingPref) {
+                // Update existing preference
+                const { error } = await supabase
+                    .from('preferences')
+                    .update({ selected: true })
+                    .eq('profile_id', currentUser.id)
+                    .eq('circle_id', currentDetailCircle.id)
+                    .eq('activity_id', activity.id);
+                saveError = error;
+            } else {
+                // Insert new preference
+                const { error } = await supabase
+                    .from('preferences')
+                    .insert({
+                        profile_id: currentUser.id,
+                        circle_id: currentDetailCircle.id,
+                        activity_id: activity.id,
+                        selected: true
+                    });
+                saveError = error;
+            }
+
+            if (saveError) {
+                console.error('Error auto-selecting activity:', saveError);
             } else {
                 // Refresh the activities grid to show the new heart badge
                 await renderActivitiesGrid();
