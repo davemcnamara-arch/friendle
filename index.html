@@ -3129,8 +3129,8 @@ body.dark-mode .poll-notification-label {
                     👥 Circles Tutorial
                 </button>
 
-                <button class="btn btn-secondary" onclick="showTutorial('matches', true)" style="width: 100%;">
-                    💫 Matches Tutorial
+                <button class="btn btn-secondary" onclick="showTutorial('events', true)" style="width: 100%;">
+                    ⭕ Events Tutorial
                 </button>
             </div>
         </div>
@@ -3825,30 +3825,30 @@ body.dark-mode .poll-notification-label {
         <div class="tutorial-content">
             <!-- Step 1 -->
             <div class="tutorial-step" data-step="1">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👆</div>
-                <h3 style="margin-bottom: 10px;">Select Activities</h3>
-                <p>Swipe right or tap to select. Pick as many as you want!</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">🎯</div>
+                <h3 style="margin-bottom: 10px;">Browse Activities</h3>
+                <p>Browse activities in your circle. Tap any to see who else is interested!</p>
             </div>
 
             <!-- Step 2 -->
             <div class="tutorial-step" data-step="2" style="display: none;">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👈</div>
-                <h3 style="margin-bottom: 10px;">Pass Activities</h3>
-                <p>Swipe left or de-select to pass. Change your mind anytime.</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👥</div>
+                <h3 style="margin-bottom: 10px;">See Interest</h3>
+                <p>Activity details show who's selected that interest in their settings.</p>
             </div>
 
             <!-- Step 3 -->
             <div class="tutorial-step" data-step="3" style="display: none;">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">🔄</div>
-                <h3 style="margin-bottom: 10px;">Switch Views</h3>
-                <p>Toggle between swipe and grid. Grid shows multiple at once.</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">📅</div>
+                <h3 style="margin-bottom: 10px;">Plan Events</h3>
+                <p>Tap "Plan This Activity" to create an event. Set a date or just start planning!</p>
             </div>
 
             <!-- Step 4 -->
             <div class="tutorial-step" data-step="4" style="display: none;">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">💡</div>
-                <h3 style="margin-bottom: 10px;">Suggest Activities</h3>
-                <p>Don't see what you want? Tap "Suggest Activity" to add your own!</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">❤️</div>
+                <h3 style="margin-bottom: 10px;">Set Your Interests</h3>
+                <p>Activities with ❤️ are your interests. Set these in Settings to get notifications!</p>
             </div>
         </div>
 
@@ -3898,7 +3898,7 @@ body.dark-mode .poll-notification-label {
             <div class="tutorial-step" data-step="4" style="display: none;">
                 <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">📤</div>
                 <h3 style="margin-bottom: 10px;">Expand Circles</h3>
-                <p>Tap a circle to see the invite code and chat. More people = better matches!</p>
+                <p>Tap a circle to chat and see the invite code. More people = more events!</p>
             </div>
         </div>
 
@@ -3912,11 +3912,11 @@ body.dark-mode .poll-notification-label {
     </div>
 </div>
 
-<!-- Matches Tutorial Modal -->
-<div class="modal-overlay" id="tutorial-matches-modal" style="z-index: 9999;">
+<!-- Events Tutorial Modal -->
+<div class="modal-overlay" id="tutorial-events-modal" style="z-index: 9999;">
     <div class="modal-content tutorial-modal" style="max-width: 400px;">
         <div class="tutorial-header">
-            <h2 style="margin: 0 0 10px 0; color: var(--primary-color);">💫 Matches Guide</h2>
+            <h2 style="margin: 0 0 10px 0; color: var(--primary-color);">⭕ Events Guide</h2>
             <div class="tutorial-progress">
                 <span class="tutorial-step-indicator"></span>
             </div>
@@ -3925,38 +3925,38 @@ body.dark-mode .poll-notification-label {
         <div class="tutorial-content">
             <!-- Step 1 -->
             <div class="tutorial-step" data-step="1">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">✨</div>
-                <h3 style="margin-bottom: 10px;">What are Matches?</h3>
-                <p>Matches show when you and friends pick the same activity!</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">📅</div>
+                <h3 style="margin-bottom: 10px;">Your Events Hub</h3>
+                <p>See all events in your circles - both ones you've joined and others!</p>
             </div>
 
             <!-- Step 2 -->
             <div class="tutorial-step" data-step="2" style="display: none;">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👀</div>
-                <h3 style="margin-bottom: 10px;">Expand Cards</h3>
-                <p>Tap a match to see who's interested and upcoming events.</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">👥</div>
+                <h3 style="margin-bottom: 10px;">Join Events</h3>
+                <p>Tap "Join Event" to confirm you're coming. Chat with other attendees!</p>
             </div>
 
             <!-- Step 3 -->
             <div class="tutorial-step" data-step="3" style="display: none;">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">📅</div>
-                <h3 style="margin-bottom: 10px;">Plan Events</h3>
-                <p>Tap "Create Event" to lock in details or just start planning together!</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">🎯</div>
+                <h3 style="margin-bottom: 10px;">Create Events</h3>
+                <p>Browse activities and tap "Plan This Activity" to create new events!</p>
             </div>
 
             <!-- Step 4 -->
             <div class="tutorial-step" data-step="4" style="display: none;">
-                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">🎉</div>
-                <h3 style="margin-bottom: 10px;">Join Events</h3>
-                <p>See an event you like? Join to confirm attendance and chat!</p>
+                <div style="font-size: 3em; text-align: center; margin-bottom: 15px;">💬</div>
+                <h3 style="margin-bottom: 10px;">Event Chat</h3>
+                <p>Once you join, use the chat to coordinate details and make plans!</p>
             </div>
         </div>
 
         <div class="tutorial-buttons">
-            <button class="btn btn-secondary" onclick="skipTutorial('matches')" id="tutorial-matches-skip">Skip</button>
+            <button class="btn btn-secondary" onclick="skipTutorial('events')" id="tutorial-events-skip">Skip</button>
             <div style="display: flex; gap: 10px; flex: 1; justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick="previousTutorialStep('matches')" id="tutorial-matches-prev" style="display: none;">Previous</button>
-                <button class="btn" onclick="nextTutorialStep('matches')" id="tutorial-matches-next">Next</button>
+                <button class="btn btn-secondary" onclick="previousTutorialStep('events')" id="tutorial-events-prev" style="display: none;">Previous</button>
+                <button class="btn" onclick="nextTutorialStep('events')" id="tutorial-events-next">Next</button>
             </div>
         </div>
     </div>
@@ -6848,13 +6848,13 @@ window.changePassword = async function() {
         const tutorialSteps = {
             'activities': 4,
             'circles': 4,
-            'matches': 4
+            'events': 4
         };
 
         let currentTutorialSteps = {
             'activities': 1,
             'circles': 1,
-            'matches': 1
+            'events': 1
         };
 
         window.showTutorial = function(tutorialId, force = false) {
@@ -7019,7 +7019,7 @@ window.changePassword = async function() {
 
         window.checkAndShowTutorial = async function(pageId) {
             // Only show tutorials for these pages
-            if (!['activities', 'circles', 'matches'].includes(pageId)) {
+            if (!['activities', 'circles', 'events'].includes(pageId)) {
                 return;
             }
 
