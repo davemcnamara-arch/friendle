@@ -7504,24 +7504,16 @@ window.finalizeCircleCreation = async function() {
               <div class="circle-name" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="cursor: pointer;" title="Click to rename">${circle.name}</div>
               <div class="circle-members" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="cursor: pointer; text-decoration: underline;" title="Click to view members">${memberText}</div>
             </div>
-            <div class="circle-card-header-right" style="display: flex; align-items: center; gap: 10px;">
-              <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="padding: 6px 12px; font-size: 0.85em;">💬 Circle Chat</button>
+            <div class="circle-card-header-right" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="padding: 6px 12px; font-size: 0.85em;">💬 Chat</button>
+              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="padding: 6px 12px; font-size: 0.85em;">✉️ Invite</button>
+              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="padding: 6px 12px; font-size: 0.85em;" title="Copy invite code: ${circle.code}">📋 Code</button>
               ${unreadCount > 0 ? `<span class="circle-new-message-badge" style="font-size: 0.9em;">New</span>` : ''}
               <span class="circle-expand-icon">▼</span>
             </div>
           </div>
           <div class="circle-card-content">
-            <div style="text-align: center; color: var(--text-secondary); font-size: 0.85em; margin-bottom: 12px; font-style: italic;">
-              Expand to view invite code and manage this circle
-            </div>
-            <div class="circle-code" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-              <span>Invite Code: <strong>${circle.code}</strong></span>
-              <span onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="cursor: pointer; font-size: 1.2em;" title="Copy code">⧉</span>
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 10px;">
-              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
-              <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
-            </div>
+            <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; width: 100%;">Leave Circle</button>
           </div>
         </div>`;
     }).join('');
