@@ -8200,11 +8200,6 @@ async function populateCircleSelector() {
         selector.value = circles[0].id;
         await handleCircleChange(false);
     }
-    
-    // Initialize swipe view if we're in swipe mode AFTER circle is loaded
-    if (viewMode === 'swipe' && selectedCircle) {
-        await initializeSwipeView();
-    }
 }
 
 window.handleCircleChange = async function(shouldScroll = true) {
