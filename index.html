@@ -3471,7 +3471,7 @@ body.dark-mode .poll-notification-label {
         </div>
 
         <button onclick="planActivityFromDetail()" class="btn" style="width: 100%; margin-top: 10px; background: var(--primary-color);">
-            📅 Plan This Activity
+            📅 Plan New Event
         </button>
 
         <div style="margin-top: 15px; font-size: 12px; color: #999; text-align: center;">
@@ -8358,7 +8358,7 @@ window.openActivityDetail = async function(activity) {
     try {
         const { data: events, error: eventsError } = await supabase
             .from('events')
-            .select('id, scheduled_date, scheduled_time, status, created_at')
+            .select('id, scheduled_date, scheduled_time, status, created_at, max_participants, event_participants(profile_id)')
             .eq('circle_id', currentDetailCircle.id)
             .eq('activity_id', activity.id)
             .neq('status', 'cancelled')
@@ -8374,32 +8374,95 @@ window.openActivityDetail = async function(activity) {
             // Show the events section
             eventsSection.style.display = 'block';
 
-            // Format events list
+            // Format events list with buttons
             const eventsHTML = events.map(event => {
+                // Check if user has joined this event
+                const isUserJoined = event.event_participants?.some(p => p.profile_id === currentUser.id) || false;
+
+                // Get participant count and check capacity
+                const participantCount = event.event_participants?.length || 0;
+                const maxParticipants = event.max_participants;
+                const isFull = maxParticipants && participantCount >= maxParticipants;
+
+                // Format date and time
                 let dateStr = '';
+                let timeStr = '';
                 if (event.scheduled_date) {
                     const eventDate = new Date(event.scheduled_date);
                     dateStr = eventDate.toLocaleDateString('en-US', {
+                        weekday: 'short',
                         month: 'short',
                         day: 'numeric',
                         year: eventDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
                     });
+
+                    // Format time in 12-hour format
                     if (event.scheduled_time) {
-                        dateStr += ` at ${event.scheduled_time}`;
+                        const [hours, minutes] = event.scheduled_time.split(':');
+                        const hour = parseInt(hours);
+                        const ampm = hour >= 12 ? 'PM' : 'AM';
+                        const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+                        timeStr = ` at ${displayHour}:${minutes} ${ampm}`;
                     }
                 } else {
-                    dateStr = 'Planning (no date set)';
+                    dateStr = 'Planning - no date set';
                 }
 
                 const statusBadge = event.status === 'scheduled' ? '📅' : '📝';
-                const statusText = event.status === 'scheduled' ? 'Scheduled' : 'Planning';
 
-                return `<div style="padding: 8px 0; border-bottom: 1px solid var(--border-color);">
-                    ${statusBadge} <strong>${dateStr}</strong> <span style="color: var(--text-tertiary); font-size: 0.9em;">(${statusText})</span>
+                // Format participant display
+                const participantDisplay = maxParticipants
+                    ? `${participantCount}/${maxParticipants}`
+                    : `${participantCount}`;
+                const participantLabel = participantCount === 1 ? 'person' : 'people';
+
+                // Determine which button to show
+                let buttonHTML = '';
+                if (isUserJoined) {
+                    buttonHTML = `<button class="btn btn-secondary event-chat-button" data-event-id="${event.id}" style="font-size: 13px; padding: 8px 16px; width: 100%; margin-top: 8px;">
+                        💬 Event Chat
+                    </button>`;
+                } else if (isFull) {
+                    buttonHTML = `<button class="btn" disabled style="font-size: 13px; padding: 8px 16px; width: 100%; margin-top: 8px; background: #888; cursor: not-allowed;">
+                        Event Full
+                    </button>`;
+                } else {
+                    buttonHTML = `<button class="btn join-event-button" data-event-id="${event.id}" style="font-size: 13px; padding: 8px 16px; width: 100%; margin-top: 8px; background: #4CAF50;">
+                        ✓ Join Event
+                    </button>`;
+                }
+
+                return `<div style="padding: 12px; margin-bottom: 10px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-size: 1.2em;">${statusBadge}</span>
+                        <strong style="font-size: 14px;">${dateStr}${timeStr}</strong>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">
+                        👥 ${participantDisplay} ${participantLabel} ${isUserJoined ? 'going' : 'interested'}${isFull && !isUserJoined ? ' (full)' : ''}
+                    </div>
+                    ${buttonHTML}
                 </div>`;
             }).join('');
 
             eventsList.innerHTML = eventsHTML;
+
+            // Add event listeners to buttons
+            eventsList.querySelectorAll('.join-event-button').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    await window.joinEvent(btn.dataset.eventId);
+                    // Reload the modal to update the button state
+                    window.openActivityDetail(currentDetailActivity);
+                });
+            });
+
+            eventsList.querySelectorAll('.event-chat-button').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.closeActivityDetail();
+                    window.openEventChat(btn.dataset.eventId);
+                });
+            });
         } else {
             // Hide the events section if no events
             eventsSection.style.display = 'none';
