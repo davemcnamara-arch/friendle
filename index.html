@@ -16571,7 +16571,8 @@ if (pageId === 'settings') {
         window.toggleActivityInterests = function() {
             const content = document.getElementById('activity-interests-content');
             const arrow = document.getElementById('activity-interests-arrow');
-            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+            // Fix: Check if max-height is set to a non-zero value (handle both '0' and '0px')
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px' && content.style.maxHeight !== '0';
 
             if (isExpanded) {
                 content.style.maxHeight = '0';
@@ -16655,6 +16656,16 @@ if (pageId === 'settings') {
                 }
 
                 hideLoader();
+
+                // Fix: Recalculate max-height after activities are loaded if section is expanded
+                const content = document.getElementById('activity-interests-content');
+                const isExpanded = localStorage.getItem('activity_interests_expanded') === 'true';
+                if (isExpanded && content) {
+                    // Use setTimeout to ensure DOM has fully updated with new content
+                    setTimeout(() => {
+                        content.style.maxHeight = content.scrollHeight + 'px';
+                    }, 0);
+                }
 
             } catch (error) {
                 console.error('Error loading activity interests:', error);
