@@ -41,6 +41,22 @@ DROP INDEX IF EXISTS idx_match_participants_match_last_interaction;
 
 DROP TABLE IF EXISTS inactivity_warnings CASCADE;
 
+-- ============================================================================
+-- Part 4: Remove pg_cron job for inactivity cleanup
+-- ============================================================================
+
+-- Unschedule the daily inactivity cleanup cron job (if it exists)
+-- This job was calling the now-deleted inactivity-cleanup edge function
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.unschedule('inactivity-cleanup-daily')
+    WHERE EXISTS (
+      SELECT 1 FROM cron.job WHERE jobname = 'inactivity-cleanup-daily'
+    );
+  END IF;
+END $$;
+
 COMMIT;
 
 -- ============================================================================
