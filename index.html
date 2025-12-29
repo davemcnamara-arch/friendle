@@ -8372,23 +8372,30 @@ async function renderActivitiesGrid() {
 
 // Activity Detail Modal Functions
 let currentDetailActivity = null;
+let currentDetailCircle = null;
 
 window.openActivityDetail = async function(activity) {
+    if (!selectedCircle) {
+        showNotification('Please select a circle first', 'error');
+        return;
+    }
+
     currentDetailActivity = activity;
+    currentDetailCircle = selectedCircle; // Store the circle with the activity
 
     // Set title
     document.getElementById('activity-detail-title').textContent = `${activity.emoji} ${activity.name}`;
 
     // Set description (placeholder for now, can be enhanced later)
     document.getElementById('activity-detail-description').textContent =
-        `Tap "Plan This Activity" to create an event for ${activity.name} in ${selectedCircle.name}.`;
+        `Tap "Plan This Activity" to create an event for ${activity.name} in ${currentDetailCircle.name}.`;
 
     // Load interested users
     try {
         const { data: preferences, error } = await supabase
             .from('preferences')
             .select('profile_id, profiles(name)')
-            .eq('circle_id', selectedCircle.id)
+            .eq('circle_id', currentDetailCircle.id)
             .eq('activity_id', activity.id)
             .eq('selected', true);
 
@@ -8415,10 +8422,18 @@ window.openActivityDetail = async function(activity) {
 window.closeActivityDetail = function() {
     document.getElementById('activity-detail-modal').style.display = 'none';
     currentDetailActivity = null;
+    currentDetailCircle = null;
 };
 
 window.planActivityFromDetail = async function() {
-    if (!currentDetailActivity) return;
+    if (!currentDetailActivity || !currentDetailCircle) {
+        showNotification('Please select an activity and circle', 'error');
+        return;
+    }
+
+    // Store references before closing modal
+    const activity = currentDetailActivity;
+    const circle = currentDetailCircle;
 
     // Close the detail modal
     closeActivityDetail();
@@ -8431,8 +8446,8 @@ window.planActivityFromDetail = async function() {
         let { data: existingMatch, error: matchError } = await supabase
             .from('matches')
             .select('id')
-            .eq('circle_id', selectedCircle.id)
-            .eq('activity_id', currentDetailActivity.id)
+            .eq('circle_id', circle.id)
+            .eq('activity_id', activity.id)
             .maybeSingle();
 
         if (matchError) throw matchError;
@@ -8445,8 +8460,8 @@ window.planActivityFromDetail = async function() {
             const { data: newMatch, error: createError } = await supabase
                 .from('matches')
                 .insert([{
-                    circle_id: selectedCircle.id,
-                    activity_id: currentDetailActivity.id
+                    circle_id: circle.id,
+                    activity_id: activity.id
                 }])
                 .select()
                 .single();
