@@ -8488,7 +8488,8 @@ window.planActivityFromDetail = async function() {
         hideLoader();
 
         // Open planning event modal with this match
-        openPlanningEventModal(matchId);
+        // Pass activity info directly since match might not be in matches array yet
+        openPlanningEventModal(matchId, activity);
 
     } catch (error) {
         console.error('Error creating event:', error);
@@ -13284,11 +13285,16 @@ function openCreateEventModalFromHeader() {
 // Swipe action modal removed - activities are now browsed via grid with direct planning
 
 // Planning Event Creation Modal
-function openPlanningEventModal(matchId) {
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return;
+function openPlanningEventModal(matchId, activityObj = null) {
+    // If activity is passed directly, use it; otherwise look it up from matches array
+    let activity = activityObj;
 
-    const activity = activities.find(a => a.id === match.activity_id);
+    if (!activity) {
+        const match = matches.find(m => m.id === matchId);
+        if (!match) return;
+        activity = activities.find(a => a.id === match.activity_id);
+    }
+
     const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
 
     document.getElementById('planning-event-title').textContent = `Plan: ${activityName}`;
