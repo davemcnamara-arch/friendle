@@ -8354,6 +8354,63 @@ window.openActivityDetail = async function(activity) {
         document.getElementById('activity-interested-list').textContent = 'Unable to load interested users';
     }
 
+    // Load existing events for this activity in this circle
+    try {
+        const { data: events, error: eventsError } = await supabase
+            .from('events')
+            .select('id, scheduled_date, scheduled_time, status, created_at')
+            .eq('circle_id', currentDetailCircle.id)
+            .eq('activity_id', activity.id)
+            .neq('status', 'cancelled')
+            .order('scheduled_date', { ascending: true, nullsFirst: false })
+            .order('created_at', { ascending: true });
+
+        if (eventsError) throw eventsError;
+
+        const eventsSection = document.getElementById('activity-detail-events');
+        const eventsList = document.getElementById('activity-events-list');
+
+        if (events && events.length > 0) {
+            // Show the events section
+            eventsSection.style.display = 'block';
+
+            // Format events list
+            const eventsHTML = events.map(event => {
+                let dateStr = '';
+                if (event.scheduled_date) {
+                    const eventDate = new Date(event.scheduled_date);
+                    dateStr = eventDate.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: eventDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                    });
+                    if (event.scheduled_time) {
+                        dateStr += ` at ${event.scheduled_time}`;
+                    }
+                } else {
+                    dateStr = 'Planning (no date set)';
+                }
+
+                const statusBadge = event.status === 'scheduled' ? '📅' : '📝';
+                const statusText = event.status === 'scheduled' ? 'Scheduled' : 'Planning';
+
+                return `<div style="padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                    ${statusBadge} <strong>${dateStr}</strong> <span style="color: var(--text-tertiary); font-size: 0.9em;">(${statusText})</span>
+                </div>`;
+            }).join('');
+
+            eventsList.innerHTML = eventsHTML;
+        } else {
+            // Hide the events section if no events
+            eventsSection.style.display = 'none';
+        }
+
+    } catch (error) {
+        console.error('Error loading events:', error);
+        // Hide the section on error
+        document.getElementById('activity-detail-events').style.display = 'none';
+    }
+
     // Show modal
     document.getElementById('activity-detail-modal').style.display = 'flex';
 };
