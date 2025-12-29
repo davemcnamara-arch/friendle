@@ -2990,19 +2990,6 @@ body.dark-mode .poll-notification-label {
                 <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary);">Control which push notifications you receive</p>
 
                 <div class="toggle-container">
-                    <label class="toggle-label" for="new-match-toggle">
-                        <div class="toggle-text">
-                            <div class="toggle-title">New Matches</div>
-                            <div class="toggle-description">Get notified when someone joins your activity</div>
-                        </div>
-                        <div class="toggle-switch">
-                            <input type="checkbox" id="new-match-toggle" onchange="toggleNewMatches()">
-                            <span class="toggle-slider"></span>
-                        </div>
-                    </label>
-                </div>
-
-                <div class="toggle-container">
                     <label class="toggle-label" for="event-join-toggle">
                         <div class="toggle-text">
                             <div class="toggle-title">Event Joins</div>
@@ -3023,19 +3010,6 @@ body.dark-mode .poll-notification-label {
                         </div>
                         <div class="toggle-switch">
                             <input type="checkbox" id="chat-messages-toggle" onchange="toggleChatMessages()">
-                            <span class="toggle-slider"></span>
-                        </div>
-                    </label>
-                </div>
-
-                <div class="toggle-container">
-                    <label class="toggle-label" for="inactivity-warnings-toggle">
-                        <div class="toggle-text">
-                            <div class="toggle-title">Inactivity Warnings</div>
-                            <div class="toggle-description">Get notified before you're marked inactive</div>
-                        </div>
-                        <div class="toggle-switch">
-                            <input type="checkbox" id="inactivity-warnings-toggle" onchange="toggleInactivityWarnings()">
                             <span class="toggle-slider"></span>
                         </div>
                     </label>
@@ -5679,19 +5653,9 @@ async function loadMinimumGroupSize() {
         timezoneSelect.value = userTimezone;
     }
 
-    const newMatchToggle = document.getElementById('new-match-toggle');
-    if (newMatchToggle) {
-        newMatchToggle.checked = currentUser.notify_new_matches !== false; // Default true
-    }
-
     const eventJoinToggle = document.getElementById('event-join-toggle');
     if (eventJoinToggle) {
         eventJoinToggle.checked = currentUser.notify_event_joins !== false; // Default true
-    }
-
-    const inactivityToggle = document.getElementById('inactivity-warnings-toggle');
-    if (inactivityToggle) {
-        inactivityToggle.checked = currentUser.notify_inactivity_warnings !== false; // Default true
     }
 
     const chatToggle = document.getElementById('chat-messages-toggle');
@@ -6471,31 +6435,7 @@ window.detectAndUpdateTimezone = async function() {
     }
 }
 
-window.toggleNewMatches = async function() {
-    const toggle = document.getElementById('new-match-toggle');
-    const isEnabled = toggle.checked;
-
-    try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ notify_new_matches: isEnabled })
-            .eq('id', currentUser.id);
-
-        if (error) throw error;
-
-        currentUser.notify_new_matches = isEnabled;
-        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
-  SecureStorage.setUserId(currentUser.id);
-  SecureStorage.setSessionData(currentUser);
-
-        showNotification(isEnabled ? '🔔 New match notifications enabled!' : '🔕 New match notifications disabled');
-
-    } catch (error) {
-        console.error('Error toggling new match notifications:', error);
-        showNotification('Error updating setting', 'error');
-        toggle.checked = !isEnabled;
-    }
-}
+// Removed: toggleNewMatches - obsolete notification type
 
 window.toggleEventJoins = async function() {
     const toggle = document.getElementById('event-join-toggle');
@@ -6523,31 +6463,7 @@ window.toggleEventJoins = async function() {
     }
 }
 
-window.toggleInactivityWarnings = async function() {
-    const toggle = document.getElementById('inactivity-warnings-toggle');
-    const isEnabled = toggle.checked;
-
-    try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ notify_inactivity_warnings: isEnabled })
-            .eq('id', currentUser.id);
-
-        if (error) throw error;
-
-        currentUser.notify_inactivity_warnings = isEnabled;
-        // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
-  SecureStorage.setUserId(currentUser.id);
-  SecureStorage.setSessionData(currentUser);
-
-        showNotification(isEnabled ? '🔔 Inactivity warnings enabled!' : '🔕 Inactivity warnings disabled');
-
-    } catch (error) {
-        console.error('Error toggling inactivity warnings:', error);
-        showNotification('Error updating setting', 'error');
-        toggle.checked = !isEnabled;
-    }
-}
+// Removed: toggleInactivityWarnings - obsolete notification type
 
 window.toggleChatMessages = async function() {
     const toggle = document.getElementById('chat-messages-toggle');
@@ -9159,34 +9075,7 @@ async function leaveMatchChat(matchId) {
 
 // Join chat as first person
 // Deprecated: Match chat replaced with event-based planning
-// Functions removed: joinMatchChatFirst, skipJoinChat
-
-// Stay Interested - reset inactivity timer
-window.stayInterested = async function(matchId) {
-    try {
-        showLoader('Updating...');
-
-        // Call edge function to update last_interaction_at
-        const { data, error } = await supabase.functions.invoke('stay-interested', {
-            body: {
-                matchId: matchId,
-                profileId: currentUser.id
-            }
-        });
-
-        if (error) throw error;
-
-        hideLoader();
-        showNotification('Great! We\'ll keep you in the match.');
-
-        // Reload matches to update UI
-        await loadMatches();
-    } catch (error) {
-        console.error('Error updating interaction:', error);
-        hideLoader();
-        showNotification('Failed to update. Please try again.', 'error');
-    }
-}
+// Functions removed: joinMatchChatFirst, skipJoinChat, stayInterested (obsolete)
 
 // Mark as uninterested - remove from match
 window.markAsUninterested = async function(matchId, activityId, circleId) {
@@ -10462,86 +10351,7 @@ async function saveMatchesToSupabase(matches, circleId) {
     }
 }
 
-async function sendNewMatchNotification(match) {
-    try {
-        // Validate match has required data
-        if (!match || !match.id) {
-            console.log('⚠️ Cannot send new match notification: match.id is undefined');
-            return;
-        }
-
-        console.log('📢 Sending new match notification for:', match.activity?.name);
-
-        // Get all users who are interested in this activity (have it in preferences)
-        const { data: interestedUsers, error } = await supabase
-            .from('preferences')
-            .select('profile_id, profiles(id, name, onesignal_player_id, notify_new_matches)')
-            .eq('circle_id', match.circleId || match.circle_id)
-            .eq('activity_id', match.activity_id || match.activity.id)
-            .neq('profile_id', currentUser.id); // Don't notify yourself
-
-        if (error) throw error;
-
-        if (!interestedUsers || interestedUsers.length === 0) {
-            console.log('ℹ️ No other interested users to notify');
-            return;
-        }
-
-        console.log(`📬 Notifying ${interestedUsers.length} interested user(s)`);
-
-        // Get names of all interested users (including current user)
-        const allInterestedNames = [currentUser.name, ...interestedUsers.map(u => u.profiles.name)];
-
-        // Create notification message
-        let message = '';
-        if (allInterestedNames.length === 2) {
-            message = `You matched with ${allInterestedNames.find(n => n !== currentUser.name)} for ${match.activity.emoji} ${match.activity.name}!`;
-        } else {
-            const otherNames = allInterestedNames.filter(n => n !== currentUser.name).slice(0, 2).join(', ');
-            const remaining = allInterestedNames.length - 3; // -3 because we show 2 names + current user
-            if (remaining > 0) {
-                message = `You matched with ${otherNames}, and ${remaining} other${remaining > 1 ? 's' : ''} for ${match.activity.emoji} ${match.activity.name}!`;
-            } else {
-                message = `You matched with ${otherNames} for ${match.activity.emoji} ${match.activity.name}!`;
-            }
-        }
-
-        // Send notifications via Edge Function
-        const recipientIds = interestedUsers
-            .filter(u => u.profiles.onesignal_player_id) // Only users with player IDs
-            .map(u => u.profile_id);
-        
-        if (recipientIds.length === 0) {
-            console.log('ℹ️ No users with notification IDs to notify');
-            return;
-        }
-        
-        console.log('🚀 Calling send-notification Edge Function');
-        
-        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
-            body: {
-                senderId: currentUser.id,
-                recipientIds: recipientIds,
-                message: message,
-                activityName: `${match.activity.emoji} ${match.activity.name}`,
-                chatType: 'match',
-                chatId: match.id,
-                notificationType: 'new_match'
-            }
-        });
-
-        if (notifError) {
-            console.error('❌ Error sending match notification:', notifError);
-        } else {
-            console.log('✅ Match notifications sent successfully:', data);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error in sendNewMatchNotification:', error);
-        // Don't throw - we don't want to block the match creation if notifications fail
-    }
-}
-
+// Removed: sendNewMatchNotification - obsolete (matches no longer send notifications)
 // Removed: sendMatchJoinNotification - match chat deprecated
 
 async function sendEventJoinNotification(event) {
@@ -11652,18 +11462,6 @@ async function loadMatches() {
         .eq('profile_id', currentUser.id)
         .in('match_id', matchIds);
 
-    // Fetch inactivity warnings for user
-    const { data: inactivityWarnings } = await supabase
-        .from('inactivity_warnings')
-        .select('match_id, profile_id, warned_at')
-        .eq('profile_id', currentUser.id)
-        .eq('status', 'pending')
-        .in('match_id', matchIds);
-
-    const warningsMap = new Map(
-        (inactivityWarnings || []).map(w => [w.match_id, w])
-    );
-
     const matchParticipationMap = new Map(
         (allMatchParticipations || []).map(p => [p.match_id, p])
     );
@@ -11821,19 +11619,14 @@ if (!showPastEvents) {
         const circleName = circles.find(c => c.id === circleId)?.name || 'Circle';
         const isExpanded = expandedMatchCircles.has(circleId);
 
-        // Calculate aggregate state for this circle (highlighted > warnings > unread)
+        // Calculate aggregate state for this circle (highlighted > unread)
         let hasHighlightedEvent = false;
-        let hasWarning = false;
         let hasUnread = false;
 
         circleMatches.forEach(({ match, events }) => {
             // Check for highlighted events
             if (events.some(e => e.id === highlightedEventId)) {
                 hasHighlightedEvent = true;
-            }
-            // Check for warnings
-            if (warningsMap.has(match.id)) {
-                hasWarning = true;
             }
             // Check for unread events
             if (events.some(e => e.unreadCount > 0)) {
@@ -11845,8 +11638,6 @@ if (!showPastEvents) {
         let stateClass = '';
         if (hasHighlightedEvent) {
             stateClass = 'highlighted';
-        } else if (hasWarning) {
-            stateClass = 'has-warning';
         } else if (hasUnread) {
             stateClass = 'unread';
         }
@@ -11858,8 +11649,7 @@ if (!showPastEvents) {
                     <div class="match-circle-name">${circleName}</div>
                     <div class="match-circle-header-right">
                         ${hasHighlightedEvent ? `<span class="match-circle-badge highlighted">⭐ Event</span>` : ''}
-                        ${!hasHighlightedEvent && hasWarning ? `<span class="match-circle-badge warning">⚠️ Action needed</span>` : ''}
-                        ${!hasHighlightedEvent && !hasWarning && hasUnread ? `<span class="match-circle-badge unread">💬 New</span>` : ''}
+                        ${!hasHighlightedEvent && hasUnread ? `<span class="match-circle-badge unread">💬 New</span>` : ''}
                         <span class="match-circle-count">${circleMatches.length} ${circleMatches.length === 1 ? 'match' : 'matches'}</span>
                         <span class="match-circle-expand-icon">▼</span>
                     </div>
@@ -11873,9 +11663,6 @@ if (!showPastEvents) {
 
         // Check if user is first
         const isFirst = match.inChatCount === 0;
-
-        // Check for inactivity warning
-        const hasWarning = warningsMap.has(match.id);
 
         // Get in-chat users display (these are revealed)
         const inChatNames = match.chatParticipants?.slice(0, 2).map(u => u.name).join(', ') || '';
@@ -11954,7 +11741,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         const userIsInMatch = match.userInChat; // User is in match_participants
 
         return `
-    <details class="match-card${hasWarning ? ' has-warning' : ''}">
+    <details class="match-card">
         <summary>
             <div class="match-summary-header">
                 <div class="match-summary-top-line">
@@ -11963,7 +11750,6 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                     <span class="dropdown-indicator">▼</span>
                 </div>
                 <div class="match-summary-stats">
-                    ${hasWarning ? `<span class="match-summary-badge warning">⚠️ Still interested?</span>` : ''}
                     ${userIsInMatch && userEvents.length === 0 ? `<span class="match-summary-stat">👀 Watching</span>` : ''}
                     ${upcomingEvents.length > 0 ? `<span class="match-summary-stat">📅 ${upcomingEvents.length} upcoming</span>` : ''}
                 </div>
@@ -11982,15 +11768,6 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
     <span class="circle-tag">
         ${circleName}
     </span>
-    ${hasWarning ? `
-        <div class="match-info-box warning" style="margin-bottom: 10px;">
-            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 500;">⚠️ Still interested?</p>
-            <p style="margin: 0 0 10px 0; font-size: 12px; line-height: 1.4;">We haven't seen you active in a while. Let us know you're still interested!</p>
-            <button onclick="stayInterested('${match.id}')" class="btn" style="font-size: 13px; padding: 10px 16px; width: 100%; background: #ff4d4f;">
-                👍 Yes, I'm Still Interested
-            </button>
-        </div>
-    ` : ''}
     ${userIsInMatch ? `
         ${userEvents.length === 0 ? `
             <button onclick="openPlanningEventModal('${match.id}')" class="btn" style="font-size: 14px; padding: 12px 16px; width: 100%; margin: 0 0 8px 0; background: #4CAF50;">
