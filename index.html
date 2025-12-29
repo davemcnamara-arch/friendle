@@ -9484,10 +9484,15 @@ window.setActivityMode = async function(activityId, isToday) {
             document.getElementById('suggest-name').value = '';
             closeSuggestModal();
 
+            // Send notifications to all circle members
+            sendNewActivityNotification(selectedCircle.id, data, currentUser.name).catch(err => {
+                console.error('Failed to send new activity notification:', err);
+            });
+
             const savedActivityIds = await loadUserPreferences(selectedCircle.id);
             const allActivities = await loadActivities(selectedCircle.id);
             activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
-            
+
             renderActivities();
         }
     } catch (error) {
@@ -11187,21 +11192,24 @@ async function sendEventCreatedNotification(matchId, event) {
 
         if (activityError) throw activityError;
 
-        // Get all match participants (exclude current user who created the event)
-        const { data: participants, error: participantError } = await supabase
-            .from('match_participants')
+        // Get all users who have selected this activity in their interests (preferences)
+        // Exclude current user who created the event
+        const { data: interestedUsers, error: prefsError } = await supabase
+            .from('preferences')
             .select('profile_id')
-            .eq('match_id', matchId)
+            .eq('circle_id', event.circle_id)
+            .eq('activity_id', event.activity_id)
+            .eq('selected', true)
             .neq('profile_id', currentUser.id);
 
-        if (participantError) throw participantError;
+        if (prefsError) throw prefsError;
 
-        if (!participants || participants.length === 0) {
-            console.log('ℹ️ No other participants in match to notify');
+        if (!interestedUsers || interestedUsers.length === 0) {
+            console.log('ℹ️ No users with this activity in their interests to notify');
             return;
         }
 
-        const recipientIds = participants.map(p => p.profile_id);
+        const recipientIds = interestedUsers.map(p => p.profile_id);
 
         // Format event date and time based on status
         let dateTimeStr = '';
@@ -11263,6 +11271,54 @@ async function sendEventCreatedNotification(matchId, event) {
     } catch (error) {
         console.error('❌ Error in sendEventCreatedNotification:', error);
         // Don't throw - we don't want to block event creation if notifications fail
+    }
+}
+
+// Send notification when a new activity is suggested
+async function sendNewActivityNotification(circleId, activity, suggestedBy) {
+    try {
+        console.log('📢 Sending new activity notification for:', activity.name);
+
+        // Get all circle members except the person who suggested it
+        const { data: circleMembers, error: membersError } = await supabase
+            .from('circle_members')
+            .select('profile_id')
+            .eq('circle_id', circleId)
+            .neq('profile_id', currentUser.id);
+
+        if (membersError) throw membersError;
+
+        if (!circleMembers || circleMembers.length === 0) {
+            console.log('ℹ️ No other members in circle to notify');
+            return;
+        }
+
+        const recipientIds = circleMembers.map(m => m.profile_id);
+
+        const message = `${suggestedBy} suggested a new activity: ${activity.emoji} ${activity.name}. Check your activity interests in Settings!`;
+
+        console.log('📬 Notifying:', message);
+
+        // Send notification via Edge Function
+        const { data, error: notifError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                senderId: currentUser.id,
+                recipientIds: recipientIds,
+                message: message,
+                activityName: `${activity.emoji} ${activity.name}`,
+                notificationType: 'new_activity'
+            }
+        });
+
+        if (notifError) {
+            console.error('❌ Error sending new activity notification:', notifError);
+        } else {
+            console.log('✅ New activity notifications sent successfully:', data);
+        }
+
+    } catch (error) {
+        console.error('❌ Error in sendNewActivityNotification:', error);
+        // Don't throw - we don't want to block activity creation if notifications fail
     }
 }
 
