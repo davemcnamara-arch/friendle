@@ -2756,46 +2756,52 @@ body.dark-mode .poll-notification-label {
 </div>
             <div id="activities" class="page">
     <div class="header">
-        <div class="logo">⭕ Activities</div>
-        <div class="tagline">What do you want to do?</div>
-    </div>
-    
-    <div class="form-group">
-    <label for="circle-selector">Select Circle</label>
-    <select id="circle-selector" onchange="handleCircleChange()">
-        <option value="">Choose a circle...</option>
-    </select>
-</div>
-
-<div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
-    <button id="grid-view-btn" class="btn btn-secondary btn-small" onclick="switchToGridView()">📋 Grid View</button>
-    <button id="swipe-view-btn" class="btn btn-secondary btn-small" onclick="switchToSwipeView()" style="background: var(--primary-color); color: white;">👆 Swipe View</button>
-</div>
-
-                <!-- Swipe View Container -->
-<div id="swipe-view-container" style="display: block;">
-    <div id="swipe-container" style="position: relative; height: 400px; display: flex; align-items: center; justify-content: center;">
-        <div id="card-stack" style="position: relative; width: 100%; max-width: 350px; height: 360px;"></div>
+        <div class="logo">⭕ Friendle</div>
+        <div class="tagline">Plan events with your circles</div>
     </div>
 
-    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-    <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest a New Activity</button>
-    <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">Manage Activities</button>
-</div>
-
-    <div style="text-align: center; margin: 10px 0;">
-        <span id="swipe-progress" style="font-size: 0.9em; color: #666;">0 of 0</span>
+    <!-- Minimized Circle Selector with Chat Button -->
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
+        <div style="flex: 1;">
+            <select id="circle-selector" onchange="handleCircleChange()" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                <option value="">Choose a circle...</option>
+            </select>
+        </div>
+        <button id="circle-chat-btn" class="btn btn-secondary" onclick="openCircleChatFromHome()" style="padding: 12px 16px; white-space: nowrap; display: none;">
+            💬 Circle Chat
+        </button>
     </div>
-</div>
 
-<!-- Grid View Container (existing) -->
-<div id="grid-view-container" style="display: none;">
-    <div id="frequent-section"><div class="section-title">⭐ Frequently Used</div><div class="frequent-grid" id="frequent-grid"></div></div>
-    <div class="section-title">All Activities</div>
-    <div class="activities-grid" id="activities-grid"></div>
-</div>
-                <button id="grid-save-button" class="btn sticky-save" onclick="saveActivities()" style="display: none;">Save Preferences</button>
-                
+    <!-- Upcoming Events Section -->
+    <div id="home-events-section" style="display: none; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">📅 Upcoming Events</h3>
+            <button class="btn btn-secondary btn-small" onclick="showPage('events')" style="font-size: 12px; padding: 6px 12px;">View All</button>
+        </div>
+        <div id="home-events-list"></div>
+    </div>
+
+    <!-- Activity Browser Section -->
+    <div style="margin-bottom: 15px;">
+        <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600;">🎯 Browse Activities</h3>
+        <p style="margin: 0 0 15px 0; color: #666; font-size: 14px;">Tap activities to plan events. Select your interests in Settings to customize notifications.</p>
+    </div>
+
+    <!-- Activity Grid (now default view) -->
+    <div id="activity-grid-container">
+        <div id="frequent-section" style="display: none;">
+            <div class="section-title">⭐ Frequently Used</div>
+            <div class="frequent-grid" id="frequent-grid"></div>
+        </div>
+        <div class="activities-grid" id="activities-grid"></div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display: flex; gap: 10px; margin-top: 20px; margin-bottom: 20px;">
+        <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1;">💡 Suggest New Activity</button>
+        <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1;">⚙️ Manage Activities</button>
+    </div>
+
             </div>
             <div id="matches" class="page">
     <div class="header">
@@ -3096,6 +3102,47 @@ body.dark-mode .poll-notification-label {
                     <div id="no-blocked-users" style="text-align: center; padding: 20px; font-size: 0.85em; color: var(--text-tertiary);">
                         No blocked users
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Interests Section (Collapsible) -->
+    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div onclick="toggleActivityInterests()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">❤️ Activity Interests</h3>
+            <span id="activity-interests-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
+        </div>
+
+        <div id="activity-interests-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+            <div style="padding: 0 20px 20px 20px;">
+                <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                    Select activities you're interested in to customize which event notifications you receive. When someone creates an event for an activity you've selected, you'll be notified.
+                </p>
+
+                <!-- Circle Selector for Activity Interests -->
+                <div class="form-group">
+                    <label for="interests-circle-selector">Select Circle</label>
+                    <select id="interests-circle-selector" onchange="loadActivityInterests()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary);">
+                        <option value="">Choose a circle...</option>
+                    </select>
+                </div>
+
+                <!-- Activity Interests Grid -->
+                <div id="activity-interests-grid-container" style="display: none;">
+                    <div class="activities-grid" id="activity-interests-grid" style="margin-bottom: 15px;"></div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1; font-size: 0.85em;">💡 Suggest Activity</button>
+                        <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1; font-size: 0.85em;">⚙️ Manage Activities</button>
+                    </div>
+
+                    <button id="save-interests-btn" class="btn" onclick="saveActivityInterests()" style="width: 100%; display: none;">Save Interests</button>
+                </div>
+
+                <div id="select-circle-prompt" style="text-align: center; padding: 20px; color: var(--text-secondary); font-size: 0.9em;">
+                    Select a circle above to manage your activity interests
                 </div>
             </div>
         </div>
@@ -3436,6 +3483,33 @@ body.dark-mode .poll-notification-label {
 
         <div style="margin-top: 15px; font-size: 12px; color: #999; text-align: center;">
             "Stay Interested" lets you watch for events others create without planning one yourself.
+        </div>
+    </div>
+</div>
+
+<!-- Activity Detail Modal -->
+<div class="modal-overlay" id="activity-detail-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closeActivityDetail()">×</span>
+        <div class="modal-header" id="activity-detail-title"></div>
+
+        <div id="activity-detail-description" style="margin: 20px 0; color: var(--text-secondary); line-height: 1.6;">
+            <!-- Activity description will go here -->
+        </div>
+
+        <div id="activity-detail-interested" style="margin: 20px 0;">
+            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-primary);">Interested in this circle:</h4>
+            <div id="activity-interested-list" style="font-size: 14px; color: var(--text-secondary);">
+                <!-- List of interested users will go here -->
+            </div>
+        </div>
+
+        <button onclick="planActivityFromDetail()" class="btn" style="width: 100%; margin-top: 10px; background: var(--primary-color);">
+            📅 Plan This Activity
+        </button>
+
+        <div style="margin-top: 15px; font-size: 12px; color: #999; text-align: center;">
+            Set your interests in Settings to customize which event notifications you receive
         </div>
     </div>
 </div>
@@ -8136,7 +8210,9 @@ async function populateCircleSelector() {
 window.handleCircleChange = async function(shouldScroll = true) {
     const selector = document.getElementById('circle-selector');
     const circleId = selector.value;
-    
+    const chatBtn = document.getElementById('circle-chat-btn');
+    const eventsSection = document.getElementById('home-events-section');
+
     if (!circleId) {
         hideLoader(); // Clear any existing loader
         selectedCircle = null;
@@ -8144,27 +8220,30 @@ window.handleCircleChange = async function(shouldScroll = true) {
         document.getElementById('activities-grid').innerHTML = '';
         document.getElementById('frequent-grid').innerHTML = '';
         document.getElementById('frequent-section').style.display = 'none';
+        if (chatBtn) chatBtn.style.display = 'none';
+        if (eventsSection) eventsSection.style.display = 'none';
         return;
     }
-    
+
     localStorage.setItem('friendle_last_circle', circleId);
-    
-    showLoader('Loading activities...');
-    
+
+    showLoader('Loading...');
+
     selectedCircle = circles.find(c => c.id === circleId);
-    
+
+    // Show circle chat button
+    if (chatBtn) chatBtn.style.display = 'block';
+
     const savedActivityIds = await loadUserPreferences(selectedCircle.id);
     const allActivities = await loadActivities(selectedCircle.id);
 
-    activities = allActivities.filter(activity => savedActivityIds.includes(activity.id));
+    activities = allActivities;
 
-    await renderActivities();
-    
-    // If in swipe mode, reinitialize swipe view
-    if (viewMode === 'swipe') {
-        await initializeSwipeView();
-    }
-    
+    await renderActivitiesGrid();
+
+    // Load and display upcoming events for this circle
+    await loadHomeEvents(circleId);
+
     hideLoader();
 
     if (shouldScroll) {
@@ -8174,6 +8253,219 @@ window.handleCircleChange = async function(shouldScroll = true) {
         }
     }
 }
+
+// New function to open circle chat from home screen
+window.openCircleChatFromHome = function() {
+    if (!selectedCircle) {
+        showNotification('Please select a circle first', 'error');
+        return;
+    }
+    openCircleChat(selectedCircle.id);
+};
+
+// Load and display upcoming events for the home screen
+async function loadHomeEvents(circleId) {
+    try {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        // Get upcoming events from this circle (including planning events)
+        const { data: upcomingEvents, error } = await supabase
+            .from('events')
+            .select(`
+                *,
+                event_participants(profile_id, status, profiles(id, name, avatar))
+            `)
+            .eq('circle_id', circleId)
+            .or(`scheduled_date.gte.${today},status.eq.planning`)
+            .neq('status', 'cancelled')
+            .order('scheduled_date', { ascending: true, nullsFirst: false })
+            .order('scheduled_time', { ascending: true })
+            .limit(3);
+
+        if (error) throw error;
+
+        const eventsSection = document.getElementById('home-events-section');
+        const eventsList = document.getElementById('home-events-list');
+
+        if (!upcomingEvents || upcomingEvents.length === 0) {
+            eventsSection.style.display = 'none';
+            return;
+        }
+
+        eventsSection.style.display = 'block';
+
+        // Fetch activity and circle data for events
+        const activityIds = [...new Set(upcomingEvents.map(e => e.activity_id))];
+
+        const { data: eventActivities } = await supabase
+            .from('activities')
+            .select('*')
+            .in('id', activityIds);
+
+        const activityMap = new Map((eventActivities || []).map(a => [a.id, a]));
+
+        // Get current circle info
+        const circle = circles.find(c => c.id === circleId);
+
+        // Process events
+        const processedEvents = upcomingEvents.map(event => {
+            const activity = activityMap.get(event.activity_id);
+            const isUserJoined = (event.event_participants || []).some(p => p.profile_id === currentUser.id);
+            const participantCount = (event.event_participants || []).length;
+
+            return {
+                ...event,
+                activity,
+                circle,
+                isUserJoined,
+                participantCount
+            };
+        });
+
+        // Render event cards
+        eventsList.innerHTML = processedEvents.map(event => renderEventCard(event)).join('');
+
+    } catch (error) {
+        console.error('Error loading home events:', error);
+    }
+}
+
+// Render activities in grid mode for browsing (not selection)
+async function renderActivitiesGrid() {
+    if (!selectedCircle) {
+        document.getElementById('activities-grid').innerHTML = '<div style="text-align: center; padding: 40px 20px; color: #666;"><div style="font-size: 3em; margin-bottom: 20px;">🎯</div><h3 style="margin-bottom: 15px; color: #333;">Select a Circle First</h3><p>Choose a circle from the dropdown above to see available activities.</p></div>';
+        document.getElementById('frequent-grid').innerHTML = '';
+        document.getElementById('frequent-section').style.display = 'none';
+        return;
+    }
+
+    const frequentGrid = document.getElementById('frequent-grid');
+    const activitiesGrid = document.getElementById('activities-grid');
+    frequentGrid.innerHTML = '';
+    activitiesGrid.innerHTML = '';
+
+    const allPossibleActivities = await loadActivities(selectedCircle.id);
+
+    // Create activity cards that open detail page on click
+    for (const activity of allPossibleActivities) {
+        const card = document.createElement('div');
+        card.className = 'activity-card';
+        card.dataset.activityId = activity.id;
+
+        card.innerHTML = `
+            <div class="activity-emoji">${activity.emoji}</div>
+            <div class="activity-name">${activity.name}</div>
+        `;
+
+        card.onclick = (event) => {
+            event.stopPropagation();
+            openActivityDetail(activity);
+        };
+
+        activitiesGrid.appendChild(card);
+    }
+
+    // Hide frequent section for now (can add back later if needed)
+    document.getElementById('frequent-section').style.display = 'none';
+}
+
+// Activity Detail Modal Functions
+let currentDetailActivity = null;
+
+window.openActivityDetail = async function(activity) {
+    currentDetailActivity = activity;
+
+    // Set title
+    document.getElementById('activity-detail-title').textContent = `${activity.emoji} ${activity.name}`;
+
+    // Set description (placeholder for now, can be enhanced later)
+    document.getElementById('activity-detail-description').textContent =
+        `Tap "Plan This Activity" to create an event for ${activity.name} in ${selectedCircle.name}.`;
+
+    // Load interested users
+    try {
+        const { data: preferences, error } = await supabase
+            .from('preferences')
+            .select('profile_id, profiles(name)')
+            .eq('circle_id', selectedCircle.id)
+            .eq('activity_id', activity.id)
+            .eq('selected', true);
+
+        if (error) throw error;
+
+        const interestedList = document.getElementById('activity-interested-list');
+
+        if (!preferences || preferences.length === 0) {
+            interestedList.innerHTML = '<em>No one has selected this activity in their interests yet</em>';
+        } else {
+            const names = preferences.map(p => p.profiles.name).join(', ');
+            interestedList.textContent = names;
+        }
+
+    } catch (error) {
+        console.error('Error loading interested users:', error);
+        document.getElementById('activity-interested-list').textContent = 'Unable to load interested users';
+    }
+
+    // Show modal
+    document.getElementById('activity-detail-modal').style.display = 'flex';
+};
+
+window.closeActivityDetail = function() {
+    document.getElementById('activity-detail-modal').style.display = 'none';
+    currentDetailActivity = null;
+};
+
+window.planActivityFromDetail = async function() {
+    if (!currentDetailActivity) return;
+
+    // Close the detail modal
+    closeActivityDetail();
+
+    // Find or create a match for this activity in this circle
+    try {
+        showLoader('Creating event...');
+
+        // Check if match already exists
+        let { data: existingMatch, error: matchError } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('circle_id', selectedCircle.id)
+            .eq('activity_id', currentDetailActivity.id)
+            .maybeSingle();
+
+        if (matchError) throw matchError;
+
+        let matchId;
+        if (existingMatch) {
+            matchId = existingMatch.id;
+        } else {
+            // Create new match
+            const { data: newMatch, error: createError } = await supabase
+                .from('matches')
+                .insert([{
+                    circle_id: selectedCircle.id,
+                    activity_id: currentDetailActivity.id
+                }])
+                .select()
+                .single();
+
+            if (createError) throw createError;
+            matchId = newMatch.id;
+        }
+
+        hideLoader();
+
+        // Open planning event modal with this match
+        openPlanningEventModal(matchId);
+
+    } catch (error) {
+        console.error('Error creating event:', error);
+        hideLoader();
+        showNotification('Error creating event', 'error');
+    }
+};
 
 // View mode switching
 let viewMode = 'swipe'; // Default to swipe view
@@ -16996,13 +17288,9 @@ if (pageId !== 'chat') {
     
     if (pageId === 'circles') renderCircles();
 if (pageId === 'activities') {
-    // Scroll to top to ensure card is fully visible
+    // Scroll to top to ensure page is fully visible
     document.getElementById('activities').scrollTop = 0;
     await populateCircleSelector();
-    // If in swipe mode and circle is selected, initialize swipe view
-    if (viewMode === 'swipe' && selectedCircle) {
-        await initializeSwipeView();
-    }
 }
 if (pageId === 'matches') {
     await loadMatches();
@@ -17013,6 +17301,7 @@ if (pageId === 'events') {
 if (pageId === 'settings') {
     initNotificationSettings();
     initHelpTutorials();
+    initActivityInterests();
     initAdvancedSettings();
     initBlockedUsers();
 }
@@ -17211,6 +17500,168 @@ if (pageId === 'settings') {
                 content.style.maxHeight = content.scrollHeight + 'px';
                 arrow.style.transform = 'rotate(180deg)';
                 localStorage.setItem('advanced_settings_expanded', 'true');
+            }
+        };
+
+        // Activity Interests Toggle and Functions
+        window.toggleActivityInterests = function() {
+            const content = document.getElementById('activity-interests-content');
+            const arrow = document.getElementById('activity-interests-arrow');
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+
+            if (isExpanded) {
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+                localStorage.setItem('activity_interests_expanded', 'false');
+            } else {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+                localStorage.setItem('activity_interests_expanded', 'true');
+            }
+        };
+
+        let interestsCircleId = null;
+        let interestsActivities = [];
+        let interestsSelected = new Set();
+
+        window.loadActivityInterests = async function() {
+            const selector = document.getElementById('interests-circle-selector');
+            interestsCircleId = selector.value;
+
+            const gridContainer = document.getElementById('activity-interests-grid-container');
+            const selectPrompt = document.getElementById('select-circle-prompt');
+            const grid = document.getElementById('activity-interests-grid');
+            const saveBtn = document.getElementById('save-interests-btn');
+
+            if (!interestsCircleId) {
+                gridContainer.style.display = 'none';
+                selectPrompt.style.display = 'block';
+                return;
+            }
+
+            selectPrompt.style.display = 'none';
+            gridContainer.style.display = 'block';
+
+            try {
+                showLoader('Loading activities...');
+
+                // Load all activities for this circle
+                const allActivities = await loadActivities(interestsCircleId);
+                interestsActivities = allActivities;
+
+                // Load user's current preferences for this circle
+                const { data: prefs, error } = await supabase
+                    .from('preferences')
+                    .select('activity_id')
+                    .eq('profile_id', currentUser.id)
+                    .eq('circle_id', interestsCircleId)
+                    .eq('selected', true);
+
+                if (error) throw error;
+
+                interestsSelected = new Set((prefs || []).map(p => p.activity_id));
+
+                // Render activities grid with selection
+                grid.innerHTML = '';
+                for (const activity of allActivities) {
+                    const card = document.createElement('div');
+                    card.className = 'activity-card';
+                    if (interestsSelected.has(activity.id)) {
+                        card.classList.add('selected');
+                    }
+                    card.dataset.activityId = activity.id;
+
+                    card.innerHTML = `
+                        <div class="activity-emoji">${activity.emoji}</div>
+                        <div class="activity-name">${activity.name}</div>
+                    `;
+
+                    card.onclick = (event) => {
+                        event.stopPropagation();
+                        card.classList.toggle('selected');
+                        if (interestsSelected.has(activity.id)) {
+                            interestsSelected.delete(activity.id);
+                        } else {
+                            interestsSelected.add(activity.id);
+                        }
+                        saveBtn.style.display = 'block';
+                    };
+
+                    grid.appendChild(card);
+                }
+
+                hideLoader();
+
+            } catch (error) {
+                console.error('Error loading activity interests:', error);
+                hideLoader();
+                showNotification('Error loading activities', 'error');
+            }
+        };
+
+        window.saveActivityInterests = async function() {
+            if (!interestsCircleId) return;
+
+            try {
+                showLoader('Saving interests...');
+
+                // Delete all existing preferences for this user and circle
+                const { error: deleteError } = await supabase
+                    .from('preferences')
+                    .delete()
+                    .eq('profile_id', currentUser.id)
+                    .eq('circle_id', interestsCircleId);
+
+                if (deleteError) throw deleteError;
+
+                // Insert new preferences for selected activities
+                if (interestsSelected.size > 0) {
+                    const prefsToInsert = Array.from(interestsSelected).map(activityId => ({
+                        profile_id: currentUser.id,
+                        circle_id: interestsCircleId,
+                        activity_id: activityId,
+                        selected: true
+                    }));
+
+                    const { error: insertError } = await supabase
+                        .from('preferences')
+                        .insert(prefsToInsert);
+
+                    if (insertError) throw insertError;
+                }
+
+                hideLoader();
+                showNotification('Interests saved!');
+                document.getElementById('save-interests-btn').style.display = 'none';
+
+            } catch (error) {
+                console.error('Error saving activity interests:', error);
+                hideLoader();
+                showNotification('Error saving interests', 'error');
+            }
+        };
+
+        window.initActivityInterests = function() {
+            const isExpanded = localStorage.getItem('activity_interests_expanded') === 'true';
+            if (isExpanded) {
+                const content = document.getElementById('activity-interests-content');
+                const arrow = document.getElementById('activity-interests-arrow');
+                if (content && arrow) {
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                    arrow.style.transform = 'rotate(180deg)';
+                }
+            }
+
+            // Populate circle selector
+            const selector = document.getElementById('interests-circle-selector');
+            if (selector && circles) {
+                selector.innerHTML = '<option value="">Choose a circle...</option>';
+                circles.forEach(circle => {
+                    const option = document.createElement('option');
+                    option.value = circle.id;
+                    option.textContent = circle.name;
+                    selector.appendChild(option);
+                });
             }
         };
 
