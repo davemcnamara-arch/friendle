@@ -3505,6 +3505,8 @@ body.dark-mode .poll-notification-label {
 
         <form id="planning-event-form">
             <input type="hidden" id="planning-event-match-id">
+            <input type="hidden" id="planning-event-activity-id">
+            <input type="hidden" id="planning-event-circle-id">
             <input type="hidden" id="planning-event-activity-name">
 
             <!-- Collapsible Section: Lock in Details Now -->
@@ -8488,8 +8490,8 @@ window.planActivityFromDetail = async function() {
         hideLoader();
 
         // Open planning event modal with this match
-        // Pass activity info directly since match might not be in matches array yet
-        openPlanningEventModal(matchId, activity);
+        // Pass activity and circle info directly since match might not be in matches array yet
+        openPlanningEventModal(matchId, activity, circle);
 
     } catch (error) {
         console.error('Error creating event:', error);
@@ -13285,14 +13287,24 @@ function openCreateEventModalFromHeader() {
 // Swipe action modal removed - activities are now browsed via grid with direct planning
 
 // Planning Event Creation Modal
-function openPlanningEventModal(matchId, activityObj = null) {
-    // If activity is passed directly, use it; otherwise look it up from matches array
+function openPlanningEventModal(matchId, activityObj = null, circleObj = null) {
+    // If activity/circle are passed directly, use them; otherwise look them up from matches array
     let activity = activityObj;
+    let circle = circleObj;
+    let activityId, circleId;
 
-    if (!activity) {
+    if (!activity || !circle) {
         const match = matches.find(m => m.id === matchId);
         if (!match) return;
-        activity = activities.find(a => a.id === match.activity_id);
+
+        if (!activity) {
+            activity = activities.find(a => a.id === match.activity_id);
+        }
+        activityId = match.activity_id;
+        circleId = match.circle_id;
+    } else {
+        activityId = activity.id;
+        circleId = circle.id;
     }
 
     const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
@@ -13300,6 +13312,8 @@ function openPlanningEventModal(matchId, activityObj = null) {
     document.getElementById('planning-event-title').textContent = `Plan: ${activityName}`;
     document.getElementById('planning-event-form').reset();
     document.getElementById('planning-event-match-id').value = matchId;
+    document.getElementById('planning-event-activity-id').value = activityId;
+    document.getElementById('planning-event-circle-id').value = circleId;
     document.getElementById('planning-event-activity-name').value = activity ? activity.name : '';
 
     document.getElementById('planning-event-modal').style.display = 'flex';
@@ -13830,7 +13844,8 @@ async function createPlanningEvent(e) {
     submitBtn.innerHTML = `<span class="btn-spinner"></span>${lockDetailsNow ? 'Creating...' : 'Starting...'}`;
 
     const matchId = document.getElementById('planning-event-match-id').value;
-    const match = matches.find(m => m.id === matchId);
+    const activityId = document.getElementById('planning-event-activity-id').value;
+    const circleId = document.getElementById('planning-event-circle-id').value;
 
     try {
         // Get location from the appropriate field based on mode
@@ -13841,8 +13856,8 @@ async function createPlanningEvent(e) {
         // Prepare event data based on mode
         const eventData = {
             match_id: matchId,
-            activity_id: match.activity_id,
-            circle_id: match.circle_id,
+            activity_id: activityId,
+            circle_id: circleId,
             location: location,
             notes: document.getElementById('planning-notes').value || null,
             proposed_timeframe: document.getElementById('planning-timeframe').value,
@@ -13967,7 +13982,7 @@ async function createPlanningEvent(e) {
         }
 
         // Post appropriate system message
-        const activity = activities.find(a => a.id === match.activity_id);
+        const activity = activities.find(a => a.id === activityId);
         const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Activity';
         const locationText = newEvent.location ? `\n📍 ${lockDetailsNow ? 'Location' : 'Suggested'}: ${newEvent.location}` : '';
 
