@@ -3463,6 +3463,13 @@ body.dark-mode .poll-notification-label {
             </div>
         </div>
 
+        <div id="activity-detail-events" style="margin: 20px 0; display: none;">
+            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-primary);">Existing Events:</h4>
+            <div id="activity-events-list" style="font-size: 14px; color: var(--text-secondary);">
+                <!-- List of existing events will go here -->
+            </div>
+        </div>
+
         <button onclick="planActivityFromDetail()" class="btn" style="width: 100%; margin-top: 10px; background: var(--primary-color);">
             📅 Plan This Activity
         </button>
@@ -8229,11 +8236,8 @@ async function renderActivitiesGrid() {
         card.className = 'activity-card';
         card.dataset.activityId = activity.id;
 
-        // Highlight if user has this as an interest
+        // Check if user has this as an interest (for badge display)
         const isInterest = interestsSet.has(activity.id);
-        if (isInterest) {
-            card.classList.add('selected');
-        }
 
         card.innerHTML = `
             <div class="activity-emoji">${activity.emoji}</div>
