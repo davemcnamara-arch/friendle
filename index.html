@@ -11167,6 +11167,11 @@ function renderEventCard(event) {
                         🗑️ Delete
                     </button>
                 ` : ''}
+                ${event.scheduled_date ? `
+                    <button class="btn btn-secondary" onclick="addToCalendar('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap;">
+                        📅 Add to Calendar
+                    </button>
+                ` : ''}
                 </div>
             </div>
         </div>
