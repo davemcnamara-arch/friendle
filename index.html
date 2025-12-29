@@ -482,6 +482,21 @@
             box-shadow: var(--shadow-md);
         }
 
+        .activity-interest-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 1.2em;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
         body.dark-mode .activity-card {
             background: #1a1a1e !important;
             border-color: #2a2a2e !important;
@@ -2760,16 +2775,12 @@ body.dark-mode .poll-notification-label {
         <div class="tagline">Plan events with your circles</div>
     </div>
 
-    <!-- Minimized Circle Selector with Chat Button -->
-    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
-        <div style="flex: 1;">
-            <select id="circle-selector" onchange="handleCircleChange()" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
-                <option value="">Choose a circle...</option>
-            </select>
-        </div>
-        <button id="circle-chat-btn" class="btn btn-secondary" onclick="openCircleChatFromHome()" style="padding: 12px 16px; white-space: nowrap; display: none;">
-            💬 Circle Chat
-        </button>
+    <!-- Circle Selector -->
+    <div class="form-group">
+        <label for="circle-selector">Select Circle</label>
+        <select id="circle-selector" onchange="handleCircleChange()" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+            <option value="">Choose a circle...</option>
+        </select>
     </div>
 
     <!-- Upcoming Events Section -->
@@ -2873,6 +2884,47 @@ body.dark-mode .poll-notification-label {
     </div>
 
     <button class="btn btn-secondary" onclick="openUpdateNameModal()">Update Name</button>
+
+    <!-- Activity Interests Section (Collapsible) -->
+    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div onclick="toggleActivityInterests()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">❤️ Activity Interests</h3>
+            <span id="activity-interests-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
+        </div>
+
+        <div id="activity-interests-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+            <div style="padding: 0 20px 20px 20px;">
+                <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
+                    Select activities you're interested in to customize which event notifications you receive. When someone creates an event for an activity you've selected, you'll be notified.
+                </p>
+
+                <!-- Circle Selector for Activity Interests -->
+                <div class="form-group">
+                    <label for="interests-circle-selector">Select Circle</label>
+                    <select id="interests-circle-selector" onchange="loadActivityInterests()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary);">
+                        <option value="">Choose a circle...</option>
+                    </select>
+                </div>
+
+                <!-- Activity Interests Grid -->
+                <div id="activity-interests-grid-container" style="display: none;">
+                    <div class="activities-grid" id="activity-interests-grid" style="margin-bottom: 15px;"></div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1; font-size: 0.85em;">💡 Suggest Activity</button>
+                        <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1; font-size: 0.85em;">⚙️ Manage Activities</button>
+                    </div>
+
+                    <button id="save-interests-btn" class="btn" onclick="saveActivityInterests()" style="width: 100%; display: none;">Save Interests</button>
+                </div>
+
+                <div id="select-circle-prompt" style="text-align: center; padding: 20px; color: var(--text-secondary); font-size: 0.9em;">
+                    Select a circle above to manage your activity interests
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="toggle-container">
         <label class="toggle-label" for="dark-mode-toggle">
@@ -3107,47 +3159,6 @@ body.dark-mode .poll-notification-label {
         </div>
     </div>
 
-    <!-- Activity Interests Section (Collapsible) -->
-    <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
-        <div onclick="toggleActivityInterests()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">❤️ Activity Interests</h3>
-            <span id="activity-interests-arrow" style="font-size: 1.2em; color: var(--text-secondary); transition: transform 0.3s ease;">▼</span>
-        </div>
-
-        <div id="activity-interests-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
-            <div style="padding: 0 20px 20px 20px;">
-                <p style="margin: 0 0 15px 0; font-size: 0.85em; color: var(--text-secondary); line-height: 1.4;">
-                    Select activities you're interested in to customize which event notifications you receive. When someone creates an event for an activity you've selected, you'll be notified.
-                </p>
-
-                <!-- Circle Selector for Activity Interests -->
-                <div class="form-group">
-                    <label for="interests-circle-selector">Select Circle</label>
-                    <select id="interests-circle-selector" onchange="loadActivityInterests()" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary);">
-                        <option value="">Choose a circle...</option>
-                    </select>
-                </div>
-
-                <!-- Activity Interests Grid -->
-                <div id="activity-interests-grid-container" style="display: none;">
-                    <div class="activities-grid" id="activity-interests-grid" style="margin-bottom: 15px;"></div>
-
-                    <!-- Action Buttons -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <button class="btn btn-secondary btn-small" onclick="openSuggestModal()" style="flex: 1; font-size: 0.85em;">💡 Suggest Activity</button>
-                        <button class="btn btn-secondary btn-small" onclick="openManageActivitiesModal()" style="flex: 1; font-size: 0.85em;">⚙️ Manage Activities</button>
-                    </div>
-
-                    <button id="save-interests-btn" class="btn" onclick="saveActivityInterests()" style="width: 100%; display: none;">Save Interests</button>
-                </div>
-
-                <div id="select-circle-prompt" style="text-align: center; padding: 20px; color: var(--text-secondary); font-size: 0.9em;">
-                    Select a circle above to manage your activity interests
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Advanced Settings Section (Collapsible) -->
     <div style="margin: 30px 0 20px 0; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
         <div onclick="toggleAdvancedSettings()" style="padding: 20px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
@@ -3193,12 +3204,8 @@ body.dark-mode .poll-notification-label {
 
         <div class="bottom-nav">
             <div class="nav-item" onclick="showPage('circles')"><div class="nav-icon">👥</div><div class="nav-label">Circles</div></div>
-            <div class="nav-item active" onclick="showPage('activities')"><div class="nav-icon">🎯</div><div class="nav-label">Activities</div></div>
-            <div class="nav-item" id="matches-nav-item" onclick="showPage('matches')">
-    <div class="nav-icon">💫</div>
-    <div class="nav-label">Matches</div>
-</div>
-            <div class="nav-item" onclick="showPage('events')"><div class="nav-icon">📅</div><div class="nav-label">Events</div></div>
+            <div class="nav-item" onclick="showPage('activities')"><div class="nav-icon">🎯</div><div class="nav-label">Activities</div></div>
+            <div class="nav-item active" onclick="showPage('events')"><div class="nav-icon">📅</div><div class="nav-label">Events</div></div>
             <div class="nav-item" onclick="showPage('settings')"><div class="nav-icon">⚙️</div><div class="nav-label">Settings</div></div>
         </div>
         
@@ -4367,7 +4374,7 @@ async function submitPasswordReset() {
             const hasPendingChat = sessionStorage.getItem('pending_chat_id') && sessionStorage.getItem('pending_chat_type');
 
             if (!hasPendingChat) {
-                showPage('activities');
+                showPage('events');
             }
 
             updateProfile();
@@ -4595,7 +4602,7 @@ window.signUp = async function() {
         const hasPendingChat = sessionStorage.getItem('pending_chat_id') && sessionStorage.getItem('pending_chat_type');
 
         if (!hasPendingChat) {
-            showPage('activities');
+            showPage('events');
         }
 
         updateProfile();
@@ -4692,13 +4699,13 @@ window.signIn = async function() {
         const hasPendingChat = sessionStorage.getItem('pending_chat_id') && sessionStorage.getItem('pending_chat_type');
 
         if (!hasPendingChat) {
-            showPage('activities');
+            showPage('events');
         }
 
         updateProfile();
         await processInviteCode();
         await processPendingChat();
-        
+
     } catch (error) {
         console.error('Signin error:', error);
         showNotification(error.message || 'Error signing in', 'error');
@@ -5644,7 +5651,7 @@ function closeNotificationPrompt() {
   // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
   SecureStorage.setUserId(currentUser.id);
   SecureStorage.setSessionData(currentUser); // keep local copy for session
-  showPage('activities');
+  showPage('events');
   updateProfile();
   processInvite();
 }
@@ -7497,22 +7504,23 @@ window.finalizeCircleCreation = async function() {
               <div class="circle-name" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="cursor: pointer;" title="Click to rename">${circle.name}</div>
               <div class="circle-members" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="cursor: pointer; text-decoration: underline;" title="Click to view members">${memberText}</div>
             </div>
-            <div class="circle-card-header-right">
-              ${unreadCount > 0 ? `<span class="circle-new-message-badge" onclick="event.stopPropagation(); openCircleChat('${circle.id}')">💬 New message</span>` : ''}
+            <div class="circle-card-header-right" style="display: flex; align-items: center; gap: 10px;">
+              <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="padding: 6px 12px; font-size: 0.85em;">💬 Circle Chat</button>
+              ${unreadCount > 0 ? `<span class="circle-new-message-badge" style="font-size: 0.9em;">New</span>` : ''}
               <span class="circle-expand-icon">▼</span>
             </div>
           </div>
           <div class="circle-card-content">
+            <div style="text-align: center; color: var(--text-secondary); font-size: 0.85em; margin-bottom: 12px; font-style: italic;">
+              Expand to view invite code and manage this circle
+            </div>
             <div class="circle-code" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
               <span>Invite Code: <strong>${circle.code}</strong></span>
               <span onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="cursor: pointer; font-size: 1.2em;" title="Copy code">⧉</span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-              <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="width: 100%;">💬 Open Circle Chat</button>
-              <div style="display: flex; gap: 8px;">
-                <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
-                <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
-              </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="flex: 1;">Invite</button>
+              <button class="btn btn-small" onclick="event.stopPropagation(); leaveCircle('${circle.id}')" style="background: #dc3545; flex: 1;">Leave</button>
             </div>
           </div>
         </div>`;
@@ -8205,7 +8213,6 @@ async function populateCircleSelector() {
 window.handleCircleChange = async function(shouldScroll = true) {
     const selector = document.getElementById('circle-selector');
     const circleId = selector.value;
-    const chatBtn = document.getElementById('circle-chat-btn');
     const eventsSection = document.getElementById('home-events-section');
 
     if (!circleId) {
@@ -8215,7 +8222,6 @@ window.handleCircleChange = async function(shouldScroll = true) {
         document.getElementById('activities-grid').innerHTML = '';
         document.getElementById('frequent-grid').innerHTML = '';
         document.getElementById('frequent-section').style.display = 'none';
-        if (chatBtn) chatBtn.style.display = 'none';
         if (eventsSection) eventsSection.style.display = 'none';
         return;
     }
@@ -8225,9 +8231,6 @@ window.handleCircleChange = async function(shouldScroll = true) {
     showLoader('Loading...');
 
     selectedCircle = circles.find(c => c.id === circleId);
-
-    // Show circle chat button
-    if (chatBtn) chatBtn.style.display = 'block';
 
     const savedActivityIds = await loadUserPreferences(selectedCircle.id);
     const allActivities = await loadActivities(selectedCircle.id);
@@ -8247,15 +8250,6 @@ window.handleCircleChange = async function(shouldScroll = true) {
             searchElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }
-}
-
-// New function to open circle chat from home screen
-window.openCircleChatFromHome = function() {
-    if (!selectedCircle) {
-        showNotification('Please select a circle first', 'error');
-        return;
-    }
-    openCircleChat(selectedCircle.id);
 };
 
 // Load and display upcoming events for the home screen
@@ -8342,15 +8336,26 @@ async function renderActivitiesGrid() {
 
     const allPossibleActivities = await loadActivities(selectedCircle.id);
 
+    // Load user's interests for this circle
+    const userInterests = await loadUserPreferences(selectedCircle.id);
+    const interestsSet = new Set(userInterests);
+
     // Create activity cards that open detail page on click
     for (const activity of allPossibleActivities) {
         const card = document.createElement('div');
         card.className = 'activity-card';
         card.dataset.activityId = activity.id;
 
+        // Highlight if user has this as an interest
+        const isInterest = interestsSet.has(activity.id);
+        if (isInterest) {
+            card.classList.add('selected');
+        }
+
         card.innerHTML = `
             <div class="activity-emoji">${activity.emoji}</div>
             <div class="activity-name">${activity.name}</div>
+            ${isInterest ? '<div class="activity-interest-badge">❤️</div>' : ''}
         `;
 
         card.onclick = (event) => {
@@ -11484,25 +11489,91 @@ async function loadEvents() {
     }
 }
 
+// Helper function to render events grouped by time periods
+function renderEventsByTimePeriod(events) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const thisWeekend = getNextWeekend(now);
+    const nextWeek = getNextWeekRange(now);
+
+    // Separate planning events from scheduled events
+    const planningEvents = events.filter(e => e.status === 'planning');
+    const scheduledEvents = events.filter(e => e.status !== 'planning');
+
+    const periods = {
+        'PLANNING': planningEvents,
+        'TODAY': [],
+        'TOMORROW': [],
+        'THIS WEEKEND': [],
+        'NEXT WEEK': [],
+        'LATER': []
+    };
+
+    scheduledEvents.forEach(event => {
+        const eventDate = new Date(event.scheduled_date);
+        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+        if (eventDay.getTime() === today.getTime()) {
+            periods['TODAY'].push(event);
+        } else if (eventDay.getTime() === tomorrow.getTime()) {
+            periods['TOMORROW'].push(event);
+        } else if (thisWeekend && eventDay >= thisWeekend.start && eventDay <= thisWeekend.end) {
+            periods['THIS WEEKEND'].push(event);
+        } else if (nextWeek && eventDay >= nextWeek.start && eventDay <= nextWeek.end) {
+            periods['NEXT WEEK'].push(event);
+        } else {
+            periods['LATER'].push(event);
+        }
+    });
+
+    let html = '';
+
+    // Render periods
+    for (const [periodName, periodEvents] of Object.entries(periods)) {
+        if (periodEvents.length === 0) continue;
+
+        const icon = periodName === 'PLANNING' ? '🗓️' : '';
+
+        html += `
+            <details class="event-period" ${periodName === 'TODAY' ? 'open' : ''}>
+                <summary class="event-period-header">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span class="event-period-chevron">▶</span>
+                        ${icon} ${periodName}
+                    </span>
+                    <span>${periodEvents.length} ${periodEvents.length === 1 ? 'event' : 'events'}</span>
+                </summary>
+                <div class="event-period-content">
+                    ${periodEvents.map(event => renderEventCard(event)).join('')}
+                </div>
+            </details>
+        `;
+    }
+
+    return html;
+}
+
 function renderEvents(events, pastEvents = []) {
     const eventsList = document.getElementById('events-list');
 
-    // Separate planning events from scheduled events
-    const planningEvents = (events || []).filter(e => e.status === 'planning');
-    const scheduledEvents = (events || []).filter(e => e.status !== 'planning');
+    // Separate into "Your events" (joined) and "Other events" (not joined)
+    const yourEvents = (events || []).filter(e => e.isUserJoined);
+    const otherEvents = (events || []).filter(e => !e.isUserJoined);
 
     console.log('renderEvents called with:', events?.length, 'events');
-    console.log('Planning events:', planningEvents.length, planningEvents);
-    console.log('Scheduled events:', scheduledEvents.length);
+    console.log('Your events:', yourEvents.length);
+    console.log('Other events:', otherEvents.length);
 
     // Show empty state if no events at all
-    if (planningEvents.length === 0 && scheduledEvents.length === 0 && (!pastEvents || pastEvents.length === 0)) {
+    if (yourEvents.length === 0 && otherEvents.length === 0 && (!pastEvents || pastEvents.length === 0)) {
         eventsList.innerHTML = `
             <div class="events-empty-state">
                 <div class="events-empty-icon">📅</div>
                 <div class="events-empty-title">No Upcoming Events</div>
-                <div class="events-empty-message">Events from your circles will appear here. Create an event from a match to get started!</div>
-                <button class="btn" onclick="showPage('matches')" style="margin-top: 20px;">View Matches</button>
+                <div class="events-empty-message">Events from your circles will appear here. Browse activities to plan an event!</div>
+                <button class="btn" onclick="showPage('activities')" style="margin-top: 20px;">🎯 Browse Activities</button>
             </div>
         `;
         return;
@@ -11510,38 +11581,25 @@ function renderEvents(events, pastEvents = []) {
 
     let html = '';
 
-    // Render planning events section (collapsed by default)
-    if (planningEvents.length > 0) {
-        html += `
-            <details class="event-period" style="margin-bottom: 20px;">
-                <summary class="event-period-header">
-                    <span style="display: flex; align-items: center; gap: 8px;">
-                        <span class="event-period-chevron">▶</span>
-                        🗓️ PLANNING
-                    </span>
-                    <span>${planningEvents.length} ${planningEvents.length === 1 ? 'event' : 'events'}</span>
-                </summary>
-                <div class="event-period-content">
-                    ${planningEvents.map(event => renderEventCard(event)).join('')}
-                </div>
-            </details>
-        `;
+    // Render YOUR EVENTS section
+    if (yourEvents.length > 0) {
+        html += `<div style="margin-bottom: 30px;">`;
+        html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary);">✓ Your Events</h2>`;
+        html += renderEventsByTimePeriod(yourEvents);
+        html += `</div>`;
     }
 
-    // Show empty state for upcoming scheduled events if none, but continue to render past events below
-    if (scheduledEvents.length === 0 && pastEvents && pastEvents.length > 0) {
-        html += `
-            <div class="events-empty-state">
-                <div class="events-empty-icon">📅</div>
-                <div class="events-empty-title">No Upcoming Events</div>
-                <div class="events-empty-message">Events from your circles will appear here. Create an event from a match to get started!</div>
-                <button class="btn" onclick="showPage('matches')" style="margin-top: 20px;">View Matches</button>
-            </div>
-        `;
+    // Render OTHER EVENTS section
+    if (otherEvents.length > 0) {
+        html += `<div style="margin-bottom: 30px;">`;
+        html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary);">👀 Other Events in Your Circles</h2>`;
+        html += renderEventsByTimePeriod(otherEvents);
+        html += `</div>`;
     }
 
-    // Render upcoming scheduled events
-    if (scheduledEvents.length > 0) {
+    // Render upcoming scheduled events (LEGACY - keeping for compatibility)
+    const scheduledEvents = (events || []).filter(e => e.status !== 'planning');
+    if (scheduledEvents.length > 0 && yourEvents.length === 0 && otherEvents.length === 0) {
         // Group events by time periods
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
