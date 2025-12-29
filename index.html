@@ -486,15 +486,17 @@
             position: absolute;
             top: 8px;
             right: 8px;
-            font-size: 1.2em;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
+            font-size: 0.75em;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--primary-color);
+            border-radius: 12px;
+            padding: 4px 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
         }
 
         body.dark-mode .activity-card {
@@ -8236,7 +8238,7 @@ async function renderActivitiesGrid() {
         card.innerHTML = `
             <div class="activity-emoji">${activity.emoji}</div>
             <div class="activity-name">${activity.name}</div>
-            ${isInterest ? '<div class="activity-interest-badge">❤️</div>' : ''}
+            ${isInterest ? '<div class="activity-interest-badge">Interested</div>' : ''}
         `;
 
         card.onclick = (event) => {
