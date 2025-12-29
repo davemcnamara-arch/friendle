@@ -11571,36 +11571,41 @@ function renderEvents(events, pastEvents = []) {
     console.log('Your events:', yourEvents.length);
     console.log('Other events:', otherEvents.length);
 
-    // Show empty state if no events at all
-    if (yourEvents.length === 0 && otherEvents.length === 0 && (!pastEvents || pastEvents.length === 0)) {
-        eventsList.innerHTML = `
-            <div class="events-empty-state">
-                <div class="events-empty-icon">📅</div>
-                <div class="events-empty-title">No Upcoming Events</div>
-                <div class="events-empty-message">Events from your circles will appear here. Browse activities to plan an event!</div>
-                <button class="btn" onclick="showPage('activities')" style="margin-top: 20px;">🎯 Browse Activities</button>
-            </div>
-        `;
-        return;
-    }
-
     let html = '';
 
-    // Render YOUR EVENTS section
-    if (yourEvents.length > 0) {
-        html += `<div style="margin-bottom: 30px;">`;
-        html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Your Events</h2>`;
-        html += renderEventsByTimePeriod(yourEvents);
-        html += `</div>`;
-    }
+    // Render YOUR EVENTS section (always show heading)
+    html += `<div style="margin-bottom: 30px;">`;
+    html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Your Events</h2>`;
 
-    // Render OTHER EVENTS section
-    if (otherEvents.length > 0) {
-        html += `<div style="margin-bottom: 30px;">`;
-        html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Other Events in Your Circles</h2>`;
-        html += renderEventsByTimePeriod(otherEvents);
-        html += `</div>`;
+    if (yourEvents.length > 0) {
+        html += renderEventsByTimePeriod(yourEvents);
+    } else {
+        html += `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                <div style="font-size: 2em; margin-bottom: 15px;">📅</div>
+                <p style="margin: 0; font-size: 0.95em;">No events you've joined yet</p>
+                <p style="margin: 10px 0 0 0; font-size: 0.85em;">Browse activities to plan something!</p>
+                <button class="btn btn-secondary" onclick="showPage('activities')" style="margin-top: 15px; font-size: 0.9em;">🎯 Browse Activities</button>
+            </div>
+        `;
     }
+    html += `</div>`;
+
+    // Render OTHER EVENTS section (always show heading)
+    html += `<div style="margin-bottom: 30px;">`;
+    html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Other Events in Your Circles</h2>`;
+
+    if (otherEvents.length > 0) {
+        html += renderEventsByTimePeriod(otherEvents);
+    } else {
+        html += `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                <div style="font-size: 2em; margin-bottom: 15px;">👀</div>
+                <p style="margin: 0; font-size: 0.95em;">No other events in your circles</p>
+            </div>
+        `;
+    }
+    html += `</div>`;
 
     // Render upcoming scheduled events (LEGACY - keeping for compatibility)
     const scheduledEvents = (events || []).filter(e => e.status !== 'planning');
