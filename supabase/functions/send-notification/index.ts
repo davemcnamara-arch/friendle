@@ -16,11 +16,9 @@ const corsHeaders = {
 
 // Map notification type to user preference field
 const NOTIFICATION_PREFERENCE_MAP: Record<string, string> = {
-  'new_match': 'notify_new_matches',
   'event_join': 'notify_event_joins',
   'event_created': 'notify_event_joins',
   'chat_message': 'notify_chat_messages',
-  'match_join': 'notify_new_matches',
   'poll_agreement': 'notify_event_joins',
   'new_activity': 'notify_event_joins'  // Use event_joins preference for new activities
 }
@@ -32,7 +30,7 @@ interface NotificationRequest {
   activityName?: string
   chatType?: 'match' | 'event' | 'circle'
   chatId?: string
-  notificationType: 'new_match' | 'event_join' | 'event_created' | 'chat_message' | 'match_join' | 'poll_agreement' | 'new_activity'
+  notificationType: 'event_join' | 'event_created' | 'chat_message' | 'poll_agreement' | 'new_activity'
 }
 
 serve(async (req) => {
@@ -66,7 +64,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Invalid notification type: ${notificationType}. Must be one of: new_match, match_join, event_join, event_created, chat_message, poll_agreement, new_activity`
+          error: `Invalid notification type: ${notificationType}. Must be one of: event_join, event_created, chat_message, poll_agreement, new_activity`
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -215,20 +213,6 @@ serve(async (req) => {
     }
 
     switch (notificationType) {
-      case 'new_match':
-        heading = `${activityName || 'New Match'}!`
-        content = `${senderName} just joined your match!`
-        notificationData.chatType = chatType  // Use camelCase for consistency with client code
-        notificationData.chatId = chatId
-        break
-
-      case 'match_join':
-        heading = `${activityName || 'Match Update'}!`
-        content = `${senderName} joined your match!`
-        notificationData.chatType = chatType  // Use camelCase for consistency with client code
-        notificationData.chatId = chatId
-        break
-
       case 'event_join':
         heading = `${activityName || 'Event Update'}!`
         content = `${senderName} is joining your event!`

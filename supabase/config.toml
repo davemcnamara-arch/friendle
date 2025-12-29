@@ -1,15 +1,5 @@
 # Supabase Edge Functions Configuration
 
-[functions.inactivity-cleanup]
-# Daily cron job to check for inactive users and send warnings/auto-remove
-# Runs at 10:00 AM UTC every day
-verify_jwt = false
-
-[functions.stay-interested]
-# Endpoint called when users click "Stay Interested" button
-# SECURITY: JWT verification enabled to prevent user impersonation
-verify_jwt = true
-
 [functions.event-reminders]
 # Hourly cron job to send timezone-aware 9am reminders for events scheduled today
 # Runs every hour and checks which users are currently in their 9am hour
