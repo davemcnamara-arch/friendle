@@ -9,36 +9,54 @@
 --
 -- This enables collaborative event planning where any participant can
 -- finalize the event details when consensus is reached.
+--
+-- SOLUTION: Uses a SECURITY DEFINER function to check participation
+-- without triggering RLS recursion on event_participants table.
 -- ========================================
 
 -- ========================================
--- STEP 1: Drop existing UPDATE policy
+-- STEP 1: Create helper function to check event participation
+-- ========================================
+
+-- This function checks if a user is a participant in an event
+-- SECURITY DEFINER bypasses RLS to avoid infinite recursion
+CREATE OR REPLACE FUNCTION is_event_participant(event_uuid UUID, user_uuid UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM event_participants
+    WHERE event_id = event_uuid AND profile_id = user_uuid
+  );
+$$;
+
+-- ========================================
+-- STEP 2: Drop existing UPDATE policy
 -- ========================================
 
 DROP POLICY IF EXISTS "Event creators can update their events" ON events;
+DROP POLICY IF EXISTS "Event creators and participants can update events" ON events;
 
 -- ========================================
--- STEP 2: Create new UPDATE policy for creators AND participants
+-- STEP 3: Create new UPDATE policy for creators AND participants
 -- ========================================
 
 -- UPDATE: Event creators OR event participants can update events
--- This allows anyone in the event chat to lock in details
+-- Uses the helper function to avoid RLS recursion
 CREATE POLICY "Event creators and participants can update events"
 ON events FOR UPDATE
 TO authenticated
 USING (
   created_by = auth.uid()
   OR
-  id IN (
-    SELECT event_id FROM event_participants WHERE profile_id = auth.uid()
-  )
+  is_event_participant(id, auth.uid())
 )
 WITH CHECK (
   created_by = auth.uid()
   OR
-  id IN (
-    SELECT event_id FROM event_participants WHERE profile_id = auth.uid()
-  )
+  is_event_participant(id, auth.uid())
 );
 
 -- ========================================
@@ -56,6 +74,9 @@ ORDER BY policyname;
 
 -- Expected output:
 -- | events | Event creators and participants can update events | UPDATE |
+
+-- Test the helper function (replace UUIDs with real values)
+-- SELECT is_event_participant('event-uuid-here', 'user-uuid-here');
 
 -- ========================================
 -- TESTING INSTRUCTIONS
