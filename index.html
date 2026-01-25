@@ -13971,9 +13971,9 @@ async function lockEventDetails(e) {
 
         if (updateError) throw updateError;
 
-        // Check if the update actually succeeded (RLS may block non-creators)
+        // Check if the update actually succeeded (RLS may block non-participants)
         if (!data || data.length === 0) {
-            throw new Error('Only the event creator can lock in event details');
+            throw new Error('Only event participants can lock in event details');
         }
 
         console.log('✓ Event locked to scheduled');
@@ -13991,6 +13991,48 @@ async function lockEventDetails(e) {
 
         const systemMessage = `✅ Event scheduled:\n📅 ${dateStr}\n📍 ${locationStr}`;
         await sendSystemMessage(currentEvent.id, systemMessage);
+
+        // Send notifications to all event participants
+        try {
+            const { data: participants } = await supabase
+                .from('event_participants')
+                .select('profile_id')
+                .eq('event_id', currentEvent.id);
+
+            // Filter out current user (they already know they locked it)
+            const recipientIds = (participants || [])
+                .map(p => p.profile_id)
+                .filter(id => id !== currentUser.id);
+
+            if (recipientIds.length > 0) {
+                // Get activity name for the notification
+                const activity = activities.find(a => a.id === currentEvent.activity_id);
+                const activityName = activity ? `${activity.emoji} ${activity.name}` : 'Event';
+
+                const notificationMessage = `${currentUser.name} locked in details:\n📅 ${dateStr}\n📍 ${locationStr}`;
+
+                const { error: notifError } = await supabase.functions.invoke('send-notification', {
+                    body: {
+                        senderId: currentUser.id,
+                        recipientIds: recipientIds,
+                        message: notificationMessage,
+                        activityName: activityName,
+                        chatType: 'event',
+                        chatId: currentEvent.id,
+                        notificationType: 'event_locked'
+                    }
+                });
+
+                if (notifError) {
+                    console.error('Error sending lock notifications:', notifError);
+                } else {
+                    console.log('Lock notifications sent to', recipientIds.length, 'participants');
+                }
+            }
+        } catch (notifError) {
+            console.error('Failed to send lock notifications:', notifError);
+            // Don't throw - notification failure shouldn't break the lock flow
+        }
 
         showNotification('Event details locked in!');
 

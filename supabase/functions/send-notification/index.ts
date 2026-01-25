@@ -1,6 +1,6 @@
 // Edge Function: Send Notification
 // Sends push notifications via OneSignal while respecting user preferences
-// Supports: new_match, match_join, event_join, event_created, chat_message, poll_agreement, new_activity notifications
+// Supports: new_match, match_join, event_join, event_created, chat_message, poll_agreement, new_activity, event_locked notifications
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -20,7 +20,8 @@ const NOTIFICATION_PREFERENCE_MAP: Record<string, string> = {
   'event_created': 'notify_event_joins',
   'chat_message': 'notify_chat_messages',
   'poll_agreement': 'notify_event_joins',
-  'new_activity': 'notify_event_joins'  // Use event_joins preference for new activities
+  'new_activity': 'notify_event_joins',  // Use event_joins preference for new activities
+  'event_locked': 'notify_event_joins'   // Notification when event details are locked in
 }
 
 interface NotificationRequest {
@@ -30,7 +31,7 @@ interface NotificationRequest {
   activityName?: string
   chatType?: 'match' | 'event' | 'circle'
   chatId?: string
-  notificationType: 'event_join' | 'event_created' | 'chat_message' | 'poll_agreement' | 'new_activity'
+  notificationType: 'event_join' | 'event_created' | 'chat_message' | 'poll_agreement' | 'new_activity' | 'event_locked'
 }
 
 serve(async (req) => {
@@ -64,7 +65,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Invalid notification type: ${notificationType}. Must be one of: event_join, event_created, chat_message, poll_agreement, new_activity`
+          error: `Invalid notification type: ${notificationType}. Must be one of: event_join, event_created, chat_message, poll_agreement, new_activity, event_locked`
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -246,6 +247,13 @@ serve(async (req) => {
         heading = 'New Activity Suggested!'
         content = message  // Message includes activity name and prompt to check settings
         // No chatType/chatId for new activity notifications
+        break
+
+      case 'event_locked':
+        heading = `${activityName || 'Event'} - Details Confirmed!`
+        content = message  // Message includes the locked date and location
+        notificationData.chatType = chatType
+        notificationData.chatId = chatId
         break
     }
 
