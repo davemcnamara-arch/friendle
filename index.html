@@ -6,6 +6,7 @@
     <title>Friendle - Who's in?</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#5b4fc7">
+    <meta name="color-scheme" content="light dark">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,6 +19,7 @@
 
         :root {
             /* Light Mode Colors */
+            color-scheme: light;
             --primary-gradient-start: #5b4fc7;
             --primary-gradient-end: #6d3a9f;
             --primary-color: #5b4fc7;
@@ -39,9 +41,16 @@
             --radius-lg: 16px;
             --radius-xl: 20px;
             --transition-speed: 0.2s;
+            --banner-scheduled-bg: #e6f7ff;
+            --banner-scheduled-border: #91d5ff;
+            --banner-scheduled-text: #0050b3;
+            --banner-planning-bg: #fff3cd;
+            --banner-planning-border: #ffc107;
+            --banner-planning-text: #856404;
         }
 
         body.dark-mode {
+            color-scheme: dark;
             --primary-gradient-start: #6d5acf;
             --primary-gradient-end: #7d4aaf;
             --primary-color: #7866d9;
@@ -58,6 +67,12 @@
             --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
             --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+            --banner-scheduled-bg: #1a2a3a;
+            --banner-scheduled-border: #2a4a6a;
+            --banner-scheduled-text: #7ab8e0;
+            --banner-planning-bg: #3a3020;
+            --banner-planning-border: #5a4a20;
+            --banner-planning-text: #e0c060;
         }
 
         html, body {
@@ -98,6 +113,7 @@
             display: flex;
             flex-direction: column;
             padding: 0;
+            overflow-y: hidden;
         }
 
         .header {
@@ -1329,6 +1345,9 @@
             color: white;
             padding: 15px;
             flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         .chat-avatar {
@@ -1346,11 +1365,11 @@
         
         .scheduled-event-banner {
             padding: 10px;
-            background-color: #e6f7ff;
-            border-bottom: 1px solid #91d5ff;
+            background-color: var(--banner-scheduled-bg, #e6f7ff);
+            border-bottom: 1px solid var(--banner-scheduled-border, #91d5ff);
             text-align: center;
             font-size: 0.9em;
-            color: #0050b3;
+            color: var(--banner-scheduled-text, #0050b3);
             flex-shrink: 0;
         }
 
@@ -2852,10 +2871,15 @@ body.dark-mode .poll-notification-label {
     </div>
 </div>
         
-        <div id="event-details" style="background: #e6f7ff; padding: 12px 15px; border-bottom: 1px solid #91d5ff; flex-shrink: 0;">
-            <div id="event-date" style="font-weight: 500; margin-bottom: 4px; color: #0050b3;"></div>
-            <div id="event-location" style="color: #0050b3; font-size: 14px;"></div>
-            <div id="event-notes" style="color: #0050b3; font-size: 14px; margin-top: 4px;"></div>
+        <div id="event-details" style="background: var(--banner-scheduled-bg); padding: 12px 15px; border-bottom: 1px solid var(--banner-scheduled-border); flex-shrink: 0; position: relative;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                <div style="flex: 1;">
+                    <div id="event-date" style="font-weight: 500; margin-bottom: 4px; color: var(--banner-scheduled-text);"></div>
+                    <div id="event-location" style="color: var(--banner-scheduled-text); font-size: 14px;"></div>
+                    <div id="event-notes" style="color: var(--banner-scheduled-text); font-size: 14px; margin-top: 4px;"></div>
+                </div>
+                <button id="edit-event-details-btn" onclick="openEditEventDetailsModal()" style="background: none; border: none; cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 6px; color: var(--banner-scheduled-text); opacity: 0.7; flex-shrink: 0;" title="Edit event details">✏️</button>
+            </div>
         </div>
         
         <div class="chat-messages" id="chat-messages"></div>
@@ -3679,6 +3703,38 @@ body.dark-mode .poll-notification-label {
             </div>
 
             <button type="submit" class="btn">✅ Lock in Event</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Event Details Modal -->
+<div class="modal-overlay" id="edit-event-details-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closeEditEventDetailsModal()">×</span>
+        <div class="modal-header">✏️ Edit Event Details</div>
+
+        <form id="edit-event-details-form">
+            <input type="hidden" id="edit-event-id">
+
+            <div class="form-group">
+                <label for="edit-event-date">Date</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="date" id="edit-event-date" style="flex: 1;">
+                    <input type="time" id="edit-event-time" placeholder="Time (optional)" style="flex: 1;">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-event-location">Location</label>
+                <input type="text" id="edit-event-location" placeholder="Where are you meeting?">
+            </div>
+
+            <div class="form-group">
+                <label for="edit-event-notes-input">Notes (optional)</label>
+                <textarea id="edit-event-notes-input" rows="3" placeholder="Any additional details..."></textarea>
+            </div>
+
+            <button type="submit" class="btn">💾 Save Changes</button>
         </form>
     </div>
 </div>
@@ -6562,8 +6618,10 @@ window.toggleDarkMode = async function() {
         // Apply dark mode immediately for smooth UX
         if (isEnabled) {
             document.body.classList.add('dark-mode');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1a1a1e');
         } else {
             document.body.classList.remove('dark-mode');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#5b4fc7');
         }
 
         const { error } = await supabase
@@ -11144,6 +11202,7 @@ function renderEventCard(event) {
                     </div>
                     <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                         📅 ${dateStr}${timeStr}
+                        ${isUserJoined ? `<button onclick="event.stopPropagation(); openEditEventDetailsFromCard('${event.id}')" style="background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.6;" title="Edit details">✏️</button>` : ''}
                     </div>
                     ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
                     <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
@@ -14044,6 +14103,112 @@ async function lockEventDetails(e) {
     }
 }
 
+// ========== EDIT EVENT DETAILS FUNCTIONS ==========
+
+// Open edit modal from the event banner (inside chat) - uses currentEvent
+function openEditEventDetailsModal() {
+    if (!currentEvent) {
+        showNotification('No event context', 'error');
+        return;
+    }
+    document.getElementById('edit-event-id').value = currentEvent.id;
+    document.getElementById('edit-event-date').value = currentEvent.scheduled_date || '';
+    document.getElementById('edit-event-time').value = currentEvent.scheduled_time || '';
+    document.getElementById('edit-event-location').value = currentEvent.location || '';
+    document.getElementById('edit-event-notes-input').value = currentEvent.notes || '';
+    document.getElementById('edit-event-details-modal').style.display = 'flex';
+}
+
+// Open edit modal from the event card (outside chat) - fetches event data
+window.openEditEventDetailsFromCard = async function(eventId) {
+    try {
+        const { data: event, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+
+        if (error) throw error;
+
+        document.getElementById('edit-event-id').value = event.id;
+        document.getElementById('edit-event-date').value = event.scheduled_date || '';
+        document.getElementById('edit-event-time').value = event.scheduled_time || '';
+        document.getElementById('edit-event-location').value = event.location || '';
+        document.getElementById('edit-event-notes-input').value = event.notes || '';
+        document.getElementById('edit-event-details-modal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error loading event for edit:', error);
+        showNotification('Error loading event details', 'error');
+    }
+}
+
+function closeEditEventDetailsModal() {
+    document.getElementById('edit-event-details-modal').style.display = 'none';
+}
+
+async function saveEditEventDetails(e) {
+    e.preventDefault();
+    const eventId = document.getElementById('edit-event-id').value;
+    if (!eventId) {
+        showNotification('No event to update', 'error');
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="btn-spinner"></span>Saving...';
+
+    try {
+        const updateData = {
+            scheduled_date: document.getElementById('edit-event-date').value || null,
+            scheduled_time: document.getElementById('edit-event-time').value || null,
+            location: document.getElementById('edit-event-location').value || null,
+            notes: document.getElementById('edit-event-notes-input').value || null
+        };
+
+        const { data, error: updateError } = await supabase
+            .from('events')
+            .update(updateData)
+            .eq('id', eventId)
+            .select();
+
+        if (updateError) throw updateError;
+
+        if (!data || data.length === 0) {
+            throw new Error('Only event participants can edit event details');
+        }
+
+        // Update currentEvent if we're in chat context
+        if (currentEvent && currentEvent.id === eventId) {
+            currentEvent.scheduled_date = updateData.scheduled_date;
+            currentEvent.scheduled_time = updateData.scheduled_time;
+            currentEvent.location = updateData.location;
+            currentEvent.notes = updateData.notes;
+            // Refresh the banner display
+            await openEventChat(eventId);
+        }
+
+        closeEditEventDetailsModal();
+        showNotification('Event details updated!');
+
+        // Refresh events list if visible
+        const eventsPage = document.getElementById('events');
+        if (eventsPage && eventsPage.classList.contains('active')) {
+            await loadEvents();
+        }
+
+    } catch (error) {
+        console.error('Error saving event details:', error);
+        showNotification(error.message || 'Error updating event', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    }
+}
+
+// ========== END EDIT EVENT DETAILS FUNCTIONS ==========
+
 // ========== END PLANNING EVENT FUNCTIONS ==========
 
 // ========== POLLING FUNCTIONS ==========
@@ -14859,19 +15024,23 @@ if (participantCount <= 3) {
 
         if (event.status === 'planning') {
             // Planning mode: Show proposed timeframe and suggested location
-            eventDetailsDiv.style.background = '#fff3cd'; // Yellow background for planning
-            eventDetailsDiv.style.borderColor = '#ffc107';
+            eventDetailsDiv.style.background = 'var(--banner-planning-bg)';
+            eventDetailsDiv.style.borderColor = 'var(--banner-planning-border)';
 
             const timeframeText = event.proposed_timeframe ? `📅 Proposed: ${event.proposed_timeframe}` : '📅 Planning...';
             const locationText = event.location ? `\n📍 Suggested: ${event.location}` : '';
 
             document.getElementById('event-date').textContent = `🎳 Planning Mode\n${timeframeText}${locationText}`;
+            document.getElementById('event-date').style.color = 'var(--banner-planning-text)';
             document.getElementById('event-location').textContent = '';
             document.getElementById('event-notes').textContent = event.notes ? `📝 ${event.notes}` : '';
+            document.getElementById('event-notes').style.color = 'var(--banner-planning-text)';
+            const editBtn = document.getElementById('edit-event-details-btn');
+            if (editBtn) editBtn.style.color = 'var(--banner-planning-text)';
         } else {
             // Scheduled mode: Show actual date, time, location
-            eventDetailsDiv.style.background = '#e6f7ff'; // Blue background for scheduled
-            eventDetailsDiv.style.borderColor = '#91d5ff';
+            eventDetailsDiv.style.background = 'var(--banner-scheduled-bg)';
+            eventDetailsDiv.style.borderColor = 'var(--banner-scheduled-border)';
 
             if (event.scheduled_date) {
                 const eventDate = new Date(event.scheduled_date);
@@ -14893,10 +15062,15 @@ if (participantCount <= 3) {
                 }
 
                 document.getElementById('event-date').textContent = `📅 ${dateStr}${timeStr}`;
+                document.getElementById('event-date').style.color = 'var(--banner-scheduled-text)';
                 document.getElementById('event-location').textContent =
                     event.location ? `📍 ${event.location}` : '';
+                document.getElementById('event-location').style.color = 'var(--banner-scheduled-text)';
                 document.getElementById('event-notes').textContent =
                     event.notes ? `📝 ${event.notes}` : '';
+                document.getElementById('event-notes').style.color = 'var(--banner-scheduled-text)';
+                const editBtn = document.getElementById('edit-event-details-btn');
+                if (editBtn) editBtn.style.color = 'var(--banner-scheduled-text)';
             }
         }
         
@@ -17875,6 +18049,9 @@ document.querySelectorAll('#planning-event-form input, #planning-event-form sele
 
 // Lock details form submission
 document.getElementById('lock-details-form').addEventListener('submit', lockEventDetails);
+
+// Edit event details form submission
+document.getElementById('edit-event-details-form').addEventListener('submit', saveEditEventDetails);
 
 // Create poll form submission
 document.getElementById('create-poll-form').addEventListener('submit', submitPoll);
