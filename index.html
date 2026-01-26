@@ -14172,33 +14172,43 @@ async function lockEventDetails(e) {
 
 // ========== EDIT EVENT DETAILS FUNCTIONS ==========
 
+// Helper to populate the edit event details modal from an event object
+function populateEditEventModal(event) {
+    document.getElementById('edit-event-id').value = event.id;
+    // Handle both YYYY-MM-DD and full ISO timestamp formats for date input
+    const rawDate = event.scheduled_date || '';
+    document.getElementById('edit-event-date').value = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
+    document.getElementById('edit-event-time').value = event.scheduled_time || '';
+    document.getElementById('edit-event-location').value = event.location || '';
+    document.getElementById('edit-event-notes-input').value = event.notes || '';
+    document.getElementById('edit-event-details-modal').style.display = 'flex';
+}
+
 // Open edit modal from the event banner (inside chat) - uses currentEvent
 function openEditEventDetailsModal() {
     if (!currentEvent) {
         showNotification('No event context', 'error');
         return;
     }
-    document.getElementById('edit-event-id').value = currentEvent.id;
-    document.getElementById('edit-event-date').value = currentEvent.scheduled_date || '';
-    document.getElementById('edit-event-time').value = currentEvent.scheduled_time || '';
-    document.getElementById('edit-event-location').value = currentEvent.location || '';
-    document.getElementById('edit-event-notes-input').value = currentEvent.notes || '';
-    document.getElementById('edit-event-details-modal').style.display = 'flex';
+    populateEditEventModal(currentEvent);
 }
 
-// Open edit modal from the event card (outside chat) - uses cached event data
-window.openEditEventDetailsFromCard = function(eventId) {
-    const event = eventDataCache.get(eventId);
+// Open edit modal from the event card (outside chat) - uses cached data with DB fallback
+window.openEditEventDetailsFromCard = async function(eventId) {
+    let event = eventDataCache.get(eventId);
     if (!event) {
-        showNotification('Event data not found. Please refresh the page.', 'error');
-        return;
+        // Fallback: fetch from DB
+        try {
+            const { data, error } = await supabase.from('events').select('*').eq('id', eventId).single();
+            if (error || !data) throw error || new Error('Event not found');
+            event = data;
+        } catch (err) {
+            console.error('Error loading event for edit:', err);
+            showNotification('Error loading event details', 'error');
+            return;
+        }
     }
-    document.getElementById('edit-event-id').value = event.id;
-    document.getElementById('edit-event-date').value = event.scheduled_date || '';
-    document.getElementById('edit-event-time').value = event.scheduled_time || '';
-    document.getElementById('edit-event-location').value = event.location || '';
-    document.getElementById('edit-event-notes-input').value = event.notes || '';
-    document.getElementById('edit-event-details-modal').style.display = 'flex';
+    populateEditEventModal(event);
 }
 
 function closeEditEventDetailsModal() {
@@ -16765,10 +16775,19 @@ if (pageId !== 'chat') {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
 
-    // Pin chat header/details: disable pages-container scroll for chat page
+    // Pin chat header/details: make pages-container a proper flex column for chat
+    // so the height chain works and only chat-messages scrolls
     const pagesContainer = document.getElementById('pages-container');
     if (pagesContainer) {
-        pagesContainer.style.overflowY = (pageId === 'chat') ? 'hidden' : 'auto';
+        if (pageId === 'chat') {
+            pagesContainer.style.display = 'flex';
+            pagesContainer.style.flexDirection = 'column';
+            pagesContainer.style.overflowY = 'hidden';
+        } else {
+            pagesContainer.style.display = '';
+            pagesContainer.style.flexDirection = '';
+            pagesContainer.style.overflowY = 'auto';
+        }
     }
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
