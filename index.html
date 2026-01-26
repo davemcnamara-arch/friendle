@@ -3812,24 +3812,24 @@ body.dark-mode .poll-notification-label {
         <div class="modal-header">✏️ Edit Event Details</div>
 
         <form id="edit-event-details-form">
-            <input type="hidden" id="edit-event-id">
+            <input type="hidden" id="edit-details-event-id">
 
             <div class="form-group">
-                <label for="edit-event-date">Date</label>
+                <label for="edit-details-date">Date</label>
                 <div style="display: flex; gap: 10px;">
-                    <input type="date" id="edit-event-date" style="flex: 1;">
-                    <input type="time" id="edit-event-time" placeholder="Time (optional)" style="flex: 1;">
+                    <input type="date" id="edit-details-date" style="flex: 1;">
+                    <input type="time" id="edit-details-time" placeholder="Time (optional)" style="flex: 1;">
                 </div>
             </div>
 
             <div class="form-group">
-                <label for="edit-event-location">Location</label>
-                <input type="text" id="edit-event-location" placeholder="Where are you meeting?">
+                <label for="edit-details-location">Location</label>
+                <input type="text" id="edit-details-location" placeholder="Where are you meeting?">
             </div>
 
             <div class="form-group">
-                <label for="edit-event-notes-input">Notes (optional)</label>
-                <textarea id="edit-event-notes-input" rows="3" placeholder="Any additional details..."></textarea>
+                <label for="edit-details-notes">Notes (optional)</label>
+                <textarea id="edit-details-notes" rows="3" placeholder="Any additional details..."></textarea>
             </div>
 
             <button type="submit" class="btn">💾 Save Changes</button>
@@ -14219,13 +14219,13 @@ async function lockEventDetails(e) {
 
 // Helper to populate the edit event details modal from an event object
 function populateEditEventModal(event) {
-    document.getElementById('edit-event-id').value = event.id;
+    document.getElementById('edit-details-event-id').value = event.id;
     // Handle both YYYY-MM-DD and full ISO timestamp formats for date input
     const rawDate = event.scheduled_date || '';
-    document.getElementById('edit-event-date').value = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
-    document.getElementById('edit-event-time').value = event.scheduled_time || '';
-    document.getElementById('edit-event-location').value = event.location || '';
-    document.getElementById('edit-event-notes-input').value = event.notes || '';
+    document.getElementById('edit-details-date').value = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
+    document.getElementById('edit-details-time').value = event.scheduled_time || '';
+    document.getElementById('edit-details-location').value = event.location || '';
+    document.getElementById('edit-details-notes').value = event.notes || '';
     document.getElementById('edit-event-details-modal').style.display = 'flex';
 }
 
@@ -14262,7 +14262,7 @@ function closeEditEventDetailsModal() {
 
 async function saveEditEventDetails(e) {
     e.preventDefault();
-    const eventId = document.getElementById('edit-event-id').value;
+    const eventId = document.getElementById('edit-details-event-id').value;
     if (!eventId) {
         showNotification('No event to update', 'error');
         return;
@@ -14275,10 +14275,10 @@ async function saveEditEventDetails(e) {
 
     try {
         const updateData = {
-            scheduled_date: document.getElementById('edit-event-date').value || null,
-            scheduled_time: document.getElementById('edit-event-time').value || null,
-            location: document.getElementById('edit-event-location').value || null,
-            notes: document.getElementById('edit-event-notes-input').value || null
+            scheduled_date: document.getElementById('edit-details-date').value || null,
+            scheduled_time: document.getElementById('edit-details-time').value || null,
+            location: document.getElementById('edit-details-location').value || null,
+            notes: document.getElementById('edit-details-notes').value || null
         };
 
         const { data, error: updateError } = await supabase
