@@ -2258,6 +2258,41 @@ body.dark-mode .consensus-notification-badge {
 }
 
 /* Poll Styles */
+.poll-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background: #eef6ff;
+    border-bottom: 1px solid #c8dff7;
+    cursor: pointer;
+    font-size: 13px;
+    color: #0050b3;
+}
+.poll-bar:active {
+    background: #dceeff;
+}
+.poll-bar-question {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+.poll-bar-votes {
+    flex-shrink: 0;
+    font-size: 12px;
+    opacity: 0.7;
+}
+body.dark-mode .poll-bar {
+    background: #1a2a3a;
+    border-bottom-color: #2a4a6a;
+    color: #7ab8e0;
+}
+body.dark-mode .poll-bar:active {
+    background: #233a4f;
+}
+
 .poll-container {
     background: #f8f9fa;
 }
@@ -2933,7 +2968,9 @@ body.dark-mode .poll-notification-label {
                 <button id="edit-event-details-btn" onclick="openEditEventDetailsModal()" style="background: none; border: none; cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 6px; color: var(--banner-scheduled-text); opacity: 0.7; flex-shrink: 0;" title="Edit event details">✏️</button>
             </div>
         </div>
-        
+
+        <div id="poll-bar-container" style="flex-shrink: 0;"></div>
+
         <div class="chat-messages" id="chat-messages"></div>
         
         <div class="chat-input">
@@ -3756,6 +3793,15 @@ body.dark-mode .poll-notification-label {
 
             <button type="submit" class="btn">✅ Lock in Event</button>
         </form>
+    </div>
+</div>
+
+<!-- View Poll Modal -->
+<div class="modal-overlay" id="view-poll-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-modal-btn" onclick="closeViewPollModal()">×</span>
+        <div class="modal-header">📊 Poll</div>
+        <div id="view-poll-content"></div>
     </div>
 </div>
 
@@ -14403,99 +14449,94 @@ async function submitPoll(e) {
     }
 }
 
-// Render a poll message in the chat
+// Render a poll as a slim bar pinned under the event details banner
 async function renderPollMessage(message, poll) {
     console.log('📊 renderPollMessage called:', { messageId: message.id, pollId: poll.id, question: poll.question });
-    const messagesContainer = document.getElementById('chat-messages');
-    if (!messagesContainer) {
-        console.error('❌ No messages container found!');
-        return;
-    }
+    const barContainer = document.getElementById('poll-bar-container');
+    if (!barContainer) return;
 
-    // Check if this message already exists (prevent duplicates) - check by both message ID and poll ID
-    const existingMessageById = document.querySelector(`[data-message-id="${message.id}"]`);
-    const existingPollById = document.querySelector(`[data-poll-id="${poll.id}"]`);
+    // Prevent duplicates
+    if (document.querySelector(`[data-poll-id="${poll.id}"]`)) return;
 
-    if (existingMessageById || existingPollById) {
-        console.log('⚠️ Poll message already exists, skipping duplicate render:', {
-            messageExists: !!existingMessageById,
-            pollExists: !!existingPollById
-        });
-        return;
-    }
-
-    // Parse options - handle both old format (array) and new format (object with metadata)
-    let pollData = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
-    let options, autoLockEnabled, autoLockThreshold;
-
-    if (Array.isArray(pollData)) {
-        // Old format: just an array of option strings
-        options = pollData;
-        autoLockEnabled = false;
-        autoLockThreshold = null;
-    } else {
-        // New format: object with options and metadata
-        options = pollData.options || [];
-        autoLockEnabled = pollData.autoLockEnabled || false;
-        autoLockThreshold = pollData.autoLockThreshold || null;
-    }
-
-    // Get vote counts
+    // Get vote count for display
     const { data: votes } = await supabase
         .from('poll_votes')
         .select('option_index, voter_id')
         .eq('poll_id', poll.id);
 
-    const voteCounts = {};
-    options.forEach((_, index) => { voteCounts[index] = 0; });
-    votes?.forEach(vote => {
-        voteCounts[vote.option_index] = (voteCounts[vote.option_index] || 0) + 1;
-    });
-
-    const userVote = votes?.find(v => v.voter_id === currentUser.id);
     const totalVotes = votes?.length || 0;
+    const userVote = votes?.find(v => v.voter_id === currentUser.id);
 
-    // Create poll message element
-    const pollDiv = document.createElement('div');
-    pollDiv.className = 'message';
-    pollDiv.setAttribute('data-message-id', message.id);
-    pollDiv.setAttribute('data-poll-id', poll.id);
-    // Make poll full width
-    pollDiv.style.cssText = 'width: 100%; margin-bottom: 15px;';
+    // Create slim bar
+    const bar = document.createElement('div');
+    bar.className = 'poll-bar';
+    bar.setAttribute('data-poll-id', poll.id);
+    bar.setAttribute('data-message-id', message.id);
+    bar.onclick = () => openViewPollModal(poll.id);
+    bar.innerHTML = `
+        <span>📊</span>
+        <span class="poll-bar-question">${escapeHtml(poll.question)}</span>
+        <span class="poll-bar-votes">${userVote ? '✓ ' : ''}${totalVotes} vote${totalVotes !== 1 ? 's' : ''}</span>
+        <span style="opacity:0.5;">›</span>
+    `;
+    barContainer.appendChild(bar);
+}
 
-    const sender = message.sender_id === currentUser.id ? currentUser : (message.sender || { name: 'User', avatar: '👤' });
+// Open poll in a modal for viewing and voting
+async function openViewPollModal(pollId) {
+    const content = document.getElementById('view-poll-content');
+    content.innerHTML = '<div style="text-align:center; padding:20px;">Loading poll...</div>';
+    document.getElementById('view-poll-modal').style.display = 'flex';
 
-    pollDiv.innerHTML = `
-        <div class="poll-container" style="padding: 15px; border-radius: 10px; border-left: 4px solid #007bff; width: 100%;">
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+    try {
+        const { data: poll } = await supabase.from('polls').select('*').eq('id', pollId).single();
+        if (!poll) { content.innerHTML = '<p>Poll not found.</p>'; return; }
+
+        const { data: pollMessage } = await supabase
+            .from('event_messages')
+            .select('*, sender:profiles(id, name, avatar)')
+            .eq('poll_id', pollId)
+            .single();
+
+        // Parse options
+        let pollData = typeof poll.options === 'string' ? JSON.parse(poll.options) : poll.options;
+        let options, autoLockEnabled, autoLockThreshold;
+        if (Array.isArray(pollData)) {
+            options = pollData; autoLockEnabled = false; autoLockThreshold = null;
+        } else {
+            options = pollData.options || []; autoLockEnabled = pollData.autoLockEnabled || false; autoLockThreshold = pollData.autoLockThreshold || null;
+        }
+
+        // Get votes
+        const { data: votes } = await supabase.from('poll_votes').select('option_index, voter_id').eq('poll_id', pollId);
+        const voteCounts = {};
+        options.forEach((_, i) => { voteCounts[i] = 0; });
+        votes?.forEach(v => { voteCounts[v.option_index] = (voteCounts[v.option_index] || 0) + 1; });
+        const userVote = votes?.find(v => v.voter_id === currentUser.id);
+        const totalVotes = votes?.length || 0;
+
+        const sender = pollMessage?.sender || { name: 'User', avatar: '👤' };
+
+        content.innerHTML = `
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
                 ${renderAvatar(sender.avatar, 32)}
                 <div style="margin-left: 10px;">
                     <div class="poll-sender-name" style="font-weight: 600;">${escapeHtml(sender.name)}</div>
                     <div class="poll-sender-label" style="font-size: 12px;">📊 asked:</div>
                 </div>
             </div>
-            <div class="poll-question" style="font-weight: 500; margin-bottom: 15px;">
+            <div class="poll-question" style="font-weight: 500; margin-bottom: 15px; font-size: 16px;">
                 ${escapeHtml(poll.question)}
             </div>
-            <div class="poll-options" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
                 ${options.map((option, index) => {
                     const voteCount = voteCounts[index] || 0;
                     const isSelected = userVote?.option_index === index;
                     return `
                         <button
                             class="poll-option-btn ${isSelected ? 'selected' : ''}"
-                            onclick="voteOnPoll('${poll.id}', ${index})"
-                            style="
-                                padding: 10px 15px;
-                                border-radius: 8px;
-                                text-align: left;
-                                cursor: pointer;
-                                font-size: 14px;
-                                transition: all 0.2s;
-                                display: flex;
-                                justify-content: space-between;
-                                align-items: center;
-                            "
+                            onclick="voteOnPollFromModal('${pollId}', ${index})"
+                            style="padding: 10px 15px; border-radius: 8px; text-align: left; cursor: pointer; font-size: 14px; display: flex; justify-content: space-between; align-items: center;"
                         >
                             <span>${isSelected ? '✓ ' : ''}${escapeHtml(option)}</span>
                             <span style="font-weight: 600;">${voteCount} vote${voteCount !== 1 ? 's' : ''}</span>
@@ -14512,13 +14553,59 @@ async function renderPollMessage(message, poll) {
                 </div>
             ` : ''}
             <div class="poll-timestamp" style="margin-top: 8px; font-size: 11px;">
-                ${formatTime(message.created_at)}
+                ${pollMessage ? formatTime(pollMessage.created_at) : ''}
             </div>
-        </div>
-    `;
+        `;
+    } catch (err) {
+        console.error('Error loading poll:', err);
+        content.innerHTML = '<p>Error loading poll.</p>';
+    }
+}
 
-    messagesContainer.appendChild(pollDiv);
-    forceScrollToBottom();
+function closeViewPollModal() {
+    document.getElementById('view-poll-modal').style.display = 'none';
+}
+
+// Vote from the poll modal, then refresh both modal and bar
+window.voteOnPollFromModal = async function(pollId, optionIndex) {
+    try {
+        const { error } = await supabase.from('poll_votes').upsert({
+            poll_id: pollId, voter_id: currentUser.id, option_index: optionIndex
+        }, { onConflict: 'poll_id,voter_id' });
+        if (error) throw error;
+
+        await checkAutoLockThreshold(pollId);
+
+        // Refresh the modal content in-place
+        await openViewPollModal(pollId);
+
+        // Refresh the slim bar
+        await refreshPollBar(pollId);
+
+        // Broadcast vote change
+        if (currentEvent) {
+            const channel = supabase.channel(`event_${currentEvent.id}`);
+            await channel.send({ type: 'broadcast', event: 'poll_updated', payload: { pollId } });
+        }
+    } catch (error) {
+        console.error('Error voting on poll:', error);
+        showNotification('Error submitting vote', 'error');
+    }
+}
+
+// Refresh a single poll bar's vote count
+async function refreshPollBar(pollId) {
+    const bar = document.querySelector(`.poll-bar[data-poll-id="${pollId}"]`);
+    if (!bar) return;
+
+    const { data: votes } = await supabase.from('poll_votes').select('option_index, voter_id').eq('poll_id', pollId);
+    const totalVotes = votes?.length || 0;
+    const userVote = votes?.find(v => v.voter_id === currentUser.id);
+
+    const votesSpan = bar.querySelector('.poll-bar-votes');
+    if (votesSpan) {
+        votesSpan.textContent = `${userVote ? '✓ ' : ''}${totalVotes} vote${totalVotes !== 1 ? 's' : ''}`;
+    }
 }
 
 // Vote on a poll
@@ -14708,32 +14795,17 @@ async function checkAutoLockThreshold(pollId) {
     }
 }
 
-// Refresh a single poll's display
+// Refresh a single poll's display (bar + modal if open)
 async function refreshPollDisplay(pollId) {
-    // Find ALL poll elements with this poll_id (in case of duplicates)
-    const pollElements = document.querySelectorAll(`[data-poll-id="${pollId}"]`);
-    if (pollElements.length === 0) return;
-
-    // Fetch updated poll data
-    const { data: poll } = await supabase
-        .from('polls')
-        .select('*')
-        .eq('id', pollId)
-        .single();
-
-    const { data: pollMessage } = await supabase
-        .from('event_messages')
-        .select('*, sender:profiles(id, name, avatar)')
-        .eq('poll_id', pollId)
-        .single();
-
-    if (!poll || !pollMessage) return;
-
-    // Remove ALL old elements (fixes duplication issue)
-    pollElements.forEach(element => element.remove());
-
-    // Re-render with updated data (only once)
-    await renderPollMessage(pollMessage, poll);
+    await refreshPollBar(pollId);
+    // If the view-poll modal is open for this poll, refresh it too
+    const modal = document.getElementById('view-poll-modal');
+    if (modal && modal.style.display === 'flex') {
+        const content = document.getElementById('view-poll-content');
+        if (content && content.querySelector(`[onclick*="${pollId}"]`)) {
+            await openViewPollModal(pollId);
+        }
+    }
 }
 
 // Send system message (for planning started, event locked, etc.)
@@ -15100,6 +15172,10 @@ if (participantCount <= 3) {
         `${shown}, and <a href="#" onclick="event.preventDefault(); alert('Participants:\\n\\n${allNames}');" style="color: white; text-decoration: underline; cursor: pointer;">${remaining} other${remaining > 1 ? 's' : ''}</a>`;
 }
         
+        // Clear poll bars from previous chat
+        const pollBarContainer = document.getElementById('poll-bar-container');
+        if (pollBarContainer) pollBarContainer.innerHTML = '';
+
         // Format and display event details based on status
         const eventDetailsDiv = document.getElementById('event-details');
         eventDetailsDiv.style.display = 'block'; // Show event details banner for event chats
