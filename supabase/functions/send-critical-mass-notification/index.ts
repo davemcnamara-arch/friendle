@@ -11,7 +11,7 @@ const ONESIGNAL_API_KEY = Deno.env.get('ONESIGNAL_REST_API_KEY')
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
 }
 
 interface CriticalMassRequest {
