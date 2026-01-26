@@ -16856,6 +16856,9 @@ async function getCircleUnreadCount(circleId, lastReadAt) {
 
         // Track navigation history for proper back button behavior
         let previousPage = localStorage.getItem('friendle_previous_page') || 'matches'; // Restore or default to matches
+        // Navigation stack for device back button support
+        let navigationStack = [];
+        let isHandlingPopState = false;
 
         window.showPage = async function(pageId) {
     // Track current page before navigating
@@ -16865,6 +16868,13 @@ async function getCircleUnreadCount(circleId, lastReadAt) {
         previousPage = currentPage;
         // Persist previousPage for refresh scenarios
         localStorage.setItem('friendle_previous_page', previousPage);
+        // Push to navigation stack for device back button
+        navigationStack.push(currentPage);
+    }
+
+    // Push browser history state so device back button triggers popstate instead of exiting
+    if (!isHandlingPopState && currentPage !== 'onboarding' && currentPage !== 'welcome') {
+        history.pushState({ page: pageId }, '', window.location.pathname + window.location.search);
     }
 
     // Clean up subscriptions when leaving chat
@@ -16936,8 +16946,40 @@ if (pageId === 'settings') {
 
         // Navigate back to the previous page (used from chat back button and event completion)
         window.goToPreviousPage = async function() {
-            await showPage(previousPage);
+            if (navigationStack.length > 0) {
+                // Use the stack for accurate history
+                const prevPage = navigationStack.pop();
+                await showPage(prevPage);
+            } else {
+                await showPage(previousPage);
+            }
         }
+
+        // Handle device back button (popstate event)
+        // When the user presses the Android back button or browser back button,
+        // navigate to the previous in-app page instead of exiting the app.
+        window.addEventListener('popstate', async function(event) {
+            const currentPage = document.querySelector('.page.active')?.id;
+
+            // Don't interfere with onboarding/welcome flow
+            if (currentPage === 'onboarding' || currentPage === 'welcome') {
+                return;
+            }
+
+            if (navigationStack.length > 0) {
+                const prevPage = navigationStack.pop();
+                isHandlingPopState = true;
+                await showPage(prevPage);
+                isHandlingPopState = false;
+            } else {
+                // No more history - push a state so next back press also stays in-app
+                // This prevents the app from exiting on the first back press from a root page
+                history.pushState({ page: currentPage }, '', window.location.pathname + window.location.search);
+            }
+        });
+
+        // Set initial history state so the first back button press triggers popstate
+        history.replaceState({ page: localStorage.getItem('friendle_current_page') || 'matches' }, '', window.location.pathname + window.location.search);
 
         // Export user data for GDPR compliance
         window.exportData = async function() {
