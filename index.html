@@ -15552,9 +15552,10 @@ function closeEventOptionsModal() {
 }
 
 function editCurrentEvent() {
-    // Only event creator can edit
-    if (currentEvent.created_by !== currentUser.id) {
-        alert('Only the event creator can edit this event');
+    // Only event participants can edit
+    const isParticipant = currentEvent.event_participants?.some(p => p.profile_id === currentUser.id);
+    if (!isParticipant) {
+        alert('Only event participants can edit this event');
         return;
     }
 
@@ -15583,7 +15584,8 @@ async function saveEventEdits(e) {
             eventId: currentEvent.id,
             eventCreator: currentEvent.created_by,
             currentUserId: currentUser.id,
-            isCreator: currentEvent.created_by === currentUser.id
+            isCreator: currentEvent.created_by === currentUser.id,
+            isParticipant: currentEvent.event_participants?.some(p => p.profile_id === currentUser.id)
         });
 
         const maxParticipantsInput = document.getElementById('edit-event-max-participants').value;
@@ -15609,9 +15611,9 @@ async function saveEventEdits(e) {
 
         if (error) throw error;
 
-        // Check if the update actually succeeded (RLS may block non-creators)
+        // Check if the update actually succeeded (RLS may block non-participants)
         if (!data || data.length === 0) {
-            throw new Error('Only the event creator can edit event details');
+            throw new Error('Only event participants can edit event details');
         }
 
         closeEditEventModal();
