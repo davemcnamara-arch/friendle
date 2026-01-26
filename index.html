@@ -75,8 +75,40 @@
             --banner-planning-text: #e0c060;
         }
 
+        /* Samsung Internet forced dark mode prevention:
+           When system prefers dark, auto-apply dark styles so Samsung
+           doesn't forcibly darken the page. User can override with force-light. */
+        @media (prefers-color-scheme: dark) {
+            body:not(.force-light):not(.dark-mode) {
+                color-scheme: dark;
+                --primary-gradient-start: #6d5acf;
+                --primary-gradient-end: #7d4aaf;
+                --primary-color: #7866d9;
+                --primary-hover: #8a7ae3;
+                --bg-color: #0f0f11;
+                --bg-secondary: #1a1a1e;
+                --text-primary: #e5e5e7;
+                --text-secondary: #a8a8aa;
+                --text-tertiary: #6e6e70;
+                --border-color: #2a2a2e;
+                --border-hover: #3a3a3e;
+                --card-bg: #1a1a1e;
+                --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+                --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+                --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+                --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+                --banner-scheduled-bg: #1a2a3a;
+                --banner-scheduled-border: #2a4a6a;
+                --banner-scheduled-text: #7ab8e0;
+                --banner-planning-bg: #3a3020;
+                --banner-planning-border: #5a4a20;
+                --banner-planning-text: #e0c060;
+            }
+        }
+
         html, body {
             height: 100%;
+            background-color: var(--bg-color);
         }
 
         body {
@@ -1378,6 +1410,7 @@
             overflow-y: auto;
             padding: 20px;
             background: var(--bg-secondary);
+            overscroll-behavior: contain;
         }
 
         .message {
@@ -2682,6 +2715,21 @@ body.dark-mode .poll-notification-label {
 </script>
 </head>
 <body>
+    <script>
+    // Early dark mode detection: prevent Samsung/Chrome forced dark mode flash
+    // by immediately applying the correct class before any rendering
+    (function() {
+        try {
+            var saved = localStorage.getItem('friendle_dark_mode');
+            if (saved === 'true') {
+                document.body.classList.add('dark-mode');
+            } else if (saved === 'false') {
+                document.body.classList.add('force-light');
+            }
+            // If no saved preference, leave it to profile load
+        } catch(e) {}
+    })();
+    </script>
     <div class="app-container">
         <div id="pages-container" style="flex: 1; overflow-y: auto; position: relative;">
 <div id="onboarding" class="page active">
@@ -5740,14 +5788,25 @@ async function loadMinimumGroupSize() {
         notifyAt8Toggle.checked = currentUser.notify_at_8 !== false; // Default true
     }
 
-    // Load dark mode preference
+    // Load dark mode preference (with Samsung forced-dark-mode prevention)
     const darkModeToggle = document.getElementById('dark-mode-toggle');
     if (darkModeToggle) {
         const isDarkMode = currentUser.dark_mode_enabled || false;
         darkModeToggle.checked = isDarkMode;
-        // Apply dark mode on load
         if (isDarkMode) {
             document.body.classList.add('dark-mode');
+            document.body.classList.remove('force-light');
+        } else {
+            document.body.classList.remove('dark-mode');
+            // force-light tells Samsung/Chrome not to apply forced dark mode
+            document.body.classList.add('force-light');
+        }
+        // Persist for early detection on next load (prevents flash)
+        localStorage.setItem('friendle_dark_mode', isDarkMode ? 'true' : 'false');
+        // Update meta theme-color to match
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+            metaTheme.setAttribute('content', isDarkMode ? '#1a1a1e' : '#5b4fc7');
         }
     }
 }
@@ -6618,9 +6677,11 @@ window.toggleDarkMode = async function() {
         // Apply dark mode immediately for smooth UX
         if (isEnabled) {
             document.body.classList.add('dark-mode');
+            document.body.classList.remove('force-light');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1a1a1e');
         } else {
             document.body.classList.remove('dark-mode');
+            document.body.classList.add('force-light');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#5b4fc7');
         }
 
@@ -6632,6 +6693,8 @@ window.toggleDarkMode = async function() {
         if (error) throw error;
 
         currentUser.dark_mode_enabled = isEnabled;
+        // Persist for early detection on next load (prevents flash on Samsung)
+        localStorage.setItem('friendle_dark_mode', isEnabled ? 'true' : 'false');
         // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
   SecureStorage.setUserId(currentUser.id);
   SecureStorage.setSessionData(currentUser);
@@ -11158,6 +11221,9 @@ function renderEvents(events, pastEvents = []) {
 function renderEventCard(event) {
     if (!event.activity || !event.circle) return '';
 
+    // Cache event data for edit modal access from card
+    eventDataCache.set(event.id, event);
+
     const isUserJoined = event.isUserJoined || false;
     const activityEmoji = event.activity.emoji || '📅';
     const activityName = event.activity.name || 'Event';
@@ -13220,6 +13286,7 @@ window.markAllVisibleMessagesAsRead = async function(messageType) {
 
 // Global variable to track current event
 let currentEvent = null;
+const eventDataCache = new Map(); // Cache event data for edit modal from event cards
 let eventMessageSubscription = null;
 
 // Open modal to create new event
@@ -14119,27 +14186,19 @@ function openEditEventDetailsModal() {
     document.getElementById('edit-event-details-modal').style.display = 'flex';
 }
 
-// Open edit modal from the event card (outside chat) - fetches event data
-window.openEditEventDetailsFromCard = async function(eventId) {
-    try {
-        const { data: event, error } = await supabase
-            .from('events')
-            .select('*')
-            .eq('id', eventId)
-            .single();
-
-        if (error) throw error;
-
-        document.getElementById('edit-event-id').value = event.id;
-        document.getElementById('edit-event-date').value = event.scheduled_date || '';
-        document.getElementById('edit-event-time').value = event.scheduled_time || '';
-        document.getElementById('edit-event-location').value = event.location || '';
-        document.getElementById('edit-event-notes-input').value = event.notes || '';
-        document.getElementById('edit-event-details-modal').style.display = 'flex';
-    } catch (error) {
-        console.error('Error loading event for edit:', error);
-        showNotification('Error loading event details', 'error');
+// Open edit modal from the event card (outside chat) - uses cached event data
+window.openEditEventDetailsFromCard = function(eventId) {
+    const event = eventDataCache.get(eventId);
+    if (!event) {
+        showNotification('Event data not found. Please refresh the page.', 'error');
+        return;
     }
+    document.getElementById('edit-event-id').value = event.id;
+    document.getElementById('edit-event-date').value = event.scheduled_date || '';
+    document.getElementById('edit-event-time').value = event.scheduled_time || '';
+    document.getElementById('edit-event-location').value = event.location || '';
+    document.getElementById('edit-event-notes-input').value = event.notes || '';
+    document.getElementById('edit-event-details-modal').style.display = 'flex';
 }
 
 function closeEditEventDetailsModal() {
@@ -14177,6 +14236,15 @@ async function saveEditEventDetails(e) {
 
         if (!data || data.length === 0) {
             throw new Error('Only event participants can edit event details');
+        }
+
+        // Update cached event data
+        const cachedEvent = eventDataCache.get(eventId);
+        if (cachedEvent) {
+            cachedEvent.scheduled_date = updateData.scheduled_date;
+            cachedEvent.scheduled_time = updateData.scheduled_time;
+            cachedEvent.location = updateData.location;
+            cachedEvent.notes = updateData.notes;
         }
 
         // Update currentEvent if we're in chat context
@@ -16696,6 +16764,12 @@ if (pageId !== 'chat') {
     localStorage.setItem('friendle_current_page', pageId);
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
+
+    // Pin chat header/details: disable pages-container scroll for chat page
+    const pagesContainer = document.getElementById('pages-container');
+    if (pagesContainer) {
+        pagesContainer.style.overflowY = (pageId === 'chat') ? 'hidden' : 'auto';
+    }
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`)?.classList.add('active');
     
