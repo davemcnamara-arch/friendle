@@ -15502,11 +15502,14 @@ function setupChatInputScrollBehavior() {
     }
 
     function updateChatInputVisibility() {
-        const threshold = 80; // px from bottom to count as "at bottom"
+        const threshold = 80;
+        const isHidden = chatInput.classList.contains('hidden-input');
         const atBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) < threshold;
-        if (atBottom) {
+        if (atBottom && isHidden) {
             chatInput.classList.remove('hidden-input');
-        } else {
+            // Compensate: showing input shrinks chat-messages, so pin to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } else if (!atBottom && !isHidden) {
             chatInput.classList.add('hidden-input');
         }
     }
