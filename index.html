@@ -1593,6 +1593,10 @@
             flex-shrink: 0;
         }
 
+        .chat-input.hidden-input {
+            display: none !important;
+        }
+
         .chat-input textarea {
             width: 100%;
             padding: 10px;
@@ -15155,6 +15159,9 @@ if (participantCount <= 3) {
         // Load messages (with archive support)
 await loadEventMessages(eventId, event.created_at);
 
+        // Set up scroll-to-show input: hide chat input unless scrolled to bottom
+        setupChatInputScrollBehavior();
+
         // Mark event as read
         await markEventAsRead(eventId);
 
@@ -15478,6 +15485,38 @@ function forceScrollToBottom(attempts = 0) {
     if (attempts < 3) {
         setTimeout(() => forceScrollToBottom(attempts + 1), 200 + (attempts * 200));
     }
+}
+
+// Show/hide chat input based on scroll position
+// Input is visible only when user is scrolled to (or near) the bottom
+let chatInputScrollHandler = null;
+
+function setupChatInputScrollBehavior() {
+    const messagesContainer = document.getElementById('chat-messages');
+    const chatInput = document.querySelector('.chat-input');
+    if (!messagesContainer || !chatInput) return;
+
+    // Remove previous listener if any
+    if (chatInputScrollHandler) {
+        messagesContainer.removeEventListener('scroll', chatInputScrollHandler);
+    }
+
+    function updateChatInputVisibility() {
+        const threshold = 80; // px from bottom to count as "at bottom"
+        const atBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) < threshold;
+        if (atBottom) {
+            chatInput.classList.remove('hidden-input');
+        } else {
+            chatInput.classList.add('hidden-input');
+        }
+    }
+
+    chatInputScrollHandler = updateChatInputVisibility;
+    messagesContainer.addEventListener('scroll', updateChatInputVisibility, { passive: true });
+
+    // Initial check after a short delay (messages may still be rendering)
+    setTimeout(updateChatInputVisibility, 100);
+    setTimeout(updateChatInputVisibility, 500);
 }
 
 // Helper to append message to specific container
@@ -16769,6 +16808,14 @@ if (pageId !== 'chat') {
     currentMatchId = null; // Clear match ID when leaving chat
     localStorage.removeItem('friendle_current_chat_context'); // Clear saved chat context
     document.getElementById('event-details').style.display = 'block';
+    // Reset chat input visibility when leaving chat
+    const chatInput = document.querySelector('.chat-input');
+    if (chatInput) chatInput.classList.remove('hidden-input');
+    if (chatInputScrollHandler) {
+        const mc = document.getElementById('chat-messages');
+        if (mc) mc.removeEventListener('scroll', chatInputScrollHandler);
+        chatInputScrollHandler = null;
+    }
 }
     
     localStorage.setItem('friendle_current_page', pageId);
