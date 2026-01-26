@@ -9911,10 +9911,8 @@ async function renderCircleChat(circleId) {
     // Load and display messages
     await loadAndDisplayCircleMessages(circleId);
 
-    // Scroll to bottom
-    setTimeout(() => {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }, 100);
+    // Scroll to bottom instantly
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
 async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, savedScrollPosition = null) {
@@ -9982,15 +9980,12 @@ async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, sa
             createLoadOlderButton('circle');
         }
 
-        // Scroll handling - preserve position or scroll to bottom
-        setTimeout(() => {
-            if (preserveScroll && scrollPos !== null) {
-                messagesContainer.scrollTop = scrollPos;
-                console.log('📜 Restored scroll position to:', scrollPos);
-            } else {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }, 50);
+        // Scroll handling - preserve position or scroll to bottom (instant)
+        if (preserveScroll && scrollPos !== null) {
+            messagesContainer.scrollTop = scrollPos;
+        } else {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
 
         // Mark all visible messages as read
         setTimeout(() => {
@@ -15459,16 +15454,12 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
             createLoadOlderButton('event');
         }
 
-        // Scroll handling - preserve position or scroll to bottom
-        setTimeout(() => {
-            if (preserveScroll && scrollPos !== null) {
-                messagesContainer.scrollTop = scrollPos;
-                console.log('📜 Restored scroll position to:', scrollPos);
-            } else {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                console.log('📜 Scrolled to bottom');
-            }
-        }, 500);
+        // Scroll handling - preserve position or scroll to bottom (instant)
+        if (preserveScroll && scrollPos !== null) {
+            messagesContainer.scrollTop = scrollPos;
+        } else {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
 
         // Mark all visible messages as read
         setTimeout(() => {
@@ -15537,35 +15528,22 @@ function renderAvatar(avatar, size = 32) {
     }
 }
 
-// Helper function to force scroll to bottom of chat - tries multiple times for reliability
-function forceScrollToBottom(attempts = 0) {
+// Helper function to force scroll to bottom of chat - instant, no animation
+function forceScrollToBottom() {
     const messagesContainer = document.getElementById('chat-messages');
     if (!messagesContainer) {
         console.warn('No messages container found for scrolling');
         return;
     }
 
-    // Method 1: Scroll using scrollTop
+    // Instant scroll to bottom - no smooth behavior, no retries
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-    // Method 2: Find last message and scroll it into view
-    const messages = messagesContainer.querySelectorAll('.message, div[style*="margin-bottom: 15px"]');
-    if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-
-    console.log(`📜 Force scroll to bottom (attempt ${attempts + 1}), scrollTop: ${messagesContainer.scrollTop}, scrollHeight: ${messagesContainer.scrollHeight}`);
-
-    // Retry up to 3 times with increasing delays to handle async content loading
-    if (attempts < 3) {
-        setTimeout(() => forceScrollToBottom(attempts + 1), 200 + (attempts * 200));
-    }
 }
 
 // Show/hide chat input based on scroll position
 // Input is visible only when user is scrolled to (or near) the bottom
 let chatInputScrollHandler = null;
+let chatInputSettling = false;
 
 function setupChatInputScrollBehavior() {
     const messagesContainer = document.getElementById('chat-messages');
@@ -15577,8 +15555,12 @@ function setupChatInputScrollBehavior() {
         messagesContainer.removeEventListener('scroll', chatInputScrollHandler);
     }
 
+    // Suppress glitchy toggles during initial load settling
+    chatInputSettling = true;
+
     function updateChatInputVisibility() {
-        const threshold = 80;
+        if (chatInputSettling) return;
+        const threshold = 120;
         const isHidden = chatInput.classList.contains('hidden-input');
         const atBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) < threshold;
         if (atBottom && isHidden) {
@@ -15593,9 +15575,12 @@ function setupChatInputScrollBehavior() {
     chatInputScrollHandler = updateChatInputVisibility;
     messagesContainer.addEventListener('scroll', updateChatInputVisibility, { passive: true });
 
-    // Initial check after a short delay (messages may still be rendering)
-    setTimeout(updateChatInputVisibility, 100);
-    setTimeout(updateChatInputVisibility, 500);
+    // After settling: ensure we're at bottom with input visible, then enable listener
+    setTimeout(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        chatInput.classList.remove('hidden-input');
+        chatInputSettling = false;
+    }, 300);
 }
 
 // Helper to append message to specific container
