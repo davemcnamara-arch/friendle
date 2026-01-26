@@ -15540,10 +15540,9 @@ function forceScrollToBottom() {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Show/hide chat input based on scroll position
-// Input is visible only when user is scrolled to (or near) the bottom
+// Show/hide chat input based on scroll position and direction
+// Input is visible only when user is at the very bottom of chat
 let chatInputScrollHandler = null;
-let chatInputSettling = false;
 
 function setupChatInputScrollBehavior() {
     const messagesContainer = document.getElementById('chat-messages');
@@ -15555,19 +15554,26 @@ function setupChatInputScrollBehavior() {
         messagesContainer.removeEventListener('scroll', chatInputScrollHandler);
     }
 
-    // Suppress glitchy toggles during initial load settling
-    chatInputSettling = true;
+    let lastScrollTop = messagesContainer.scrollTop;
+    let settling = true;
 
     function updateChatInputVisibility() {
-        if (chatInputSettling) return;
-        const threshold = 120;
+        if (settling) return;
+
+        const currentScrollTop = messagesContainer.scrollTop;
+        const scrollingDown = currentScrollTop > lastScrollTop;
+        const scrollingUp = currentScrollTop < lastScrollTop;
+        lastScrollTop = currentScrollTop;
+
+        const distFromBottom = messagesContainer.scrollHeight - currentScrollTop - messagesContainer.clientHeight;
         const isHidden = chatInput.classList.contains('hidden-input');
-        const atBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) < threshold;
-        if (atBottom && isHidden) {
+
+        // Show input: must be scrolling DOWN and within 30px of absolute bottom
+        if (scrollingDown && distFromBottom < 30 && isHidden) {
             chatInput.classList.remove('hidden-input');
-            // Compensate: showing input shrinks chat-messages, so pin to bottom
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        } else if (!atBottom && !isHidden) {
+        }
+        // Hide input: must be scrolling UP and more than 50px from bottom
+        else if (scrollingUp && distFromBottom > 50 && !isHidden) {
             chatInput.classList.add('hidden-input');
         }
     }
@@ -15579,7 +15585,8 @@ function setupChatInputScrollBehavior() {
     setTimeout(() => {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
         chatInput.classList.remove('hidden-input');
-        chatInputSettling = false;
+        lastScrollTop = messagesContainer.scrollTop;
+        settling = false;
     }, 300);
 }
 
