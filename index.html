@@ -11059,8 +11059,12 @@ function renderEventsByTimePeriod(events) {
     };
 
     scheduledEvents.forEach(event => {
-        const eventDate = new Date(event.scheduled_date);
-        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+        // Parse as local midnight to avoid UTC-midnight-vs-local-midnight mismatch
+        const eventDay = event.scheduled_date
+            ? new Date(event.scheduled_date + 'T00:00:00')
+            : null;
+
+        if (!eventDay || eventDay < today) return; // skip past events
 
         if (eventDay.getTime() === today.getTime()) {
             periods['TODAY'].push(event);
@@ -11159,9 +11163,20 @@ function renderOtherEventsByCircle(events) {
 function renderEvents(events, pastEvents = []) {
     const eventsList = document.getElementById('events-list');
 
+    // Client-side guard: exclude past scheduled events regardless of what the DB returned.
+    // Parsing as 'YYYY-MM-DDT00:00:00' (no timezone suffix) forces local-midnight interpretation,
+    // avoiding the JS gotcha where date-only ISO strings are parsed as UTC midnight.
+    const nowMidnight = new Date();
+    nowMidnight.setHours(0, 0, 0, 0);
+    const upcomingEvents = (events || []).filter(e => {
+        if (e.status === 'planning') return true;
+        if (!e.scheduled_date) return false;
+        return new Date(e.scheduled_date + 'T00:00:00') >= nowMidnight;
+    });
+
     // Separate into "Your events" (joined) and "Other events" (not joined)
-    const yourEvents = (events || []).filter(e => e.isUserJoined);
-    const otherEvents = (events || []).filter(e => !e.isUserJoined);
+    const yourEvents = upcomingEvents.filter(e => e.isUserJoined);
+    const otherEvents = upcomingEvents.filter(e => !e.isUserJoined);
 
     console.log('renderEvents called with:', events?.length, 'events');
     console.log('Your events:', yourEvents.length);
