@@ -2,8 +2,8 @@
 // Sends push notifications when activities reach 4 or 8 interested users
 // Helps solve coordination problem by notifying at key momentum thresholds
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 
 const ONESIGNAL_APP_ID = '67c70940-dc92-4d95-9072-503b2f5d84c8'
 const ONESIGNAL_API_KEY = Deno.env.get('ONESIGNAL_REST_API_KEY')
@@ -26,6 +26,16 @@ serve(async (req) => {
   }
 
   try {
+    // Verify caller is an authenticated Supabase user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing authorization header' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+    const token = authHeader.replace('Bearer ', '')
+
     // Parse request body
     const body: CriticalMassRequest = await req.json()
     const { matchId, threshold } = body
@@ -63,6 +73,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    // Verify JWT — caller must be an authenticated user
+    const { data: { user: callerUser }, error: authError } = await supabaseClient.auth.getUser(token)
+    if (authError || !callerUser) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid or expired token' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
 
     // Get match details and check if notification already sent
     const { data: match, error: matchError } = await supabaseClient

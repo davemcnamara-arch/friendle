@@ -3,22 +3,36 @@
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-module.exports = async (req, res) => {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+// UUID v4 pattern — Supabase auth IDs are always UUID v4
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  // Handle preflight OPTIONS request
+// In-process rate limit: max 5 checkout sessions per userId per minute.
+// Resets on cold start (stateless). Sufficient to block rapid automated bursts
+// within a single warm instance. For stricter enforcement across instances,
+// integrate Upstash Rate Limit backed by Redis.
+const rateLimitMap = new Map(); // userId → [timestamp, ...]
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function isRateLimited(userId) {
+  const now = Date.now();
+  const window = (rateLimitMap.get(userId) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  if (window.length >= RATE_LIMIT_MAX) return true;
+  window.push(now);
+  rateLimitMap.set(userId, window);
+  return false;
+}
+
+module.exports = async (req, res) => {
+  // CORS — only the app origin needs to reach this endpoint
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -29,6 +43,21 @@ module.exports = async (req, res) => {
     // Validate required fields
     if (!userId) {
       return res.status(400).json({ error: 'Missing userId' });
+    }
+
+    // Validate userId is a Supabase UUID — reject anything that isn't
+    if (!UUID_RE.test(userId)) {
+      return res.status(400).json({ error: 'Invalid userId format' });
+    }
+
+    // Validate optional email format if provided
+    if (userEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Rate limit per user
+    if (isRateLimited(userId)) {
+      return res.status(429).json({ error: 'Too many requests. Please try again in a minute.' });
     }
 
     // Get the base URL from the request headers
@@ -45,7 +74,6 @@ module.exports = async (req, res) => {
     // Add circle code to metadata if provided (for verification after payment)
     if (circleCode) {
       metadata.circleCode = circleCode;
-      console.log('Including circleCode in Stripe metadata:', circleCode);
     }
 
     // Create Stripe checkout session

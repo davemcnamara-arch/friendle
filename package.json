@@ -4,7 +4,7 @@
   "description": "Friendle - Who's in?",
   "main": "index.html",
   "dependencies": {
-    "stripe": "^14.9.0",
+    "stripe": "^14.21.0",
     "@supabase/supabase-js": "^2.39.0",
     "micro": "^10.0.1"
   },
