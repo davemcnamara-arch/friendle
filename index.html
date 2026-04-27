@@ -1017,6 +1017,14 @@
             color: var(--text-primary) !important;
         }
 
+        #home-events-list.events-collapsed {
+            display: none;
+        }
+
+        #home-events-section .toggle-header:hover #home-events-chevron {
+            color: var(--text-primary);
+        }
+
         /* Dark mode - past event card text colors */
         body.dark-mode details div[style*="color: #666"] {
             color: var(--text-tertiary) !important;
@@ -2893,11 +2901,14 @@ body.dark-mode .poll-notification-label {
 
     <!-- Upcoming Events Section -->
     <div id="home-events-section" style="display: none; margin-bottom: 30px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">📅 Upcoming Events</h3>
-            <button class="btn btn-secondary btn-small" onclick="showPage('events')" style="font-size: 12px; padding: 6px 12px;">View All</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer; user-select: none;" onclick="toggleUpcomingEvents()">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">📅 Upcoming Events <span id="home-events-count" style="font-size: 13px; color: #888; font-weight: 400;"></span></h3>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); showPage('events')" style="font-size: 12px; padding: 6px 12px;">View All</button>
+                <span id="home-events-chevron" style="font-size: 16px; transition: transform 0.2s ease; display: inline-block; color: #888;">▼</span>
+            </div>
         </div>
-        <div id="home-events-list"></div>
+        <div id="home-events-list" style="overflow: hidden;"></div>
     </div>
 
     <!-- Activity Browser Section -->
@@ -8314,6 +8325,17 @@ window.handleCircleChange = async function(shouldScroll = true) {
 };
 
 // Load and display upcoming events for the home screen
+function toggleUpcomingEvents() {
+    const list = document.getElementById('home-events-list');
+    const chevron = document.getElementById('home-events-chevron');
+    const isCollapsed = list.classList.contains('events-collapsed');
+
+    list.classList.toggle('events-collapsed', !isCollapsed);
+    chevron.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+
+    localStorage.setItem('upcomingEventsCollapsed', !isCollapsed);
+}
+
 async function loadHomeEvents(circleId) {
     try {
         const now = new Date();
@@ -8345,6 +8367,14 @@ async function loadHomeEvents(circleId) {
 
         eventsSection.style.display = 'block';
 
+        // Apply saved collapsed state (default: collapsed so activities are visible on load)
+        const savedCollapsed = localStorage.getItem('upcomingEventsCollapsed');
+        const isCollapsed = savedCollapsed === null ? true : savedCollapsed === 'true';
+        const chevron = document.getElementById('home-events-chevron');
+        const countEl = document.getElementById('home-events-count');
+        eventsList.classList.toggle('events-collapsed', isCollapsed);
+        if (chevron) chevron.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+
         // Fetch activity and circle data for events
         const activityIds = [...new Set(upcomingEvents.map(e => e.activity_id))];
 
@@ -8375,6 +8405,9 @@ async function loadHomeEvents(circleId) {
 
         // Render event cards
         eventsList.innerHTML = processedEvents.map(event => renderEventCard(event)).join('');
+
+        // Update count label
+        if (countEl) countEl.textContent = `(${processedEvents.length})`;
 
     } catch (error) {
         console.error('Error loading home events:', error);
