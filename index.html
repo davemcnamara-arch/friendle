@@ -11094,6 +11094,37 @@ function renderEventsByTimePeriod(events) {
     return html;
 }
 
+function renderOtherEventsByCircle(events) {
+    const circleMap = new Map();
+    for (const event of events) {
+        const circleId = event.circle?.id || 'unknown';
+        const circleName = event.circle?.name || 'Unknown Circle';
+        if (!circleMap.has(circleId)) {
+            circleMap.set(circleId, { name: circleName, events: [] });
+        }
+        circleMap.get(circleId).events.push(event);
+    }
+
+    let html = '';
+    for (const [, { name, events: circleEvents }] of circleMap) {
+        html += `
+            <details class="event-period">
+                <summary class="event-period-header">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span class="event-period-chevron">▶</span>
+                        ${name}
+                    </span>
+                    <span>${circleEvents.length} ${circleEvents.length === 1 ? 'event' : 'events'}</span>
+                </summary>
+                <div class="event-period-content">
+                    ${circleEvents.map(event => renderEventCard(event)).join('')}
+                </div>
+            </details>
+        `;
+    }
+    return html;
+}
+
 function renderEvents(events, pastEvents = []) {
     const eventsList = document.getElementById('events-list');
 
@@ -11130,7 +11161,7 @@ function renderEvents(events, pastEvents = []) {
     html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Other Events in Your Circles</h2>`;
 
     if (otherEvents.length > 0) {
-        html += renderEventsByTimePeriod(otherEvents);
+        html += renderOtherEventsByCircle(otherEvents);
     } else {
         html += `
             <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
