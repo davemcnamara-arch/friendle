@@ -9511,16 +9511,16 @@ function createEventCard(event, matchId, isPast = false) {
                 <div class="event-meta" style="font-size: 12px; margin-top: 4px; cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${event.id}')" title="Click to view attendees">${participantDisplay} ${participantLabel} ${isUserJoined ? 'going' : 'interested'}${isFull && !isUserJoined ? ' (full)' : ''}</div>
             </div>
             ${isUserJoined ? `
-                <button class="event-chat-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                <button class="event-chat-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap;">
                     💬 Event Chat
                 </button>
             ` : isFull ? `
-                <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
+                <button class="btn" disabled style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
                     Event Full
                 </button>
             ` : participantCount === 0 ? `
                 <div style="display: flex; flex-direction: column; gap: 6px;">
-                    <button class="join-event-btn btn" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                    <button class="join-event-btn btn" data-event-id="${event.id}" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                         ✓ Join Event
                     </button>
                     <button class="delete-event-btn btn btn-secondary" data-event-id="${event.id}" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
@@ -9528,7 +9528,7 @@ function createEventCard(event, matchId, isPast = false) {
                     </button>
                 </div>
             ` : `
-                <button class="join-event-btn btn" data-event-id="${event.id}" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                <button class="join-event-btn btn" data-event-id="${event.id}" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                     ✓ Join Event
                 </button>
             `}
@@ -11311,7 +11311,7 @@ function renderEventCard(event) {
                     <div style="font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         ${activityEmoji} ${activityName}
                     </div>
-                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         👥 ${circleName}
                     </div>
                     <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
@@ -11323,25 +11323,25 @@ function renderEventCard(event) {
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; flex-shrink: 0;">
                 ${isUserJoined ? `
-                    <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                    <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap;">
                         💬 Event Chat
                     </button>
                 ` : isFull ? `
-                    <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
+                    <button class="btn" disabled style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
                         Event Full
                     </button>
                 ` : `
-                    <button class="btn" onclick="joinEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                    <button class="btn" onclick="joinEvent('${event.id}')" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                         ✓ Join Event
                     </button>
                 `}
                 ${participantCount === 0 && !isUserJoined ? `
-                    <button class="btn btn-secondary" onclick="deleteEmptyEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                    <button class="btn btn-secondary" onclick="deleteEmptyEvent('${event.id}')" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
                         🗑️ Delete
                     </button>
                 ` : ''}
                 ${event.scheduled_date ? `
-                    <button class="btn btn-secondary" onclick="addToCalendar('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                    <button class="btn btn-secondary" onclick="addToCalendar('${event.id}')" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap;">
                         📅 Add to Calendar
                     </button>
                 ` : ''}
@@ -12154,11 +12154,11 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
                             ${event.isUserJoined ? `
-                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap;">
                                     💬 Open Chat
                                 </button>
                             ` : `
-                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                                     ✓ Join Planning
                                 </button>
                             `}
@@ -12189,15 +12189,15 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
                             ${event.isUserJoined ? `
-                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
+                                <button onclick="event.stopPropagation(); openEventChat('${event.id}');" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap;">
                                     💬 Open Chat
                                 </button>
                             ` : isFull ? `
-                                <button class="btn" disabled style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
+                                <button class="btn" disabled style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #888; cursor: not-allowed;">
                                     Event Full
                                 </button>
                             ` : `
-                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
+                                <button onclick="event.stopPropagation(); joinEvent('${event.id}');" class="btn" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0; white-space: nowrap; background: #4CAF50;">
                                     ✓ Join Event
                                 </button>
                             `}
