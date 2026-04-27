@@ -1017,13 +1017,6 @@
             color: var(--text-primary) !important;
         }
 
-        #home-events-list.events-collapsed {
-            display: none;
-        }
-
-        #home-events-section .toggle-header:hover #home-events-chevron {
-            color: var(--text-primary);
-        }
 
         /* Dark mode - past event card text colors */
         body.dark-mode details div[style*="color: #666"] {
@@ -2900,16 +2893,19 @@ body.dark-mode .poll-notification-label {
     </div>
 
     <!-- Upcoming Events Section -->
-    <div id="home-events-section" style="display: none; margin-bottom: 30px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer; user-select: none;" onclick="toggleUpcomingEvents()">
-            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">📅 Upcoming Events <span id="home-events-count" style="font-size: 13px; color: #888; font-weight: 400;"></span></h3>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); showPage('events')" style="font-size: 12px; padding: 6px 12px;">View All</button>
-                <span id="home-events-chevron" style="font-size: 16px; transition: transform 0.2s ease; display: inline-block; color: #888;">▼</span>
-            </div>
-        </div>
-        <div id="home-events-list" style="overflow: hidden;"></div>
-    </div>
+    <details id="home-events-section" class="event-period" style="display: none;">
+        <summary class="event-period-header">
+            <span style="display: flex; align-items: center; gap: 8px;">
+                <span class="event-period-chevron">▶</span>
+                📅 UPCOMING EVENTS
+            </span>
+            <span style="display: flex; align-items: center; gap: 10px;">
+                <span id="home-events-count" style="font-weight: 400; text-transform: none; letter-spacing: 0;"></span>
+                <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); showPage('events')" style="font-size: 12px; padding: 5px 10px; text-transform: none; letter-spacing: 0; font-weight: 500;">View All</button>
+            </span>
+        </summary>
+        <div id="home-events-list" class="event-period-content"></div>
+    </details>
 
     <!-- Activity Browser Section -->
     <div style="margin-bottom: 15px;">
@@ -8325,17 +8321,6 @@ window.handleCircleChange = async function(shouldScroll = true) {
 };
 
 // Load and display upcoming events for the home screen
-function toggleUpcomingEvents() {
-    const list = document.getElementById('home-events-list');
-    const chevron = document.getElementById('home-events-chevron');
-    const isCollapsed = list.classList.contains('events-collapsed');
-
-    list.classList.toggle('events-collapsed', !isCollapsed);
-    chevron.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
-
-    localStorage.setItem('upcomingEventsCollapsed', !isCollapsed);
-}
-
 async function loadHomeEvents(circleId) {
     try {
         const now = new Date();
@@ -8365,15 +8350,21 @@ async function loadHomeEvents(circleId) {
             return;
         }
 
-        eventsSection.style.display = 'block';
+        eventsSection.style.display = '';
 
-        // Apply saved collapsed state (default: collapsed so activities are visible on load)
-        const savedCollapsed = localStorage.getItem('upcomingEventsCollapsed');
-        const isCollapsed = savedCollapsed === null ? true : savedCollapsed === 'true';
-        const chevron = document.getElementById('home-events-chevron');
+        // Restore open/closed state (default: closed so activities are visible on load)
+        const savedOpen = localStorage.getItem('upcomingEventsOpen');
+        eventsSection.open = savedOpen === null ? false : savedOpen === 'true';
+
+        // Persist toggle state (attach once per page load)
+        if (!eventsSection.dataset.listenerAttached) {
+            eventsSection.dataset.listenerAttached = 'true';
+            eventsSection.addEventListener('toggle', function() {
+                localStorage.setItem('upcomingEventsOpen', this.open ? 'true' : 'false');
+            });
+        }
+
         const countEl = document.getElementById('home-events-count');
-        eventsList.classList.toggle('events-collapsed', isCollapsed);
-        if (chevron) chevron.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
 
         // Fetch activity and circle data for events
         const activityIds = [...new Set(upcomingEvents.map(e => e.activity_id))];
@@ -8407,7 +8398,7 @@ async function loadHomeEvents(circleId) {
         eventsList.innerHTML = processedEvents.map(event => renderEventCard(event)).join('');
 
         // Update count label
-        if (countEl) countEl.textContent = `(${processedEvents.length})`;
+        if (countEl) countEl.textContent = `${processedEvents.length} ${processedEvents.length === 1 ? 'event' : 'events'}`;
 
     } catch (error) {
         console.error('Error loading home events:', error);
@@ -11077,6 +11068,10 @@ async function loadEvents() {
     }
 }
 
+function eventPeriodKey(name) {
+    return 'event_period_open_' + name.toLowerCase().replace(/\s+/g, '_');
+}
+
 // Helper function to render events grouped by time periods
 function renderEventsByTimePeriod(events) {
     const now = new Date();
@@ -11133,8 +11128,10 @@ function renderEventsByTimePeriod(events) {
     for (const [periodName, periodEvents] of Object.entries(periods)) {
         if (periodEvents.length === 0) continue;
 
+        const saved = localStorage.getItem(eventPeriodKey(periodName));
+        const isOpen = saved === null ? true : saved === 'true';
         html += `
-            <details class="event-period" open>
+            <details class="event-period" data-period="${periodName}" ${isOpen ? 'open' : ''}>
                 <summary class="event-period-header">
                     <span style="display: flex; align-items: center; gap: 8px;">
                         <span class="event-period-chevron">▶</span>
@@ -11188,8 +11185,10 @@ function renderOtherEventsByCircle(events) {
     let html = '';
     for (const [circleId, { name, events: circleEvents }] of circleMap) {
         const color = getCircleColor(circleId);
+        const saved = localStorage.getItem(eventPeriodKey(name));
+        const isOpen = saved === null ? true : saved === 'true';
         html += `
-            <details class="event-period" style="border-left: 3px solid ${color.main};">
+            <details class="event-period" data-period="${name}" ${isOpen ? 'open' : ''} style="border-left: 3px solid ${color.main};">
                 <summary class="event-period-header" style="background: ${color.light}; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
                     <span style="display: flex; align-items: center; gap: 8px;">
                         <span class="event-period-chevron">▶</span>
@@ -11309,8 +11308,10 @@ function renderEvents(events, pastEvents = []) {
         for (const [periodName, periodEvents] of Object.entries(periods)) {
             if (periodEvents.length === 0) continue;
 
+            const saved = localStorage.getItem(eventPeriodKey(periodName));
+            const isOpen = saved === null ? true : saved === 'true';
             html += `
-                <details class="event-period">
+                <details class="event-period" data-period="${periodName}" ${isOpen ? 'open' : ''}>
                     <summary class="event-period-header">
                         <span style="display: flex; align-items: center; gap: 8px;">
                             <span class="event-period-chevron">▶</span>
@@ -11335,6 +11336,13 @@ function renderEvents(events, pastEvents = []) {
     }
 
     eventsList.innerHTML = html;
+
+    // Persist open/closed state for each period section
+    eventsList.querySelectorAll('details.event-period[data-period]').forEach(details => {
+        details.addEventListener('toggle', function() {
+            localStorage.setItem(eventPeriodKey(this.dataset.period), this.open ? 'true' : 'false');
+        });
+    });
 }
 
 function renderEventCard(event) {
