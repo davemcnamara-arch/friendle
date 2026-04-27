@@ -2,8 +2,8 @@
 // Sends push notifications via OneSignal while respecting user preferences
 // Supports: new_match, match_join, event_join, event_created, chat_message, poll_agreement, new_activity, event_locked notifications
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 
 const ONESIGNAL_APP_ID = '67c70940-dc92-4d95-9072-503b2f5d84c8'
 const ONESIGNAL_API_KEY = Deno.env.get('ONESIGNAL_REST_API_KEY')
