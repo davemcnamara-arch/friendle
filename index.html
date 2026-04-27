@@ -2897,12 +2897,9 @@ body.dark-mode .poll-notification-label {
         <summary class="event-period-header">
             <span style="display: flex; align-items: center; gap: 8px;">
                 <span class="event-period-chevron">▶</span>
-                📅 UPCOMING EVENTS
+                UPCOMING EVENTS
             </span>
-            <span style="display: flex; align-items: center; gap: 10px;">
-                <span id="home-events-count" style="font-weight: 400; text-transform: none; letter-spacing: 0;"></span>
-                <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); showPage('events')" style="font-size: 12px; padding: 5px 10px; text-transform: none; letter-spacing: 0; font-weight: 500;">View All</button>
-            </span>
+            <span id="home-events-count"></span>
         </summary>
         <div id="home-events-list" class="event-period-content"></div>
     </details>
