@@ -11076,7 +11076,7 @@ function renderEventsByTimePeriod(events) {
         if (periodEvents.length === 0) continue;
 
         html += `
-            <details class="event-period" ${periodName === 'TODAY' ? 'open' : ''}>
+            <details class="event-period" open>
                 <summary class="event-period-header">
                     <span style="display: flex; align-items: center; gap: 8px;">
                         <span class="event-period-chevron">▶</span>
