@@ -11059,9 +11059,10 @@ function renderEventsByTimePeriod(events) {
     };
 
     scheduledEvents.forEach(event => {
-        // Parse as local midnight to avoid UTC-midnight-vs-local-midnight mismatch
+        // Slice to 'YYYY-MM-DD' before appending T00:00:00 so datetime strings
+        // (e.g. '2026-04-29T11:30:00Z') don't produce Invalid Date.
         const eventDay = event.scheduled_date
-            ? new Date(event.scheduled_date + 'T00:00:00')
+            ? new Date(event.scheduled_date.slice(0, 10) + 'T00:00:00')
             : null;
 
         if (!eventDay || eventDay < today) return; // skip past events
@@ -11171,7 +11172,9 @@ function renderEvents(events, pastEvents = []) {
     const upcomingEvents = (events || []).filter(e => {
         if (e.status === 'planning') return true;
         if (!e.scheduled_date) return false;
-        return new Date(e.scheduled_date + 'T00:00:00') >= nowMidnight;
+        // Slice to 'YYYY-MM-DD' first so datetime strings like '2026-04-29T11:30:00Z'
+        // don't produce Invalid Date when 'T00:00:00' is appended.
+        return new Date(e.scheduled_date.slice(0, 10) + 'T00:00:00') >= nowMidnight;
     });
 
     // Separate into "Your events" (joined) and "Other events" (not joined)
