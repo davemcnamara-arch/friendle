@@ -11306,19 +11306,22 @@ function renderEventCard(event) {
 
     return `
         <div class="event-card">
-            <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
-                <div style="flex: 1;">
-                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 16px; display: flex; align-items: center; gap: 6px;">
-                        ${activityEmoji} ${activityName} <span style="font-size: 13px; color: var(--text-secondary); font-weight: 400; margin-left: 4px;">· 👥 ${circleName}</span>
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${activityEmoji} ${activityName}
                     </div>
-                    <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                        👥 ${circleName}
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
                         📅 ${dateStr}${timeStr}
-                        ${isUserJoined ? `<button onclick="event.stopPropagation(); openEditEventDetailsFromCard('${event.id}')" style="background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.6;" title="Edit details">✏️</button>` : ''}
+                        ${isUserJoined ? `<button onclick="event.stopPropagation(); openEditEventDetailsFromCard('${event.id}')" style="background: none; border: none; cursor: pointer; font-size: 12px; padding: 1px 3px; opacity: 0.5;" title="Edit details">✏️</button>` : ''}
                     </div>
-                    ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
-                    <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
+                    ${event.location ? `<div class="event-meta" style="font-size: 13px; margin-bottom: 3px;">📍 ${event.location}</div>` : ''}
+                    <div class="event-meta" style="font-size: 12px; margin-top: 6px;">${participantDisplay}</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0;">
                 ${isUserJoined ? `
                     <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                         💬 Event Chat
@@ -11338,9 +11341,7 @@ function renderEventCard(event) {
                     </button>
                 ` : ''}
                 ${event.scheduled_date ? `
-                    <button class="btn btn-secondary" onclick="addToCalendar('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap;">
-                        📅 Add to Calendar
-                    </button>
+                    <button onclick="addToCalendar('${event.id}')" style="background: none; border: none; cursor: pointer; font-size: 18px; padding: 2px; opacity: 0.5; line-height: 1;" title="Add to Calendar">📅</button>
                 ` : ''}
                 </div>
             </div>
