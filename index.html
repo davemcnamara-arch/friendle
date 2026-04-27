@@ -11024,6 +11024,20 @@ async function loadEvents() {
 
         renderEvents(processedEvents, processedPastEvents);
 
+        // Auto-expand and scroll to the event highlighted from a notification
+        if (highlightedEventId) {
+            const targetId = highlightedEventId;
+            highlightedEventId = null;
+            setTimeout(() => {
+                const targetCard = document.querySelector(`.event-card[data-event-id="${targetId}"]`);
+                if (targetCard) {
+                    const details = targetCard.closest('details.event-period');
+                    if (details) details.open = true;
+                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 50);
+        }
+
     } catch (error) {
         console.error('Error loading events:', error);
         renderEvents([], []);
@@ -11330,7 +11344,7 @@ function renderEventCard(event) {
     const circleColor = getCircleColor(event.circle?.id);
 
     return `
-        <div class="event-card" style="border-left: 4px solid ${circleColor.main}; padding-left: 16px;">
+        <div class="event-card" data-event-id="${event.id}" style="border-left: 4px solid ${circleColor.main}; padding-left: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
