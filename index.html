@@ -11321,7 +11321,7 @@ function renderEventCard(event) {
                     ${event.location ? `<div class="event-meta" style="font-size: 13px; margin-bottom: 3px;">📍 ${event.location}</div>` : ''}
                     <div class="event-meta" style="font-size: 12px; margin-top: 6px;">${participantDisplay}</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0;">
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; flex-shrink: 0;">
                 ${isUserJoined ? `
                     <button class="btn btn-secondary" onclick="openEventChat('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                         💬 Event Chat
