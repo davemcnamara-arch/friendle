@@ -5192,9 +5192,23 @@ window.toggleMuteChat = async function() {
 
 // Utility function to escape HTML and prevent XSS
 function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = String(text);
     return div.innerHTML;
+}
+
+// Escape a value for safe injection into a JS string inside an HTML onclick attribute.
+// Returns a JSON-encoded, HTML-entity-safe string including its own double-quote delimiters,
+// e.g.  jsAttr("O'Brien")  →  "&quot;O&#39;Brien&quot;"
+// Use as:  onclick="fn(${jsAttr(userValue)})"  — no surrounding quotes needed.
+function jsAttr(value) {
+    if (value === null || value === undefined) return '""';
+    return JSON.stringify(String(value))
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/'/g, '&#39;');
 }
 
 function showNotification(message, type = 'success') {
@@ -7569,9 +7583,8 @@ window.finalizeCircleCreation = async function() {
       const unreadCount = unreadMap.get(circle.id) || 0;
       const isExpanded = expandedCircles.has(circle.id);
 
-      // Escape single quotes in circle name and code for onclick handlers
-      const escapedName = circle.name.replace(/'/g, "\\'");
-      const escapedCode = circle.code.replace(/'/g, "\\'");
+      const safeNameAttr = jsAttr(circle.name);
+      const safeCodeAttr = jsAttr(circle.code);
 
       const circleColor = getCircleColor(circle.id);
 
@@ -7579,13 +7592,13 @@ window.finalizeCircleCreation = async function() {
         <div class="circle-card${unreadCount > 0 ? ' unread' : ''}${isExpanded ? ' expanded' : ''}" data-circle-id="${circle.id}" style="border-left: 4px solid ${circleColor.main}; background: ${circleColor.light};">
           <div class="circle-card-header" onclick="toggleCircleExpand('${circle.id}')" style="display: flex; flex-direction: column; gap: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-              <div class="circle-name" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="cursor: pointer; font-size: 1.1em; font-weight: 600; text-align: left;" title="Click to rename">${circle.name}</div>
+              <div class="circle-name" onclick="event.stopPropagation(); renameCircle('${circle.id}')" style="cursor: pointer; font-size: 1.1em; font-weight: 600; text-align: left;" title="Click to rename">${escapeHtml(circle.name)}</div>
               <div class="circle-members" onclick="event.stopPropagation(); viewCircleMembers('${circle.id}')" style="cursor: pointer; text-decoration: underline; font-size: 0.9em; color: var(--text-secondary); text-align: right; white-space: nowrap;" title="Click to view members">${memberText}</div>
             </div>
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
               <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="padding: 6px 12px; font-size: 0.85em;">💬 Chat</button>
-              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail('${escapedName}', '${escapedCode}')" style="padding: 6px 12px; font-size: 0.85em;">✉️ Invite</button>
-              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode('${escapedCode}')" style="padding: 6px 12px; font-size: 0.85em; font-family: monospace;" title="Click to copy">📋 ${circle.code}</button>
+              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail(${safeNameAttr}, ${safeCodeAttr})" style="padding: 6px 12px; font-size: 0.85em;">✉️ Invite</button>
+              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode(${safeCodeAttr})" style="padding: 6px 12px; font-size: 0.85em; font-family: monospace;" title="Click to copy">📋 ${escapeHtml(circle.code)}</button>
               ${unreadCount > 0 ? `<span class="circle-new-message-badge" style="font-size: 0.9em;">New</span>` : ''}
               <span class="circle-expand-icon" style="margin-left: auto;">▼</span>
             </div>
@@ -7957,7 +7970,7 @@ window.viewUpcomingEvents = async function(circleId) {
             overflow-y: auto;
         `;
 
-        let eventsHtml = `<h2 style="margin-top: 0; color: ${textColor};">📅 Upcoming Events - ${circle.name}</h2>`;
+        let eventsHtml = `<h2 style="margin-top: 0; color: ${textColor};">📅 Upcoming Events - ${escapeHtml(circle.name)}</h2>`;
 
         events.forEach(event => {
             const activity = event.activities;
@@ -9739,7 +9752,8 @@ async function loadOlderMessages(chatType) {
                     ? '<span style="font-style: italic;">[Deleted]</span>'
                     : sanitizeHTML(message.content);
                 const sanitizedSenderName = sanitizeHTML(message.sender.name);
-                const escapedContentForEdit = message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/'/g, "\\'");
+                const senderNameAttr = jsAttr(message.sender.name);
+                const escapedContentForEdit = message.content.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
                 const messageDiv = document.createElement('div');
                 messageDiv.setAttribute('data-message-id', message.id);
@@ -9773,8 +9787,8 @@ async function loadOlderMessages(chatType) {
                                         ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
                                         <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
                                     ` : `
-                                        <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}', '${message.sender_id}')">⚠️ Report</button>
-                                        <button onclick="openBlockUserModal('${message.sender_id}', '${sanitizedSenderName}')">🚫 Block User</button>
+                                        <button onclick="openReportModal('message', '${message.id}', ${senderNameAttr}, '${message.sender_id}')">⚠️ Report</button>
+                                        <button onclick="openBlockUserModal('${message.sender_id}', ${senderNameAttr})">🚫 Block User</button>
                                     `}
                                 </div>
                             </div>
@@ -11395,15 +11409,15 @@ function renderEventCard(event) {
             <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${activityEmoji} ${activityName}
+                        ${escapeHtml(activityEmoji)} ${escapeHtml(activityName)}
                     </div>
                     <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${circleColor.main}; margin-right: 4px; vertical-align: middle;"></span>${circleName}
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${circleColor.main}; margin-right: 4px; vertical-align: middle;"></span>${escapeHtml(circleName)}
                     </div>
                     <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 3px;">
                         📅 ${dateStr}${timeStr}
                     </div>
-                    ${event.location ? `<div class="event-meta" style="font-size: 13px; margin-bottom: 3px;">📍 ${event.location}</div>` : ''}
+                    ${event.location ? `<div class="event-meta" style="font-size: 13px; margin-bottom: 3px;">📍 ${escapeHtml(event.location)}</div>` : ''}
                     <div class="event-meta" style="font-size: 12px; margin-top: 6px;">${participantDisplay}</div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; flex-shrink: 0;">
@@ -11536,21 +11550,21 @@ function formatParticipantNames(participants, eventId, maxNames = 2, verb = 'goi
     }
 
     if (count === 1) {
-        const name = participants[0].profiles?.name || 'Someone';
+        const name = escapeHtml(participants[0].profiles?.name || 'Someone');
         return maxParticipants
             ? `${name} (${capacityDisplay}) ${verb}${fullIndicator}`
             : `${name} ${verb}`;
     }
 
     if (count <= maxNames) {
-        const names = participants.map(p => p.profiles?.name || 'Someone').join(', ');
+        const names = participants.map(p => escapeHtml(p.profiles?.name || 'Someone')).join(', ');
         return maxParticipants
             ? `${names} (${capacityDisplay}) ${verb}${fullIndicator}`
             : `${names} ${verb}`;
     }
 
     // More than maxNames - show first few and "x more" as clickable
-    const shownNames = participants.slice(0, maxNames).map(p => p.profiles?.name || 'Someone').join(', ');
+    const shownNames = participants.slice(0, maxNames).map(p => escapeHtml(p.profiles?.name || 'Someone')).join(', ');
     const remaining = count - maxNames;
     const capacitySuffix = maxParticipants ? ` (${capacityDisplay})` : '';
     return `${shownNames} and <span style="cursor: pointer; text-decoration: underline;" onclick="event.stopPropagation(); showEventAttendees('${eventId}')" title="Click to view all attendees">${remaining} more</span>${capacitySuffix} ${verb}${fullIndicator}`;
@@ -12037,7 +12051,7 @@ if (!showPastEvents) {
         return `
             <div class="match-circle-group ${stateClass} ${isExpanded ? 'expanded' : ''}" data-circle-id="${circleId}">
                 <div class="match-circle-header" onclick="toggleMatchCircleExpand('${circleId}')">
-                    <div class="match-circle-name">${circleName}</div>
+                    <div class="match-circle-name">${escapeHtml(circleName)}</div>
                     <div class="match-circle-header-right">
                         ${hasHighlightedEvent ? `<span class="match-circle-badge highlighted">⭐ Event</span>` : ''}
                         ${!hasHighlightedEvent && hasUnread ? `<span class="match-circle-badge unread">💬 New</span>` : ''}
@@ -12136,8 +12150,8 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         <summary>
             <div class="match-summary-header">
                 <div class="match-summary-top-line">
-                    <span class="match-summary-activity">${activityEmoji} ${activityName}</span>
-                    <span class="match-summary-circle">${circleName}</span>
+                    <span class="match-summary-activity">${escapeHtml(activityEmoji)} ${escapeHtml(activityName)}</span>
+                    <span class="match-summary-circle">${escapeHtml(circleName)}</span>
                     <span class="dropdown-indicator">▼</span>
                 </div>
                 <div class="match-summary-stats">
@@ -12157,7 +12171,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
         </div>
         <div style="display: flex; flex-direction: column; gap: 10px; min-width: 140px; align-items: flex-end;">
     <span class="circle-tag">
-        ${circleName}
+        ${escapeHtml(circleName)}
     </span>
     ${userIsInMatch ? `
         ${userEvents.length === 0 ? `
@@ -12233,8 +12247,8 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                                 <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                                     🎳 Planning Mode
                                 </div>
-                                <div class="event-meta" style="font-size: 13px;">📅 Proposed: ${timeframeText}</div>
-                                ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 Suggested: ${event.location}</div>` : ''}
+                                <div class="event-meta" style="font-size: 13px;">📅 Proposed: ${escapeHtml(timeframeText)}</div>
+                                ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 Suggested: ${escapeHtml(event.location)}</div>` : ''}
                                 <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
@@ -12269,7 +12283,7 @@ console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
                                 <div style="font-weight: 500; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                                     📅 ${dateStr}
                                 </div>
-                                ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${event.location}</div>` : ''}
+                                ${event.location ? `<div class="event-meta" style="font-size: 13px;">📍 ${escapeHtml(event.location)}</div>` : ''}
                                 <div class="event-meta" style="font-size: 12px; margin-top: 4px;">${participantDisplay}</div>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
@@ -15619,10 +15633,12 @@ function renderAvatar(avatar, size = 32) {
 
     // Check if avatar is an image URL
     if (avatar.startsWith('http')) {
-        return `<img src="${avatar}" alt="Avatar" style="width: ${size}px; height: ${size}px; border-radius: 50%; object-fit: cover;">`;
+        // Encode any stray quotes in the URL to prevent attribute injection
+        const safeUrl = avatar.replace(/"/g, '%22').replace(/'/g, '%27');
+        return `<img src="${safeUrl}" alt="Avatar" style="width: ${size}px; height: ${size}px; border-radius: 50%; object-fit: cover;">`;
     } else {
-        // It's an emoji
-        return `<div style="width: ${size}px; height: ${size}px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: ${size * 0.56}px;">${avatar}</div>`;
+        // It's an emoji — escape to prevent HTML injection
+        return `<div style="width: ${size}px; height: ${size}px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: ${size * 0.56}px;">${escapeHtml(avatar)}</div>`;
     }
 }
 
@@ -15849,7 +15865,8 @@ function appendMessage(message) {
         ? '<span style="font-style: italic;">[Deleted]</span>'
         : sanitizeHTML(message.content);
     const sanitizedSenderName = sanitizeHTML(message.sender.name);
-    const escapedContentForEdit = message.content.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/'/g, "\\'");
+    const senderNameAttr = jsAttr(message.sender.name);
+    const escapedContentForEdit = message.content.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
     const messageDiv = document.createElement('div');
     messageDiv.setAttribute('data-message-id', message.id);
@@ -15883,8 +15900,8 @@ function appendMessage(message) {
                 ${!message.content.includes('<img') && !message.content.includes('<a') ? `<button onclick="editEventMessage('${message.id}', \`${escapedContentForEdit}\`)">✏️ Edit</button>` : ''}
                 <button onclick="deleteEventMessage('${message.id}')" class="delete-btn">🗑️ Delete</button>
             ` : `
-                <button onclick="openReportModal('message', '${message.id}', '${sanitizedSenderName}', '${message.sender_id}')">⚠️ Report</button>
-                <button onclick="openBlockUserModal('${message.sender_id}', '${sanitizedSenderName}')">🚫 Block User</button>
+                <button onclick="openReportModal('message', '${message.id}', ${senderNameAttr}, '${message.sender_id}')">⚠️ Report</button>
+                <button onclick="openBlockUserModal('${message.sender_id}', ${senderNameAttr})">🚫 Block User</button>
             `}
         </div>
     </div>
@@ -17540,11 +17557,11 @@ if (pageId === 'settings') {
                                             avatar}
                                     </div>
                                     <div>
-                                        <div style="font-weight: 600; color: var(--text-primary);">${profile.name}</div>
-                                        ${block.reason ? `<div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 2px;">${block.reason}</div>` : ''}
+                                        <div style="font-weight: 600; color: var(--text-primary);">${escapeHtml(profile.name)}</div>
+                                        ${block.reason ? `<div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 2px;">${escapeHtml(block.reason)}</div>` : ''}
                                     </div>
                                 </div>
-                                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85em;" onclick="unblockUser('${block.blocked_id}', '${profile.name}')">
+                                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85em;" onclick="unblockUser('${block.blocked_id}', ${jsAttr(profile.name)})">
                                     Unblock
                                 </button>
                             </div>

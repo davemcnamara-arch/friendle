@@ -41,6 +41,16 @@ serve(async (req) => {
   }
 
   try {
+    // Verify caller identity: the JWT's sub must match the senderId in the body
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing authorization header' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+    const token = authHeader.replace('Bearer ', '')
+
     // Parse request body
     const body: NotificationRequest = await req.json()
     const { senderId, recipientIds, message, activityName, chatType, chatId, notificationType } = body
@@ -79,6 +89,21 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    // Verify JWT and confirm caller is the declared sender
+    const { data: { user: callerUser }, error: authError } = await supabaseClient.auth.getUser(token)
+    if (authError || !callerUser) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid or expired token' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+    if (callerUser.id !== senderId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'senderId does not match authenticated user' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      )
+    }
 
     // Get sender's name
     const { data: sender, error: senderError } = await supabaseClient
