@@ -11043,11 +11043,15 @@ function renderEventsByTimePeriod(events) {
     const planningEvents = events.filter(e => e.status === 'planning');
     const scheduledEvents = events.filter(e => e.status !== 'planning');
 
+    const sevenDaysOut = new Date(today);
+    sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
+
     const periods = {
         'PLANNING': planningEvents,
         'TODAY': [],
         'TOMORROW': [],
         'THIS WEEKEND': [],
+        'THIS WEEK': [],
         'NEXT WEEK': [],
         'LATER': []
     };
@@ -11062,6 +11066,8 @@ function renderEventsByTimePeriod(events) {
             periods['TOMORROW'].push(event);
         } else if (thisWeekend && eventDay >= thisWeekend.start && eventDay <= thisWeekend.end) {
             periods['THIS WEEKEND'].push(event);
+        } else if (eventDay > tomorrow && eventDay < sevenDaysOut) {
+            periods['THIS WEEK'].push(event);
         } else if (nextWeek && eventDay >= nextWeek.start && eventDay <= nextWeek.end) {
             periods['NEXT WEEK'].push(event);
         } else {
@@ -11158,7 +11164,7 @@ function renderEvents(events, pastEvents = []) {
 
     // Render OTHER EVENTS section (always show heading)
     html += `<div style="margin-bottom: 30px;">`;
-    html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Other Events in Your Circles</h2>`;
+    html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Upcoming Events in Your Circles</h2>`;
 
     if (otherEvents.length > 0) {
         html += renderOtherEventsByCircle(otherEvents);
@@ -11231,64 +11237,10 @@ function renderEvents(events, pastEvents = []) {
 
     // Render past events grouped by month
     if (pastEvents && pastEvents.length > 0) {
-        // Group past events by month
-        const monthGroups = {};
-
-        pastEvents.forEach(event => {
-            const eventDate = new Date(event.scheduled_date);
-            const monthKey = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}`;
-            const monthName = eventDate.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long'
-            });
-
-            if (!monthGroups[monthKey]) {
-                monthGroups[monthKey] = {
-                    name: monthName,
-                    events: []
-                };
-            }
-            monthGroups[monthKey].events.push(event);
-        });
-
-        // Render past events section (collapsed by default)
-        const totalPastEvents = pastEvents.length;
-        html += `
-            <details class="event-period" style="margin-top: 30px;">
-                <summary class="event-period-header">
-                    <span style="display: flex; align-items: center; gap: 8px;">
-                        <span class="event-period-chevron">▶</span>
-                        PAST EVENTS
-                    </span>
-                    <span>${totalPastEvents} ${totalPastEvents === 1 ? 'event' : 'events'}</span>
-                </summary>
-                <div class="event-period-content">
-        `;
-
-        // Render each month group within past events
-        const sortedMonthKeys = Object.keys(monthGroups).sort().reverse();
-        sortedMonthKeys.forEach(monthKey => {
-            const group = monthGroups[monthKey];
-            html += `
-                <details class="event-period" style="margin: 10px; border: 1px solid var(--border-color);">
-                    <summary class="event-period-header" style="padding: 12px 16px;">
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <span class="event-period-chevron">▶</span>
-                            ${group.name}
-                        </span>
-                        <span>${group.events.length} ${group.events.length === 1 ? 'event' : 'events'}</span>
-                    </summary>
-                    <div class="event-period-content">
-                        ${group.events.map(event => renderEventCard(event)).join('')}
-                    </div>
-                </details>
-            `;
-        });
-
-        html += `
-                </div>
-            </details>
-        `;
+        html += `<div style="margin-bottom: 30px;">`;
+        html += `<h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: var(--text-primary); text-align: center;">Past Events</h2>`;
+        html += renderOtherEventsByCircle(pastEvents);
+        html += `</div>`;
     }
 
     eventsList.innerHTML = html;
