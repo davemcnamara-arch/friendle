@@ -3505,6 +3505,11 @@ body.dark-mode .poll-notification-label {
                 <input type="number" id="new-event-max-participants" min="1" placeholder="Unlimited">
             </div>
 
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="new-event-attending" checked style="width: auto; margin: 0;">
+                <label for="new-event-attending" style="margin: 0; cursor: pointer;">I'm attending this event</label>
+            </div>
+
             <button type="submit" class="btn">Create Event</button>
         </form>
     </div>
@@ -14971,27 +14976,33 @@ async function createEvent(e) {
 
         console.log('✅ Created event:', newEvent);
 
-        // Only add the event creator
-        console.log('🔵 CREATE EVENT: Adding creator as participant...');
-        const { error: insertError } = await supabase
-            .from('event_participants')
-            .insert([{
-                event_id: newEvent.id,
-                profile_id: currentUser.id,
-                status: 'accepted'
-            }]);
+        const isAttending = document.getElementById('new-event-attending').checked;
 
-        console.log('🔵 CREATE EVENT: Participant insert result:', insertError);
+        if (isAttending) {
+            // Add the event creator as a participant
+            console.log('🔵 CREATE EVENT: Adding creator as participant...');
+            const { error: insertError } = await supabase
+                .from('event_participants')
+                .insert([{
+                    event_id: newEvent.id,
+                    profile_id: currentUser.id,
+                    status: 'accepted'
+                }]);
 
-        if (insertError) throw insertError;
+            console.log('🔵 CREATE EVENT: Participant insert result:', insertError);
 
-        // Update last_interaction_at for inactivity tracking
-        console.log('🔵 CREATE EVENT: Updating last interaction...');
-        await supabase
-            .from('match_participants')
-            .update({ last_interaction_at: new Date().toISOString() })
-            .eq('match_id', matchId)
-            .eq('profile_id', currentUser.id);
+            if (insertError) throw insertError;
+
+            // Update last_interaction_at for inactivity tracking
+            console.log('🔵 CREATE EVENT: Updating last interaction...');
+            await supabase
+                .from('match_participants')
+                .update({ last_interaction_at: new Date().toISOString() })
+                .eq('match_id', matchId)
+                .eq('profile_id', currentUser.id);
+        } else {
+            console.log('🔵 CREATE EVENT: Creator not attending, skipping participant insert.');
+        }
 
         // Send notification to other match participants (non-blocking - fire and forget)
         console.log('🔵 CREATE EVENT: Sending notifications (async, non-blocking)...');
@@ -15016,11 +15027,13 @@ async function createEvent(e) {
             console.log(`🔵 CREATE EVENT: Events page loaded in ${Date.now() - eventsStart}ms`);
         }
 
-        // Open the new event chat
-        console.log('🔵 CREATE EVENT: Opening event chat...');
-        const chatStart = Date.now();
-        openEventChat(newEvent.id);
-        console.log(`🔵 CREATE EVENT: Event chat opened in ${Date.now() - chatStart}ms`);
+        if (isAttending) {
+            // Open the new event chat
+            console.log('🔵 CREATE EVENT: Opening event chat...');
+            const chatStart = Date.now();
+            openEventChat(newEvent.id);
+            console.log(`🔵 CREATE EVENT: Event chat opened in ${Date.now() - chatStart}ms`);
+        }
 
         console.log('✅ CREATE EVENT: Complete!');
 
