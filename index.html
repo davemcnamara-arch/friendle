@@ -11314,9 +11314,8 @@ function renderEventCard(event) {
                     <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         👥 ${circleName}
                     </div>
-                    <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
+                    <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 3px;">
                         📅 ${dateStr}${timeStr}
-                        ${isUserJoined ? `<button onclick="event.stopPropagation(); openEditEventDetailsFromCard('${event.id}')" style="background: none; border: none; cursor: pointer; font-size: 12px; padding: 1px 3px; opacity: 0.5;" title="Edit details">✏️</button>` : ''}
                     </div>
                     ${event.location ? `<div class="event-meta" style="font-size: 13px; margin-bottom: 3px;">📍 ${event.location}</div>` : ''}
                     <div class="event-meta" style="font-size: 12px; margin-top: 6px;">${participantDisplay}</div>
