@@ -11341,7 +11341,9 @@ function renderEventCard(event) {
                     </button>
                 ` : ''}
                 ${event.scheduled_date ? `
-                    <button onclick="addToCalendar('${event.id}')" style="background: none; border: none; cursor: pointer; font-size: 18px; padding: 2px; opacity: 0.5; line-height: 1;" title="Add to Calendar">📅</button>
+                    <button class="btn btn-secondary" onclick="addToCalendar('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap;">
+                        📅 Add to Calendar
+                    </button>
                 ` : ''}
                 </div>
             </div>
