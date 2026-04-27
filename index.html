@@ -11186,7 +11186,7 @@ function renderOtherEventsByCircle(events) {
     for (const [circleId, { name, events: circleEvents }] of circleMap) {
         const color = getCircleColor(circleId);
         const saved = localStorage.getItem(eventPeriodKey(name));
-        const isOpen = saved === null ? true : saved === 'true';
+        const isOpen = saved === null ? false : saved === 'true';
         html += `
             <details class="event-period" data-period="${name}" ${isOpen ? 'open' : ''} style="border-left: 3px solid ${color.main};">
                 <summary class="event-period-header" style="background: ${color.light}; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
