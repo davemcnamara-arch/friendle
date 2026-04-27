@@ -11182,7 +11182,10 @@ function renderEvents(events, pastEvents = []) {
     const nowMidnight = new Date();
     nowMidnight.setHours(0, 0, 0, 0);
     const upcomingEvents = (events || []).filter(e => {
-        if (e.status === 'planning') return true;
+        // Planning events with no date yet are always upcoming.
+        // Planning events that DO have a date are subject to the same past-date check —
+        // the DB includes them via `OR status.eq.planning` regardless of date.
+        if (e.status === 'planning' && !e.scheduled_date) return true;
         if (!e.scheduled_date) return false;
         // Slice to 'YYYY-MM-DD' first so datetime strings like '2026-04-29T11:30:00Z'
         // don't produce Invalid Date when 'T00:00:00' is appended.
