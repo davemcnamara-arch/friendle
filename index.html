@@ -11100,6 +11100,28 @@ function renderEventsByTimePeriod(events) {
     return html;
 }
 
+const CIRCLE_COLORS = [
+    { main: '#6366f1', light: 'rgba(99,102,241,0.08)' },
+    { main: '#f59e0b', light: 'rgba(245,158,11,0.08)' },
+    { main: '#10b981', light: 'rgba(16,185,129,0.08)' },
+    { main: '#ef4444', light: 'rgba(239,68,68,0.08)' },
+    { main: '#8b5cf6', light: 'rgba(139,92,246,0.08)' },
+    { main: '#06b6d4', light: 'rgba(6,182,212,0.08)' },
+    { main: '#f97316', light: 'rgba(249,115,22,0.08)' },
+    { main: '#ec4899', light: 'rgba(236,72,153,0.08)' },
+];
+
+function getCircleColor(circleId) {
+    if (!circleId) return CIRCLE_COLORS[0];
+    let hash = 0;
+    const str = String(circleId);
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return CIRCLE_COLORS[Math.abs(hash) % CIRCLE_COLORS.length];
+}
+
 function renderOtherEventsByCircle(events) {
     const circleMap = new Map();
     for (const event of events) {
@@ -11112,10 +11134,11 @@ function renderOtherEventsByCircle(events) {
     }
 
     let html = '';
-    for (const [, { name, events: circleEvents }] of circleMap) {
+    for (const [circleId, { name, events: circleEvents }] of circleMap) {
+        const color = getCircleColor(circleId);
         html += `
-            <details class="event-period">
-                <summary class="event-period-header">
+            <details class="event-period" style="border-left: 3px solid ${color.main};">
+                <summary class="event-period-header" style="background: ${color.light}; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
                     <span style="display: flex; align-items: center; gap: 8px;">
                         <span class="event-period-chevron">▶</span>
                         ${name}
@@ -11287,15 +11310,17 @@ function renderEventCard(event) {
         maxParticipants
     );
 
+    const circleColor = getCircleColor(event.circle?.id);
+
     return `
-        <div class="event-card">
+        <div class="event-card" style="border-left: 4px solid ${circleColor.main}; padding-left: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         ${activityEmoji} ${activityName}
                     </div>
                     <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        👥 ${circleName}
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${circleColor.main}; margin-right: 4px; vertical-align: middle;"></span>${circleName}
                     </div>
                     <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 3px;">
                         📅 ${dateStr}${timeStr}
