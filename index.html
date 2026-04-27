@@ -4545,11 +4545,9 @@ window.showWelcomeFromOnboarding = function() {
     if (inviteCode) {
         showRegister();
 
-        // Show PWA install prompt for invite code users
-        // This ensures the prompt appears even if they clicked through quickly from onboarding
-        setTimeout(() => {
-            showPWAPrompt(true);
-        }, 1000);
+        // Don't show PWA prompt here - the user hasn't created an account yet.
+        // On iOS, installing before signup causes storage isolation (PWA and Safari have
+        // separate localStorage), which logs them out the first time they open the icon.
     }
 }
 
@@ -5642,8 +5640,8 @@ function showIOSInstallInstructions() {
                 <p style="line-height: 1.6; color: var(--text-secondary); margin: 15px 0;">
                     Add Friendle to your home screen for the best experience!
                 </p>
-                <p style="line-height: 1.6; color: var(--text-secondary); margin: 15px 0; font-size: 14px; opacity: 0.8;">
-                    <strong>Note:</strong> You'll need to log in again after installing.
+                <p style="line-height: 1.6; color: var(--text-secondary); margin: 15px 0; font-size: 14px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 10px;">
+                    ⚠️ <strong>Important:</strong> After installing, you'll need to sign in once more. iOS keeps the app's storage separate from Safari.
                 </p>
                 <div class="pwa-ios-instructions">
                     <div class="pwa-ios-step">
@@ -18002,17 +18000,12 @@ async function showOnboarding() {
 
     showPage('onboarding');
 
-    // Show PWA install prompt on sign-in page to reduce friction
-    // UNLESS there's a pending invite code - in that case, wait until after they join
-    // This prevents localStorage issues on iOS where PWA has separate storage from Safari
-    const hasPendingInvite = InviteCodeStorage.get();
-    if (!hasPendingInvite) {
-        setTimeout(() => {
-            showPWAPrompt(true);
-        }, 1000);
-    } else {
-        console.log('⏸️ Skipping PWA prompt due to pending invite - will show after circle join');
-    }
+    // Don't show PWA install prompt on the onboarding/sign-in page.
+    // On iOS, installing the PWA creates an isolated storage context that is separate from
+    // Safari's localStorage, so any session created in Safari is invisible to the PWA.
+    // Showing the install prompt before the user has an account causes them to install
+    // the PWA, then sign up in Safari, then open the icon and find themselves logged out.
+    // The prompt is shown later, after the user is authenticated (e.g. after joining a circle).
 }
 
 // Global error handlers - catch unexpected errors
