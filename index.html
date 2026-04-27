@@ -11336,12 +11336,12 @@ function renderEventCard(event) {
                     </button>
                 `}
                 ${participantCount === 0 && !isUserJoined ? `
-                    <button class="btn btn-secondary" onclick="deleteEmptyEvent('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
+                    <button class="btn btn-secondary" onclick="deleteEmptyEvent('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap; background: #dc3545; color: white;">
                         🗑️ Delete
                     </button>
                 ` : ''}
                 ${event.scheduled_date ? `
-                    <button class="btn btn-secondary" onclick="addToCalendar('${event.id}')" style="font-size: 11px; padding: 4px 8px; width: auto; margin: 0; white-space: nowrap;">
+                    <button class="btn btn-secondary" onclick="addToCalendar('${event.id}')" style="font-size: 13px; padding: 6px 12px; width: auto; margin: 0; white-space: nowrap;">
                         📅 Add to Calendar
                     </button>
                 ` : ''}
