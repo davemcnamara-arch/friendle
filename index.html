@@ -15090,8 +15090,10 @@ async function openEventChat(eventId) {
                 showPage('matches');
                 return;
             } else {
-                // User is not part of this match at all
-                showNotification('Please join the event first', 'error');
+                // User is not part of this match - navigate to Events page so they can join
+                highlightedEventId = eventId;
+                showNotification('Join the event from the Events page to view the chat', 'info');
+                showPage('events');
                 return;
             }
         }
