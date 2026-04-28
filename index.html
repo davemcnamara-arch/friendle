@@ -7845,20 +7845,32 @@ window.inviteByWhatsApp = function(circleName, circleCode) {
 window.inviteByMessenger = function(circleName, circleCode) {
     const inviteUrl = 'https://friendlecircles.app/?invite_code=' + circleCode;
     const encodedUrl = encodeURIComponent(inviteUrl);
-    // Deep link opens Messenger app on mobile; on desktop prompt the user to copy the link
     const deepLink = 'fb-messenger://share?link=' + encodedUrl;
-    const fallback = 'https://friendlecircles.app/?invite_code=' + circleCode;
-    const win = window.open(deepLink, '_self');
-    // If the deep link fails (desktop), copy the invite link and notify
-    setTimeout(function() {
-        if (document.hasFocus()) {
-            navigator.clipboard.writeText(fallback).then(function() {
-                showNotification('Invite link copied — paste it into Messenger!');
-            }).catch(function() {
-                showNotification('Open Messenger and share: ' + fallback);
-            });
-        }
-    }, 1500);
+    let appOpened = false;
+
+    // Attempt to open the Messenger app via deep link
+    try {
+        const before = Date.now();
+        window.location.href = deepLink;
+        // If Messenger opens, the page loses focus; if not, we stay here
+        setTimeout(function() {
+            if (Date.now() - before < 2000 && document.hasFocus()) {
+                // Still on page — Messenger likely not installed, copy link instead
+                navigator.clipboard.writeText(inviteUrl).then(function() {
+                    showNotification('Invite link copied — open Messenger and paste it!');
+                }).catch(function() {
+                    showNotification('Open Messenger and share this link: ' + inviteUrl);
+                });
+            }
+        }, 1500);
+    } catch(e) {
+        // Deep link not supported, fall back to clipboard
+        navigator.clipboard.writeText(inviteUrl).then(function() {
+            showNotification('Invite link copied — open Messenger and paste it!');
+        }).catch(function() {
+            showNotification('Open Messenger and share this link: ' + inviteUrl);
+        });
+    }
 }
 
 window.renameCircle = async function(circleId) {
