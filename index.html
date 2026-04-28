@@ -3352,6 +3352,7 @@ body.dark-mode .poll-notification-label {
 </div><div id="join-circle" style="display: none;"><div class="modal-header">Join Circle</div><div class="form-group"><label for="circle-code">Circle Code</label><input type="text" id="circle-code" placeholder="Enter 6-digit code"></div><button class="btn" onclick="joinCircle()">Join</button></div></div></div>
         <div class="modal-overlay" id="suggest-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeSuggestModal()">×</span><div class="modal-header">Suggest an Activity</div><div class="form-group"><label for="suggest-name">Activity Name</label><input type="text" id="suggest-name" placeholder="e.g., Go Karting"></div><button class="btn" onclick="suggestActivity()">Suggest</button></div></div>
         <div class="modal-overlay" id="invite-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeInviteModal()">×</span><div class="modal-header">Share Invite Link</div><div class="form-group"><label for="invite-link">Copy this link and send it to a friend:</label><input type="text" id="invite-link" readonly></div><button class="btn" onclick="copyInviteLink()">Copy Link</button></div></div>
+        <div class="modal-overlay" id="circle-share-modal-overlay" onclick="if(event.target===this)closeCircleShareModal()"><div class="modal-content"><span class="close-modal-btn" onclick="closeCircleShareModal()">×</span><div class="modal-header" id="circle-share-modal-title">Invite Friends</div><div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;"><button class="btn" onclick="circleShareAction('email')" style="display:flex;align-items:center;gap:10px;justify-content:center;">✉️ Email</button><button class="btn" onclick="circleShareAction('whatsapp')" style="display:flex;align-items:center;gap:10px;justify-content:center;background:#25D366;border-color:#25D366;">💬 WhatsApp</button><button class="btn" onclick="circleShareAction('messenger')" style="display:flex;align-items:center;gap:10px;justify-content:center;background:#0084FF;border-color:#0084FF;">📘 Messenger</button></div></div></div>
         <div class="modal-overlay" id="update-name-modal-overlay"><div class="modal-content"><span class="close-modal-btn" onclick="closeUpdateNameModal()">×</span><div class="modal-header">Update Display Name</div><div class="form-group"><label for="modal-new-username">Display Name</label><input type="text" id="modal-new-username" placeholder="Enter new name"></div><button class="btn" onclick="changeUsername()">Update Name</button></div></div>
 
 <!-- Circle Members Modal -->
@@ -7608,7 +7609,7 @@ window.finalizeCircleCreation = async function() {
             </div>
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
               <button class="btn btn-small" onclick="event.stopPropagation(); openCircleChat('${circle.id}')" style="padding: 6px 12px; font-size: 0.85em;">💬 Chat</button>
-              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); inviteByEmail(${safeNameAttr}, ${safeCodeAttr})" style="padding: 6px 12px; font-size: 0.85em;">✉️ Invite</button>
+              <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); showCircleShareOptions(${safeNameAttr}, ${safeCodeAttr})" style="padding: 6px 12px; font-size: 0.85em;">📤 Invite</button>
               <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); copyCircleCode(${safeCodeAttr})" style="padding: 6px 12px; font-size: 0.85em; font-family: monospace;" title="Click to copy">📋 ${escapeHtml(circle.code)}</button>
               ${unreadCount > 0 ? `<span class="circle-new-message-badge" style="font-size: 0.9em;">New</span>` : ''}
               <span class="circle-expand-icon" style="margin-left: auto;">▼</span>
@@ -7807,6 +7808,57 @@ window.inviteByEmail = function(circleName, circleCode) {
     
     const mailtoLink = 'mailto:?subject=' + subject + '&body=' + body;
     window.open(mailtoLink, '_self');
+}
+
+window.showCircleShareOptions = function(circleName, circleCode) {
+    document.getElementById('circle-share-modal-title').textContent = 'Invite to "' + circleName + '"';
+    const modal = document.getElementById('circle-share-modal-overlay');
+    modal.dataset.circleName = circleName;
+    modal.dataset.circleCode = circleCode;
+    modal.style.display = 'flex';
+}
+
+window.closeCircleShareModal = function() {
+    document.getElementById('circle-share-modal-overlay').style.display = 'none';
+}
+
+window.circleShareAction = function(method) {
+    const modal = document.getElementById('circle-share-modal-overlay');
+    const circleName = modal.dataset.circleName;
+    const circleCode = modal.dataset.circleCode;
+    closeCircleShareModal();
+    if (method === 'email') {
+        inviteByEmail(circleName, circleCode);
+    } else if (method === 'whatsapp') {
+        inviteByWhatsApp(circleName, circleCode);
+    } else if (method === 'messenger') {
+        inviteByMessenger(circleName, circleCode);
+    }
+}
+
+window.inviteByWhatsApp = function(circleName, circleCode) {
+    const inviteUrl = 'https://friendlecircles.app/?invite_code=' + circleCode;
+    const text = encodeURIComponent('Join my "' + circleName + '" circle on Friendle! ' + inviteUrl);
+    window.open('https://wa.me/?text=' + text, '_blank');
+}
+
+window.inviteByMessenger = function(circleName, circleCode) {
+    const inviteUrl = 'https://friendlecircles.app/?invite_code=' + circleCode;
+    const encodedUrl = encodeURIComponent(inviteUrl);
+    // Deep link opens Messenger app on mobile; on desktop prompt the user to copy the link
+    const deepLink = 'fb-messenger://share?link=' + encodedUrl;
+    const fallback = 'https://friendlecircles.app/?invite_code=' + circleCode;
+    const win = window.open(deepLink, '_self');
+    // If the deep link fails (desktop), copy the invite link and notify
+    setTimeout(function() {
+        if (document.hasFocus()) {
+            navigator.clipboard.writeText(fallback).then(function() {
+                showNotification('Invite link copied — paste it into Messenger!');
+            }).catch(function() {
+                showNotification('Open Messenger and share: ' + fallback);
+            });
+        }
+    }, 1500);
 }
 
 window.renameCircle = async function(circleId) {
