@@ -7838,8 +7838,16 @@ window.circleShareAction = function(method) {
 }
 
 window.inviteByWhatsApp = function(circleName, circleCode) {
-    const inviteUrl = 'https://friendlecircles.app/?invite_code=' + circleCode;
-    const text = encodeURIComponent('Join my "' + circleName + '" circle on Friendle! ' + inviteUrl);
+    const appUrl = 'https://friendlecircles.app/';
+    const inviteUrl = appUrl + '?invite_code=' + circleCode;
+    const text = encodeURIComponent(
+        'Hi! I would like to invite you to join my "' + circleName + '" circle on Friendle.\n\n' +
+        'Join us for coffee, hiking, and whatever else comes up.\n\n' +
+        'CLICK THIS LINK TO JOIN:\n' +
+        inviteUrl + '\n\n' +
+        'Or visit ' + appUrl + ' and manually enter code: ' + circleCode + '\n\n' +
+        'Looking forward to planning some fun activities together!'
+    );
     window.open('https://wa.me/?text=' + text, '_blank');
 }
 
