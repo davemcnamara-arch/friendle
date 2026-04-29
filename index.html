@@ -3493,7 +3493,12 @@ body.dark-mode .poll-notification-label {
         
         <form id="create-event-form">
             <input type="hidden" id="new-event-match-id">
-            
+
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="new-event-attending" checked style="width: auto; margin: 0;">
+                <label for="new-event-attending" style="margin: 0; cursor: pointer;">I'm attending this event</label>
+            </div>
+
             <div class="form-group">
     <label for="new-event-date">Date *</label>
     <div style="display: flex; gap: 10px;">
@@ -3506,7 +3511,7 @@ body.dark-mode .poll-notification-label {
                 <label for="new-event-location">Location</label>
                 <input type="text" id="new-event-location" placeholder="Where are you meeting?">
             </div>
-            
+
             <div class="form-group">
                 <label for="new-event-notes">Notes</label>
                 <textarea id="new-event-notes" rows="3" placeholder="Any additional details..."></textarea>
@@ -3515,11 +3520,6 @@ body.dark-mode .poll-notification-label {
             <div class="form-group">
                 <label for="new-event-max-participants">Max Attendees</label>
                 <input type="number" id="new-event-max-participants" min="1" placeholder="Unlimited">
-            </div>
-
-            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-                <input type="checkbox" id="new-event-attending" checked style="width: auto; margin: 0;">
-                <label for="new-event-attending" style="margin: 0; cursor: pointer;">I'm attending this event</label>
             </div>
 
             <button type="submit" class="btn">Create Event</button>
