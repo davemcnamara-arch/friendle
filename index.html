@@ -12836,7 +12836,9 @@ window.markActivityAsToday = async function(activityId, matchId) {
     if (!input.value.trim()) return;
     
     const messageContent = input.value.trim(); // Capture message FIRST
-    
+    input.value = '';
+    input.style.height = 'auto';
+
     const context = getCurrentChatContext();
     console.log('💬 Sending message in context:', context.type);
     
@@ -13004,16 +13006,15 @@ window.markActivityAsToday = async function(activityId, matchId) {
             // Don't block message send if notification fails
         }
         
-        // Clear input LAST
-        input.value = '';
-        input.style.height = 'auto'; // Reset height after sending
-
     } catch (error) {
         console.error('Error sending message:', error);
         showNotification('Failed to send message', 'error');
+        input.value = messageContent;
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 150) + 'px';
     }
 }
-        
+
         window.handleMessageKeyPress = function(e) {
             // Auto-resize textarea as user types
             const textarea = e.target;
