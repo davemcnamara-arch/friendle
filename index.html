@@ -14533,8 +14533,7 @@ async function createPlanningEvent(e) {
         } else {
             // Event is in planning mode
             const pollNote = createdPoll ? '\n\n📊 Vote on the poll above to help decide!' : '';
-            const timeframeLine = newEvent.proposed_timeframe ? `\n📅 Proposed: ${newEvent.proposed_timeframe}` : '';
-            systemMessage = `🤖 ${currentUser.name} started planning ${activityName}${timeframeLine}${locationText}\n\nChat below to finalize details!${pollNote}`;
+            systemMessage = `🤖 ${currentUser.name} started planning ${activityName}${locationText}\n\nChat below to finalize details!${pollNote}`;
         }
 
         await sendSystemMessage(newEvent.id, systemMessage);
