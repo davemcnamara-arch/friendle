@@ -13605,6 +13605,19 @@ function openPlanningEventModal(matchId, activityObj = null, circleObj = null) {
 function closePlanningEventModal() {
     document.getElementById('planning-event-modal').style.display = 'none';
 
+    // Collapse all collapsible sections (form.reset() only resets values, not CSS classes)
+    document.querySelectorAll('#planning-event-form .collapsible-header.active').forEach(header => {
+        header.classList.remove('active');
+        const content = header.nextElementSibling;
+        if (content) content.classList.remove('active');
+    });
+
+    // Reset required attributes that toggleCollapsible may have changed
+    const planningLocation = document.getElementById('planning-location');
+    const planningLockDate = document.getElementById('planning-lock-date');
+    if (planningLocation) planningLocation.required = false;
+    if (planningLockDate) planningLockDate.required = false;
+
     // Reset the lock details hidden input
     document.getElementById('lock-details-now').value = 'false';
 
@@ -14187,13 +14200,6 @@ async function createPlanningEvent(e) {
 
             if (participantError) throw participantError;
 
-            // Update creator's last interaction timestamp in match_participants
-            const { error: matchUpdateError } = await supabase
-                .from('match_participants')
-                .update({ last_interaction_at: new Date().toISOString() })
-                .eq('match_id', matchId)
-                .eq('profile_id', currentUser.id);
-            if (matchUpdateError) console.error('match_participants last_interaction_at update failed:', matchUpdateError);
         }
 
         // Send notifications to other match participants
