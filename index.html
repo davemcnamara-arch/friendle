@@ -18098,8 +18098,12 @@ if (pageId === 'settings') {
             await loadDefaultActivities();
 
             if ('Notification' in window && Notification.permission === 'default') {
-                // Show friendly custom prompt before browser prompt
-                showNotificationPrompt();
+                if (isIOSSafari() && !isAppInstalled()) {
+                    // Push notifications require the PWA on iOS - prompt to install first
+                    showPWAPrompt();
+                } else {
+                    showNotificationPrompt();
+                }
             }
 
             // SECURITY: Store minimal data - only user ID in localStorage, UI data in sessionStorage
