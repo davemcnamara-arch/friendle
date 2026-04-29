@@ -1691,7 +1691,20 @@
         }
 
         .send-btn {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            padding: 0;
             margin: 0;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
+            color: white;
+            font-size: 1em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .bottom-nav {
@@ -2995,7 +3008,7 @@ body.dark-mode .poll-notification-label {
         <div class="chat-input">
             <div class="chat-input-main-row">
                 <textarea id="message-input" placeholder="Type a message..." onkeydown="handleMessageKeyPress(event)" rows="1"></textarea>
-                <button class="btn send-btn" onclick="sendMessage()">Send</button>
+                <button class="send-btn" onclick="sendMessage()">&#10148;</button>
             </div>
             <div class="chat-input-button-row">
                 <button class="attachment-btn" id="poll-btn" onclick="openCreatePollModal()" title="Create a poll">📊</button>
