@@ -5381,7 +5381,7 @@ window.enableNotifications = async function() {
                         console.log('🔍 SAMSUNG: WARNING - No player ID after enabling notifications');
                     }
                 } else {
-                    showNotification('Notification permission denied', 'error');
+                    showNotificationPermissionHelp();
                 }
             } catch (error) {
                 console.error('Error enabling notifications:', error);
@@ -5389,6 +5389,101 @@ window.enableNotifications = async function() {
             }
         });
     }
+}
+
+function showNotificationPermissionHelp() {
+    if (document.getElementById('notif-denied-modal')) return;
+
+    const isIOS = isIOSSafari();
+    const isPWA = isAppInstalled();
+    const hardDenied = ('Notification' in window) && Notification.permission === 'denied';
+
+    let title, body;
+
+    if (isIOS && !isPWA) {
+        title = '📱 Add the app to enable notifications';
+        body = `
+            <p style="line-height:1.6;color:var(--text-secondary);margin:0 0 12px;">
+                iPhone requires Friendle to be installed as an app on your Home Screen before notifications can be turned on.
+            </p>
+            <div class="pwa-ios-instructions">
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">1</div>
+                    <div>Tap the Share button <strong>⎘</strong> at the bottom of Safari</div>
+                </div>
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">2</div>
+                    <div>Tap <strong>"Add to Home Screen"</strong></div>
+                </div>
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">3</div>
+                    <div>Open the app from your Home Screen and enable notifications in Settings</div>
+                </div>
+            </div>`;
+    } else if (isIOS && hardDenied) {
+        title = '🔔 Notifications are blocked';
+        body = `
+            <p style="line-height:1.6;color:var(--text-secondary);margin:0 0 12px;">
+                Notification permission was previously denied. To re-enable it:
+            </p>
+            <div class="pwa-ios-instructions">
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">1</div>
+                    <div>Open the iPhone <strong>Settings</strong> app</div>
+                </div>
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">2</div>
+                    <div>Scroll down and tap <strong>Friendle</strong> (or Safari)</div>
+                </div>
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">3</div>
+                    <div>Tap <strong>Notifications</strong> and turn them on</div>
+                </div>
+            </div>
+            <p style="line-height:1.5;color:var(--text-secondary);font-size:13px;margin:12px 0 0;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px;">
+                ⚠️ If Screen Time is enabled on this device, a parent may need to allow notifications in <strong>Settings &gt; Screen Time &gt; Content &amp; Privacy Restrictions</strong>.
+            </p>`;
+    } else if (hardDenied) {
+        title = '🔔 Notifications are blocked';
+        body = `
+            <p style="line-height:1.6;color:var(--text-secondary);margin:0 0 12px;">
+                Your browser has blocked notifications for this site. To fix this:
+            </p>
+            <div class="pwa-ios-instructions">
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">1</div>
+                    <div>Tap the <strong>lock icon</strong> (or info icon) in your browser's address bar</div>
+                </div>
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">2</div>
+                    <div>Find <strong>Notifications</strong> and set it to <strong>Allow</strong></div>
+                </div>
+                <div class="pwa-ios-step">
+                    <div class="pwa-ios-step-number">3</div>
+                    <div>Reload the page and try again</div>
+                </div>
+            </div>`;
+    } else {
+        title = '🔔 Could not enable notifications';
+        body = `<p style="line-height:1.6;color:var(--text-secondary);margin:0;">
+            The notification request was dismissed or not supported by your browser. Please try again, or check your device and browser notification settings.
+        </p>`;
+    }
+
+    const modalHTML = `
+        <div class="modal-overlay" id="notif-denied-modal" style="display:flex;">
+            <div class="modal-content" style="max-width:400px;">
+                <h3 style="margin-top:0;color:var(--primary-color);">${title}</h3>
+                ${body}
+                <div style="margin-top:20px;">
+                    <button class="btn btn-secondary" onclick="document.getElementById('notif-denied-modal').remove()" style="width:100%;">
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
 // Samsung notification diagnostic test
