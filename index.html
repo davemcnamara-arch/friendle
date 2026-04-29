@@ -10067,11 +10067,16 @@ async function loadOlderMessages(chatType) {
             const tempContainer = document.createElement('div');
 
             messages.forEach(message => {
-                const isOwnMessage = message.sender_id === currentUser.id;
-                const messageTime = formatMessageTimestamp(message.created_at);
-
                 const context = getCurrentChatContext();
                 const messageType = context.type;
+
+                if (messageType === 'event' && currentEvent && currentEvent.status === 'scheduled' &&
+                    message.message_type === 'system' && message.content && message.content.includes('Chat below to finalize details')) {
+                    return;
+                }
+
+                const isOwnMessage = message.sender_id === currentUser.id;
+                const messageTime = formatMessageTimestamp(message.created_at);
 
                 const sanitizedContent = message.is_deleted
                     ? '<span style="font-style: italic;">[Deleted]</span>'
@@ -15900,7 +15905,13 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
             messagesContainer.appendChild(placeholder);
             messagePagination.event.hasMore = false;
         } else {
-            currentMessages.forEach(message => appendMessage(message));
+            const isScheduled = currentEvent && currentEvent.status === 'scheduled';
+            currentMessages.forEach(message => {
+                if (isScheduled && message.message_type === 'system' && message.content && message.content.includes('Chat below to finalize details')) {
+                    return;
+                }
+                appendMessage(message);
+            });
         }
 
         // Add "Load older messages" button if there are more messages
