@@ -8679,23 +8679,33 @@ async function toggleActivityInterest(activity, card) {
     btn.classList.toggle('is-interested', nowInterested);
 
     try {
-        if (nowInterested) {
+        const { data: existing, error: checkError } = await supabase
+            .from('preferences')
+            .select('selected')
+            .eq('profile_id', currentUser.id)
+            .eq('circle_id', selectedCircle.id)
+            .eq('activity_id', activity.id)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') throw checkError;
+
+        if (existing) {
             const { error } = await supabase
                 .from('preferences')
-                .upsert({
-                    profile_id: currentUser.id,
-                    circle_id: selectedCircle.id,
-                    activity_id: activity.id,
-                    selected: true
-                }, { onConflict: 'profile_id,circle_id,activity_id' });
+                .update({ selected: nowInterested })
+                .eq('profile_id', currentUser.id)
+                .eq('circle_id', selectedCircle.id)
+                .eq('activity_id', activity.id);
             if (error) throw error;
         } else {
             const { error } = await supabase
                 .from('preferences')
-                .update({ selected: false })
-                .eq('profile_id', currentUser.id)
-                .eq('circle_id', selectedCircle.id)
-                .eq('activity_id', activity.id);
+                .insert({
+                    profile_id: currentUser.id,
+                    circle_id: selectedCircle.id,
+                    activity_id: activity.id,
+                    selected: nowInterested
+                });
             if (error) throw error;
         }
     } catch (error) {
