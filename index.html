@@ -2959,14 +2959,13 @@ body.dark-mode .poll-notification-label {
             <div id="chat" class="page">
     <div class="chat-container">
         <div class="chat-header">
-    <div style="display: flex; align-items: center; margin-bottom: 4px;">
-        <button onclick="goToPreviousPage()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em;">← Back</button>
-        <div style="flex: 1; text-align: center;">
-            <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
-            <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
-        </div>
+    <div style="text-align: center; margin-bottom: 4px;">
+        <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
+        <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
     </div>
-    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <button onclick="goToPreviousPage()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 1em; line-height: 1;">&#8592;</button>
+        <div style="flex: 1;"></div>
         <button id="lock-details-btn" onclick="openLockDetailsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">⚙️ Lock in Details</button>
         <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">📅 Add to Calendar</button>
         <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">Leave event</button>
