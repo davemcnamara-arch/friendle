@@ -1376,7 +1376,7 @@
         .chat-header {
             background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
-            padding: 15px;
+            padding: 10px 12px;
             flex-shrink: 0;
             position: sticky;
             top: 0;
@@ -2959,31 +2959,31 @@ body.dark-mode .poll-notification-label {
             <div id="chat" class="page">
     <div class="chat-container">
         <div class="chat-header">
-    <div style="display: flex; align-items: center; margin-bottom: 8px;">
-        <button onclick="goToPreviousPage()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">← Back</button>
+    <div style="display: flex; align-items: center; margin-bottom: 4px;">
+        <button onclick="goToPreviousPage()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em;">← Back</button>
         <div style="flex: 1; text-align: center;">
             <div id="event-activity-name" style="font-weight: 600; font-size: 1.1em;"></div>
             <div id="event-participants" style="font-size: 0.8em; opacity: 0.8;"></div>
         </div>
     </div>
     <div style="display: flex; gap: 8px; justify-content: flex-end;">
-        <button id="lock-details-btn" onclick="openLockDetailsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️ Lock in Details</button>
-        <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">📅 Add to Calendar</button>
-        <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">Leave event</button>
-        <button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">
+        <button id="lock-details-btn" onclick="openLockDetailsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">⚙️ Lock in Details</button>
+        <button id="add-to-calendar-btn" onclick="addToCalendarFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">📅 Add to Calendar</button>
+        <button id="leave-event-btn" onclick="leaveEvent()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">Leave event</button>
+        <button id="mute-chat-btn" onclick="toggleMuteChat()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">
             <span id="mute-btn-text">🔔 Mute</span>
         </button>
-        <button id="create-event-header-btn" onclick="openCreateEventModalFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">➕ Create Event</button>
-        <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85em; display: none;">⚙️</button>
+        <button id="create-event-header-btn" onclick="openCreateEventModalFromHeader()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">➕ Create Event</button>
+        <button id="event-options-btn" onclick="openEventOptionsModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 0.8em; display: none;">⚙️</button>
     </div>
 </div>
         
-        <div id="event-details" style="background: var(--banner-scheduled-bg); padding: 12px 15px; border-bottom: 1px solid var(--banner-scheduled-border); flex-shrink: 0; position: relative;">
+        <div id="event-details" style="background: var(--banner-scheduled-bg); padding: 7px 12px; border-bottom: 1px solid var(--banner-scheduled-border); flex-shrink: 0; position: relative;">
             <div style="display: flex; align-items: flex-start; justify-content: space-between;">
                 <div style="flex: 1;">
-                    <div id="event-date" style="font-weight: 500; margin-bottom: 4px; color: var(--banner-scheduled-text);"></div>
-                    <div id="event-location" style="color: var(--banner-scheduled-text); font-size: 14px;"></div>
-                    <div id="event-notes" style="color: var(--banner-scheduled-text); font-size: 14px; margin-top: 4px;"></div>
+                    <div id="event-date" style="font-weight: 500; margin-bottom: 2px; font-size: 13px; color: var(--banner-scheduled-text);"></div>
+                    <div id="event-location" style="color: var(--banner-scheduled-text); font-size: 12px;"></div>
+                    <div id="event-notes" style="color: var(--banner-scheduled-text); font-size: 12px; margin-top: 2px;"></div>
                 </div>
                 <button id="edit-event-details-btn" onclick="openEditEventDetailsModal()" style="background: none; border: none; cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 6px; color: var(--banner-scheduled-text); opacity: 0.7; flex-shrink: 0;" title="Edit event details">✏️</button>
             </div>
