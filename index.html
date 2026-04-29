@@ -15876,41 +15876,13 @@ function setupChatInputScrollBehavior() {
     // Remove previous listener if any
     if (chatInputScrollHandler) {
         messagesContainer.removeEventListener('scroll', chatInputScrollHandler);
+        chatInputScrollHandler = null;
     }
 
-    let lastScrollTop = messagesContainer.scrollTop;
-    let settling = true;
-
-    function updateChatInputVisibility() {
-        if (settling) return;
-
-        const currentScrollTop = messagesContainer.scrollTop;
-        const scrollingDown = currentScrollTop > lastScrollTop;
-        const scrollingUp = currentScrollTop < lastScrollTop;
-        lastScrollTop = currentScrollTop;
-
-        const distFromBottom = messagesContainer.scrollHeight - currentScrollTop - messagesContainer.clientHeight;
-        const isHidden = chatInput.classList.contains('hidden-input');
-
-        // Show input: must be scrolling DOWN and within 30px of absolute bottom
-        if (scrollingDown && distFromBottom < 30 && isHidden) {
-            chatInput.classList.remove('hidden-input');
-        }
-        // Hide input: must be scrolling UP and more than 50px from bottom
-        else if (scrollingUp && distFromBottom > 50 && !isHidden) {
-            chatInput.classList.add('hidden-input');
-        }
-    }
-
-    chatInputScrollHandler = updateChatInputVisibility;
-    messagesContainer.addEventListener('scroll', updateChatInputVisibility, { passive: true });
-
-    // After settling: ensure we're at bottom with input visible, then enable listener
+    // Ensure input is always visible — scroll to bottom after settling
     setTimeout(() => {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
         chatInput.classList.remove('hidden-input');
-        lastScrollTop = messagesContainer.scrollTop;
-        settling = false;
     }, 300);
 }
 
