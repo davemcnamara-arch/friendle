@@ -3639,6 +3639,11 @@ body.dark-mode .poll-notification-label {
                     <div class="collapsible-body">
                         <input type="hidden" id="lock-details-now" value="false">
 
+                        <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="planning-attending" checked style="width: auto; margin: 0;">
+                            <label for="planning-attending" style="margin: 0; cursor: pointer;">I'm attending this event</label>
+                        </div>
+
                         <div class="form-group">
                             <label for="planning-lock-date">Date *</label>
                             <div style="display: flex; gap: 10px;">
@@ -14166,24 +14171,30 @@ async function createPlanningEvent(e) {
 
         console.log(`✓ Event created (${newEvent.status}):`, newEvent);
 
-        // Add creator as first participant
-        const { error: participantError } = await supabase
-            .from('event_participants')
-            .insert({
-                event_id: newEvent.id,
-                profile_id: currentUser.id,
-                status: 'accepted'
-            });
+        const isAttending = lockDetailsNow
+            ? document.getElementById('planning-attending')?.checked !== false
+            : true;
 
-        if (participantError) throw participantError;
+        if (isAttending) {
+            // Add creator as first participant
+            const { error: participantError } = await supabase
+                .from('event_participants')
+                .insert({
+                    event_id: newEvent.id,
+                    profile_id: currentUser.id,
+                    status: 'accepted'
+                });
 
-        // Update creator's last interaction timestamp in match_participants
-        const { error: matchUpdateError } = await supabase
-            .from('match_participants')
-            .update({ last_interaction_at: new Date().toISOString() })
-            .eq('match_id', matchId)
-            .eq('profile_id', currentUser.id);
-        if (matchUpdateError) console.error('match_participants last_interaction_at update failed:', matchUpdateError);
+            if (participantError) throw participantError;
+
+            // Update creator's last interaction timestamp in match_participants
+            const { error: matchUpdateError } = await supabase
+                .from('match_participants')
+                .update({ last_interaction_at: new Date().toISOString() })
+                .eq('match_id', matchId)
+                .eq('profile_id', currentUser.id);
+            if (matchUpdateError) console.error('match_participants last_interaction_at update failed:', matchUpdateError);
+        }
 
         // Send notifications to other match participants
         sendEventCreatedNotification(matchId, newEvent).catch(err => {
