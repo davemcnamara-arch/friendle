@@ -12719,7 +12719,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
             
             appendMessage(data);
             
-            const channel = supabase.channel(`event_${context.id}`);
+            const channel = getActiveBroadcastChannel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'new_message',
@@ -12751,7 +12751,7 @@ window.markActivityAsToday = async function(activityId, matchId) {
 
             appendMessage(data);
 
-            const channel = supabase.channel(`circle_chat_${context.id}`);
+            const channel = getActiveBroadcastChannel(`circle_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'new_circle_message',
@@ -12944,7 +12944,7 @@ window.editEventMessage = async function(msgId, currentContent) {
 
             if (error) throw error;
 
-            const channel = supabase.channel(`event_${context.id}`);
+            const channel = getActiveBroadcastChannel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_edited',
@@ -12962,7 +12962,7 @@ window.editEventMessage = async function(msgId, currentContent) {
 
             if (error) throw error;
 
-            const channel = supabase.channel(`circle_chat_${context.id}`);
+            const channel = getActiveBroadcastChannel(`circle_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_edited',
@@ -13007,7 +13007,7 @@ window.deleteEventMessage = async function(msgId) {
 
             if (error) throw error;
 
-            const channel = supabase.channel(`event_${context.id}`);
+            const channel = getActiveBroadcastChannel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_deleted',
@@ -13029,7 +13029,7 @@ window.deleteEventMessage = async function(msgId) {
 
             if (error) throw error;
 
-            const channel = supabase.channel(`circle_chat_${context.id}`);
+            const channel = getActiveBroadcastChannel(`circle_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'message_deleted',
@@ -13126,7 +13126,7 @@ window.toggleReaction = async function(messageId, emoji, messageType) {
                            messageType === 'match' ? `match_chat_${context.id}` :
                            `circle_chat_${context.id}`;
 
-        const channel = supabase.channel(channelName);
+        const channel = getActiveBroadcastChannel(channelName);
         await channel.send({
             type: 'broadcast',
             event: 'reaction_changed',
@@ -13442,7 +13442,7 @@ window.markMessageAsRead = async function(messageId, messageType) {
                            messageType === 'match' ? `match_chat_${context.id}` :
                            `circle_chat_${context.id}`;
 
-        const channel = supabase.channel(channelName);
+        const channel = getActiveBroadcastChannel(channelName);
         await channel.send({
             type: 'broadcast',
             event: 'message_read',
@@ -13495,7 +13495,7 @@ window.markAllVisibleMessagesAsRead = async function(messageType) {
                        messageType === 'match' ? `match_chat_${context.id}` :
                        `circle_chat_${context.id}`;
 
-    const channel = supabase.channel(channelName);
+    const channel = getActiveBroadcastChannel(channelName);
     await channel.send({
         type: 'broadcast',
         event: 'messages_read',
@@ -13509,6 +13509,15 @@ window.markAllVisibleMessagesAsRead = async function(messageType) {
 let currentEvent = null;
 const eventDataCache = new Map(); // Cache event data for edit modal from event cards
 let eventMessageSubscription = null;
+
+// Returns an already-subscribed channel when available so broadcasts go via WebSocket
+// instead of the HTTP /realtime/v1/api/broadcast endpoint (which returns 401 without JWT).
+function getActiveBroadcastChannel(channelName) {
+    const topic = `realtime:${channelName}`;
+    if (eventMessageSubscription?.topic === topic) return eventMessageSubscription;
+    if (circleMessageSubscription?.topic === topic) return circleMessageSubscription;
+    return supabase.channel(channelName);
+}
 
 // Open modal to create new event
 function openCreateEventModal(matchId) {
@@ -14592,7 +14601,7 @@ async function submitPoll(e) {
         await renderPollMessage(pollMessage, newPoll);
 
         // Broadcast new poll message
-        const channel = supabase.channel(`event_${currentEvent.id}`);
+        const channel = getActiveBroadcastChannel(`event_${currentEvent.id}`);
         await channel.send({
             type: 'broadcast',
             event: 'new_message',
@@ -14755,7 +14764,7 @@ window.voteOnPollFromModal = async function(pollId, optionIndex) {
 
         // Broadcast vote change
         if (currentEvent) {
-            const channel = supabase.channel(`event_${currentEvent.id}`);
+            const channel = getActiveBroadcastChannel(`event_${currentEvent.id}`);
             await channel.send({ type: 'broadcast', event: 'poll_updated', payload: { pollId } });
         }
     } catch (error) {
@@ -14803,7 +14812,7 @@ window.voteOnPoll = async function(pollId, optionIndex) {
 
         // Broadcast vote change
         if (currentEvent) {
-            const channel = supabase.channel(`event_${currentEvent.id}`);
+            const channel = getActiveBroadcastChannel(`event_${currentEvent.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'poll_updated',
@@ -14947,7 +14956,7 @@ async function checkAutoLockThreshold(pollId) {
                 }
 
                 // Broadcast notification to all participants
-                const channel = supabase.channel(`event_${eventId}`);
+                const channel = getActiveBroadcastChannel(`event_${eventId}`);
                 await channel.send({
                     type: 'broadcast',
                     event: 'consensus_reached',
@@ -14996,7 +15005,7 @@ async function sendSystemMessage(eventId, content) {
         if (error) throw error;
 
         // Broadcast system message
-        const channel = supabase.channel(`event_${eventId}`);
+        const channel = getActiveBroadcastChannel(`event_${eventId}`);
         await channel.send({
             type: 'broadcast',
             event: 'new_message',
@@ -16050,7 +16059,7 @@ async function sendEventMessage(e) {
             
             appendMessage(data);
             
-            const channel = supabase.channel(`event_${currentEvent.id}`);
+            const channel = getActiveBroadcastChannel(`event_${currentEvent.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'new_message',
@@ -16450,7 +16459,7 @@ async function uploadChatPhoto(file) {
 
             appendMessage(messageData);
 
-            const channel = supabase.channel(`event_${context.id}`);
+            const channel = getActiveBroadcastChannel(`event_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'new_message',
@@ -16480,7 +16489,7 @@ async function uploadChatPhoto(file) {
 
             appendMessage(messageData);
 
-            const channel = supabase.channel(`circle_chat_${context.id}`);
+            const channel = getActiveBroadcastChannel(`circle_chat_${context.id}`);
             await channel.send({
                 type: 'broadcast',
                 event: 'new_circle_message',
@@ -16606,7 +16615,7 @@ async function checkLocationPermission() {
                     
                     appendMessage(data);
                     
-                    const channel = supabase.channel(`event_${context.id}`);
+                    const channel = getActiveBroadcastChannel(`event_${context.id}`);
                     await channel.send({
                         type: 'broadcast',
                         event: 'new_message',
@@ -16636,7 +16645,7 @@ async function checkLocationPermission() {
 
                     appendMessage(data);
 
-                    const channel = supabase.channel(`circle_chat_${context.id}`);
+                    const channel = getActiveBroadcastChannel(`circle_chat_${context.id}`);
                     await channel.send({
                         type: 'broadcast',
                         event: 'new_circle_message',
@@ -16834,7 +16843,7 @@ window.findNearbyPlaces = async function() {
         
         appendMessage(data);
         
-        const channel = supabase.channel(`event_${context.id}`);
+        const channel = getActiveBroadcastChannel(`event_${context.id}`);
         await channel.send({
             type: 'broadcast',
             event: 'new_message',
@@ -16864,7 +16873,7 @@ window.findNearbyPlaces = async function() {
 
         appendMessage(data);
 
-        const channel = supabase.channel(`circle_chat_${context.id}`);
+        const channel = getActiveBroadcastChannel(`circle_chat_${context.id}`);
         await channel.send({
             type: 'broadcast',
             event: 'new_circle_message',
