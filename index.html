@@ -8625,12 +8625,22 @@ window.openActivityDetail = async function(activity) {
 
     // Load interested users
     try {
+        const { data: members, error: membersError } = await supabase
+            .from('circle_members')
+            .select('profile_id')
+            .eq('circle_id', currentDetailCircle.id);
+
+        if (membersError) throw membersError;
+
+        const memberIds = (members || []).map(m => m.profile_id);
+
         const { data: preferences, error } = await supabase
             .from('preferences')
             .select('profile_id, profiles(name)')
             .eq('circle_id', currentDetailCircle.id)
             .eq('activity_id', activity.id)
-            .eq('selected', true);
+            .eq('selected', true)
+            .in('profile_id', memberIds);
 
         if (error) throw error;
 
