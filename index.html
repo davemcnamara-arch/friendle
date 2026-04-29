@@ -547,6 +547,47 @@
             white-space: nowrap;
         }
 
+        .activity-interest-toggle {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+            font-size: 1em;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s, background 0.15s;
+            z-index: 1;
+        }
+
+        .activity-interest-toggle:hover {
+            transform: scale(1.2);
+            background: white;
+        }
+
+        .activity-interest-toggle.is-interested {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        body.dark-mode .activity-interest-toggle {
+            background: rgba(50, 50, 60, 0.9);
+            color: #ccc;
+        }
+
+        body.dark-mode .activity-interest-toggle.is-interested {
+            background: var(--primary-color);
+            color: white;
+        }
+
         body.dark-mode .activity-card {
             background: #1a1a1e !important;
             border-color: #2a2a2e !important;
@@ -8627,6 +8668,50 @@ async function loadHomeEvents(circleId) {
 }
 
 // Render activities in grid mode for browsing (not selection)
+async function toggleActivityInterest(activity, card) {
+    if (!selectedCircle) return;
+
+    const btn = card.querySelector('.activity-interest-toggle');
+    const wasInterested = btn.dataset.isInterest === 'true';
+    const nowInterested = !wasInterested;
+
+    // Optimistic UI update
+    btn.dataset.isInterest = String(nowInterested);
+    btn.textContent = nowInterested ? '★' : '☆';
+    btn.title = nowInterested ? 'Remove interest' : 'Mark as interested';
+    btn.classList.toggle('is-interested', nowInterested);
+
+    try {
+        if (nowInterested) {
+            const { error } = await supabase
+                .from('preferences')
+                .upsert({
+                    profile_id: currentUser.id,
+                    circle_id: selectedCircle.id,
+                    activity_id: activity.id,
+                    selected: true
+                }, { onConflict: 'profile_id,circle_id,activity_id' });
+            if (error) throw error;
+        } else {
+            const { error } = await supabase
+                .from('preferences')
+                .update({ selected: false })
+                .eq('profile_id', currentUser.id)
+                .eq('circle_id', selectedCircle.id)
+                .eq('activity_id', activity.id);
+            if (error) throw error;
+        }
+    } catch (error) {
+        // Roll back optimistic update on failure
+        btn.dataset.isInterest = String(wasInterested);
+        btn.textContent = wasInterested ? '★' : '☆';
+        btn.title = wasInterested ? 'Remove interest' : 'Mark as interested';
+        btn.classList.toggle('is-interested', wasInterested);
+        console.error('Error toggling interest:', error);
+        showNotification('Failed to update interest', 'error');
+    }
+}
+
 async function renderActivitiesGrid() {
     if (!selectedCircle) {
         document.getElementById('activities-grid').innerHTML = '<div style="text-align: center; padding: 40px 20px; color: #666;"><div style="font-size: 3em; margin-bottom: 20px;">🎯</div><h3 style="margin-bottom: 15px; color: #333;">Select a Circle First</h3><p>Choose a circle from the dropdown above to see available activities.</p></div>';
@@ -8656,10 +8741,20 @@ async function renderActivitiesGrid() {
         const isInterest = interestsSet.has(activity.id);
 
         card.innerHTML = `
+            <button class="activity-interest-toggle ${isInterest ? 'is-interested' : ''}"
+                    title="${isInterest ? 'Remove interest' : 'Mark as interested'}"
+                    data-activity-id="${activity.id}"
+                    data-is-interest="${isInterest}">
+                ${isInterest ? '★' : '☆'}
+            </button>
             <div class="activity-emoji">${activity.emoji}</div>
             <div class="activity-name">${activity.name}</div>
-            ${isInterest ? '<div class="activity-interest-badge">Interested</div>' : ''}
         `;
+
+        card.querySelector('.activity-interest-toggle').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleActivityInterest(activity, card);
+        });
 
         card.onclick = (event) => {
             event.stopPropagation();
