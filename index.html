@@ -2432,10 +2432,7 @@ body.dark-mode .poll-notification-label {
 }
 
     </style>
-<!-- Primary CDN: marks failure so the next inline script can inject the fallback synchronously -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js" onerror="window._supabasePrimaryFailed=true"></script>
-<!-- Fallback CDN: document.write keeps the parser blocked so the init script below always sees the library -->
-<script>if(window._supabasePrimaryFailed){console.warn('⚠️ Primary Supabase CDN failed, loading fallback…');document.write('<scr\x69pt src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"><\/scr\x69pt>');}</script>
+<script src="/supabase.min.js"></script>
 <script>
   const SUPABASE_URL = "https://kxsewkjbhxtfqbytftbu.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2V3a2piaHh0ZnFieXRmdGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NTE4ODQsImV4cCI6MjA3NDQyNzg4NH0.-A-7VOQWOaQqYOO6NxiKxGywddfS-pmwvzHISJqz2AQ";
@@ -2443,18 +2440,17 @@ body.dark-mode .poll-notification-label {
   // Initialize Supabase client with error handling
   // Don't declare - just assign to avoid conflicts with non-configurable globals
   try {
-    var _supabaseLib = window.supabase;
-    if (!_supabaseLib || typeof _supabaseLib.createClient !== 'function') {
-      console.error('❌ Supabase library not loaded (both CDNs failed)');
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      console.error('❌ Supabase library not loaded');
       throw new Error('Supabase library not loaded');
     }
     // Assign directly without declaration to avoid redeclaration errors
-    supabase = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     if (!supabase) {
       console.error('❌ Failed to create Supabase client');
       throw new Error('Failed to create Supabase client');
     }
-    console.log('✅ Supabase client initialized successfully' + (window._supabasePrimaryFailed ? ' (via fallback CDN)' : ''));
+    console.log('✅ Supabase client initialized successfully');
   } catch (error) {
     console.error('❌ Error initializing Supabase:', error);
     // Create a fallback to prevent crashes; all auth methods return a meaningful error
