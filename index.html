@@ -8784,12 +8784,16 @@ window.openActivityDetail = async function(activity) {
 
     // Load existing events for this activity in this circle
     try {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
         const { data: events, error: eventsError } = await supabase
             .from('events')
             .select('id, scheduled_date, scheduled_time, status, created_at, max_participants, event_participants(profile_id)')
             .eq('circle_id', currentDetailCircle.id)
             .eq('activity_id', activity.id)
             .neq('status', 'cancelled')
+            .or(`scheduled_date.gte.${today},status.eq.planning`)
             .order('scheduled_date', { ascending: true, nullsFirst: false })
             .order('created_at', { ascending: true });
 
