@@ -4619,7 +4619,7 @@ window.signUp = async function() {
             showLoader('Uploading profile picture...');
 
             const fileExt = photoFile.name.split('.').pop().toLowerCase();
-            const fileName = `${authData.user.id}/avatar.${fileExt}`;
+            const fileName = `${authData.user.id}/avatar_${Date.now()}.${fileExt}`;
 
             // Upload photo
             const { error: uploadError } = await supabase.storage
@@ -6012,7 +6012,7 @@ window.uploadProfilePicture = async function(event) {
         await validateImageDimensions;
 
         showLoader('Uploading profile picture...');
-        const fileName = `${currentUser.id}/avatar.${fileExt}`;
+        const fileName = `${currentUser.id}/avatar_${Date.now()}.${fileExt}`;
 
         // Delete old avatar if exists
         const { data: existingFiles } = await supabase.storage
