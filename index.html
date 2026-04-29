@@ -12173,18 +12173,10 @@ if (!showPastEvents) {
 const now = new Date();
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-console.log('Filtering events:', events.map(e => ({id: e.id, status: e.status, date: e.scheduled_date})));
-
 const upcomingEvents = events.filter(e => {
-    // Include planning events (no date yet)
-    if (e.status === 'planning') {
-        console.log(`Event ${e.id}: status=planning, included in upcoming`);
-        return true;
-    }
-    // Include scheduled events that are today or in the future
+    if (e.status === 'planning') return true;
     const isScheduled = e.status === 'scheduled';
     const isFuture = new Date(e.scheduled_date) >= today;
-    console.log(`Event ${e.id}: status=${e.status}, isScheduled=${isScheduled}, isFuture=${isFuture}`);
     return isScheduled && isFuture;
 });
 
@@ -12192,8 +12184,6 @@ const pastEvents = events.filter(e =>
     e.status === 'cancelled' || e.status === 'completed' ||
     (e.status === 'scheduled' && new Date(e.scheduled_date) < today)
 );
-
-console.log('Upcoming:', upcomingEvents.length, 'Past:', pastEvents.length);
 
         const circleName = circles.find(c => c.id === match.circle_id)?.name || 'Circle';
 
