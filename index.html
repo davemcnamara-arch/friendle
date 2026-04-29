@@ -1589,7 +1589,7 @@
 
         .chat-input {
             background: white;
-            padding: 15px;
+            padding: 8px 10px;
             border-top: 1px solid #ddd;
             flex-shrink: 0;
         }
@@ -1598,38 +1598,43 @@
             display: none !important;
         }
 
+        .chat-input-main-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+            margin-bottom: 6px;
+        }
+
         .chat-input textarea {
-            width: 100%;
-            padding: 10px;
+            flex: 1;
+            padding: 7px 12px;
             border: 1px solid #ddd;
             border-radius: 20px;
             outline: none;
-            min-height: 42px;
+            min-height: 34px;
             max-height: 150px;
             resize: none;
             overflow-y: auto;
             font-family: inherit;
             font-size: inherit;
-            line-height: 1.5;
-            margin-bottom: 10px;
+            line-height: 1.4;
             box-sizing: border-box;
         }
 
         .chat-input-button-row {
             display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
+            gap: 6px;
             justify-content: flex-start;
         }
-        
+
         .attachment-btn {
             background: #f8f9fa;
             border: none;
-            padding: 10px;
+            padding: 5px 7px;
             border-radius: 50%;
             cursor: pointer;
             transition: background 0.2s;
-            font-size: 1.2em;
+            font-size: 1em;
         }
         
         .attachment-btn:hover {
@@ -2989,14 +2994,16 @@ body.dark-mode .poll-notification-label {
         <div class="chat-messages" id="chat-messages"></div>
         
         <div class="chat-input">
-            <textarea id="message-input" placeholder="Type a message..." onkeydown="handleMessageKeyPress(event)" rows="1"></textarea>
+            <div class="chat-input-main-row">
+                <textarea id="message-input" placeholder="Type a message..." onkeydown="handleMessageKeyPress(event)" rows="1"></textarea>
+                <button class="btn send-btn" onclick="sendMessage()">Send</button>
+            </div>
             <div class="chat-input-button-row">
                 <button class="attachment-btn" id="poll-btn" onclick="openCreatePollModal()" title="Create a poll">📊</button>
                 <button class="attachment-btn" id="photo-btn" onclick="sharePhoto()">📷</button>
                 <button class="attachment-btn" id="location-btn" onclick="shareLocation()">📍</button>
                 <button class="attachment-btn" id="search-btn" onclick="findNearbyPlaces()">🔍</button>
             </div>
-            <button class="btn send-btn" onclick="sendMessage()">Send</button>
         </div>
     </div>
 </div>
