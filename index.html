@@ -8685,9 +8685,9 @@ async function toggleActivityInterest(activity, card) {
             .eq('profile_id', currentUser.id)
             .eq('circle_id', selectedCircle.id)
             .eq('activity_id', activity.id)
-            .single();
+            .maybeSingle();
 
-        if (checkError && checkError.code !== 'PGRST116') throw checkError;
+        if (checkError) throw checkError;
 
         if (existing) {
             const { error } = await supabase
