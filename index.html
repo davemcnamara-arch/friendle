@@ -13522,11 +13522,15 @@ let eventMessageSubscription = null;
 
 // Returns an already-subscribed channel when available so broadcasts go via WebSocket
 // instead of the HTTP /realtime/v1/api/broadcast endpoint (which returns 401 without JWT).
+// Must also check state === 'joined': a channel that has subscribe() called but hasn't
+// completed the WebSocket handshake yet is in 'joining' state and still falls back to HTTP.
 function getActiveBroadcastChannel(channelName) {
     const topic = `realtime:${channelName}`;
-    if (eventMessageSubscription?.topic === topic) return eventMessageSubscription;
-    if (circleMessageSubscription?.topic === topic) return circleMessageSubscription;
-    return supabase.channel(channelName);
+    if (eventMessageSubscription?.topic === topic && eventMessageSubscription.state === 'joined') return eventMessageSubscription;
+    if (circleMessageSubscription?.topic === topic && circleMessageSubscription.state === 'joined') return circleMessageSubscription;
+    // No joined subscription available — return a no-op to avoid 401 on the HTTP broadcast endpoint.
+    // Broadcasts sent here are best-effort; the message is always persisted in the DB first.
+    return { send: () => Promise.resolve() };
 }
 
 // Open modal to create new event
@@ -14174,11 +14178,12 @@ async function createPlanningEvent(e) {
         if (participantError) throw participantError;
 
         // Update creator's last interaction timestamp in match_participants
-        await supabase
+        const { error: matchUpdateError } = await supabase
             .from('match_participants')
             .update({ last_interaction_at: new Date().toISOString() })
             .eq('match_id', matchId)
             .eq('profile_id', currentUser.id);
+        if (matchUpdateError) console.error('match_participants last_interaction_at update failed:', matchUpdateError);
 
         // Send notifications to other match participants
         sendEventCreatedNotification(matchId, newEvent).catch(err => {
