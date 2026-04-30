@@ -1447,12 +1447,20 @@
             flex-shrink: 0;
         }
 
-        .chat-messages {
+        .chat-scroll-area {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
             background: var(--bg-secondary);
             overscroll-behavior: contain;
+        }
+
+        .chat-messages {
+            min-height: 100%;
+            padding: 20px;
+            background: var(--bg-secondary);
         }
 
         .message {
@@ -3031,6 +3039,7 @@ body.dark-mode .poll-notification-label {
     </div>
 </div>
         
+        <div class="chat-scroll-area" id="chat-scroll-area">
         <div id="event-details" style="background: var(--banner-scheduled-bg); padding: 7px 12px; border-bottom: 1px solid var(--banner-scheduled-border); flex-shrink: 0; position: relative;">
             <div style="display: flex; align-items: flex-start; justify-content: space-between;">
                 <div style="flex: 1;">
@@ -3045,6 +3054,7 @@ body.dark-mode .poll-notification-label {
         <div id="poll-bar-container" style="flex-shrink: 0;"></div>
 
         <div class="chat-messages" id="chat-messages"></div>
+        </div>
         
         <div class="chat-input">
             <div class="chat-input-main-row">
@@ -9988,8 +9998,9 @@ async function loadOlderMessages(chatType) {
     }
 
     const messagesContainer = document.getElementById('chat-messages');
-    const scrollHeightBefore = messagesContainer.scrollHeight;
-    const scrollTopBefore = messagesContainer.scrollTop;
+    const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
+    const scrollHeightBefore = scrollContainer.scrollHeight;
+    const scrollTopBefore = scrollContainer.scrollTop;
 
     messagePagination[chatType].loading = true;
 
@@ -10171,9 +10182,9 @@ async function loadOlderMessages(chatType) {
 
         // Maintain scroll position - user should stay looking at the same message
         requestAnimationFrame(() => {
-            const scrollHeightAfter = messagesContainer.scrollHeight;
+            const scrollHeightAfter = scrollContainer.scrollHeight;
             const scrollDiff = scrollHeightAfter - scrollHeightBefore;
-            messagesContainer.scrollTop = scrollTopBefore + scrollDiff;
+            scrollContainer.scrollTop = scrollTopBefore + scrollDiff;
         });
 
     } catch (error) {
@@ -10282,15 +10293,17 @@ async function renderCircleChat(circleId) {
     await loadAndDisplayCircleMessages(circleId);
 
     // Scroll to bottom instantly
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, savedScrollPosition = null) {
     try {
         const messagesContainer = document.getElementById('chat-messages');
+        const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
 
         // Save scroll position if preserving
-        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
+        const scrollPos = preserveScroll && !savedScrollPosition ? scrollContainer.scrollTop : savedScrollPosition;
 
         // Reset pagination state for initial load
         if (!preserveScroll) {
@@ -10352,9 +10365,9 @@ async function loadAndDisplayCircleMessages(circleId, preserveScroll = false, sa
 
         // Scroll handling - preserve position or scroll to bottom (instant)
         if (preserveScroll && scrollPos !== null) {
-            messagesContainer.scrollTop = scrollPos;
+            scrollContainer.scrollTop = scrollPos;
         } else {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
         }
 
         // Mark all visible messages as read
@@ -13179,7 +13192,8 @@ window.editEventMessage = async function(msgId, currentContent) {
 
     // Save scroll position before reload
     const messagesContainer = document.getElementById('chat-messages');
-    const scrollPos = messagesContainer ? messagesContainer.scrollTop : 0;
+    const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
+    const scrollPos = scrollContainer ? scrollContainer.scrollTop : 0;
 
     try {
         if (context.type === 'event') {
@@ -13238,7 +13252,8 @@ window.deleteEventMessage = async function(msgId) {
 
     // Save scroll position before reload
     const messagesContainer = document.getElementById('chat-messages');
-    const scrollPos = messagesContainer ? messagesContainer.scrollTop : 0;
+    const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
+    const scrollPos = scrollContainer ? scrollContainer.scrollTop : 0;
 
     try {
         // SECURITY: Use soft delete instead of hard delete to preserve message history
@@ -15805,9 +15820,10 @@ allActiveSubscriptions.push(eventMessageSubscription);
 async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false, savedScrollPosition = null) {
     try {
         const messagesContainer = document.getElementById('chat-messages');
+        const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
 
         // Save scroll position if preserving
-        const scrollPos = preserveScroll && !savedScrollPosition ? messagesContainer.scrollTop : savedScrollPosition;
+        const scrollPos = preserveScroll && !savedScrollPosition ? scrollContainer.scrollTop : savedScrollPosition;
 
         // Reset pagination state for initial load
         if (!preserveScroll) {
@@ -15921,9 +15937,9 @@ async function loadEventMessages(eventId, eventCreatedAt, preserveScroll = false
 
         // Scroll handling - preserve position or scroll to bottom (instant)
         if (preserveScroll && scrollPos !== null) {
-            messagesContainer.scrollTop = scrollPos;
+            scrollContainer.scrollTop = scrollPos;
         } else {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
         }
 
         // Mark all visible messages as read
@@ -15997,14 +16013,14 @@ function renderAvatar(avatar, size = 32) {
 
 // Helper function to force scroll to bottom of chat - instant, no animation
 function forceScrollToBottom() {
-    const messagesContainer = document.getElementById('chat-messages');
-    if (!messagesContainer) {
+    const scrollContainer = document.getElementById('chat-scroll-area') || document.getElementById('chat-messages');
+    if (!scrollContainer) {
         console.warn('No messages container found for scrolling');
         return;
     }
 
     // Instant scroll to bottom - no smooth behavior, no retries
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 // Show/hide chat input based on scroll position and direction
@@ -16013,18 +16029,19 @@ let chatInputScrollHandler = null;
 
 function setupChatInputScrollBehavior() {
     const messagesContainer = document.getElementById('chat-messages');
+    const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
     const chatInput = document.querySelector('.chat-input');
-    if (!messagesContainer || !chatInput) return;
+    if (!scrollContainer || !chatInput) return;
 
     // Remove previous listener if any
     if (chatInputScrollHandler) {
-        messagesContainer.removeEventListener('scroll', chatInputScrollHandler);
+        scrollContainer.removeEventListener('scroll', chatInputScrollHandler);
         chatInputScrollHandler = null;
     }
 
     // Ensure input is always visible — scroll to bottom after settling
     setTimeout(() => {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
         chatInput.classList.remove('hidden-input');
     }, 300);
 }
@@ -16118,6 +16135,7 @@ function appendMessageToContainer(message, container) {
 
 function appendMessage(message) {
     const messagesContainer = document.getElementById('chat-messages');
+    const scrollContainer = document.getElementById('chat-scroll-area') || messagesContainer;
 
     // Remove placeholder text if it exists
     const placeholder = messagesContainer.querySelector('p');
@@ -16174,7 +16192,7 @@ function appendMessage(message) {
         `;
         systemDiv.textContent = message.content;
         messagesContainer.appendChild(systemDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
 
@@ -16255,7 +16273,7 @@ function appendMessage(message) {
     `;
 
     messagesContainer.appendChild(messageDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 
     // Fetch and display reactions for this message
     if (messageType !== 'none') {
