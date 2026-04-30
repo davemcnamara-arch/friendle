@@ -3439,6 +3439,16 @@ body.dark-mode .poll-notification-label {
     </div>
 </div>
 
+<!-- Message Readers Modal -->
+<div class="modal-overlay" id="message-readers-modal-overlay" onclick="if(event.target === this) closeReadersModal()">
+    <div class="modal-content">
+        <span class="close-modal-btn" onclick="closeReadersModal()">×</span>
+        <div class="modal-header">Read by</div>
+        <div id="message-readers-list" style="margin-top: 15px;">
+        </div>
+    </div>
+</div>
+
 <!-- Block User Modal -->
 <div class="modal-overlay" id="block-user-modal-overlay">
     <div class="modal-content">
@@ -13618,7 +13628,7 @@ window.fetchMessageReadCount = async function(messageId, messageType) {
     try {
         const { data, error } = await supabase
             .from(tableName)
-            .select('id, profile_id, read_at')
+            .select('id, profile_id, read_at, profiles(name, avatar)')
             .eq('message_id', messageId);
 
         if (error) throw error;
@@ -13670,12 +13680,43 @@ window.updateReadCountDisplay = async function(messageId, messageType, senderId)
 
     // Update the text
     if (count === 0) {
-        readCountContainer.textContent = '';
-    } else if (count === 1) {
-        readCountContainer.textContent = 'Read by 1 person';
+        readCountContainer.innerHTML = '';
     } else {
-        readCountContainer.textContent = `Read by ${count} people`;
+        const label = count === 1 ? 'Read by 1 person' : `Read by ${count} people`;
+        readCountContainer.innerHTML = `<span style="cursor:pointer;text-decoration:underline;" onclick="showReadersModal('${messageId}', '${messageType}')">${label}</span>`;
     }
+}
+
+// Show modal listing who read the message
+window.showReadersModal = async function(messageId, messageType) {
+    let cached = messageReadCounts.get(messageId);
+
+    // If profile data is missing, re-fetch
+    if (!cached || (cached.readers.length > 0 && !cached.readers[0].profiles)) {
+        await fetchMessageReadCount(messageId, messageType);
+        cached = messageReadCounts.get(messageId);
+    }
+
+    const readers = cached ? cached.readers : [];
+    const list = document.getElementById('message-readers-list');
+    if (!list) return;
+
+    if (readers.length === 0) {
+        list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary); font-size: 0.9em;">No readers yet.</div>';
+    } else {
+        list.innerHTML = readers.map(r => {
+            const profile = r.profiles || {};
+            const avatar = profile.avatar && !profile.avatar.startsWith('http') ? `${profile.avatar} ` : '';
+            const name = profile.name || 'Unknown';
+            return `<div style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 1em;">${avatar}${name}</div>`;
+        }).join('');
+    }
+
+    document.getElementById('message-readers-modal-overlay').style.display = 'flex';
+}
+
+window.closeReadersModal = function() {
+    document.getElementById('message-readers-modal-overlay').style.display = 'none';
 }
 
 // Mark a single message as read
