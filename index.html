@@ -122,8 +122,11 @@
             max-width: 400px;
             margin: 0 auto;
             background: var(--bg-color);
-            height: 100%;
-            position: relative;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             box-shadow: var(--shadow-xl);
             display: flex;
             flex-direction: column;
@@ -19221,6 +19224,21 @@ window.saveActivityVisibility = async function() {
 })();
 
   initApp(); // start the app
+
+  // Keep app container sized to the visual viewport so the keyboard never
+  // scrolls the banner off the top on iOS/Android.
+  if (window.visualViewport) {
+    function onViewportResize() {
+      const app = document.querySelector('.app-container');
+      if (app) {
+        app.style.height = window.visualViewport.height + 'px';
+        app.style.top = window.visualViewport.offsetTop + 'px';
+      }
+    }
+    window.visualViewport.addEventListener('resize', onViewportResize);
+    window.visualViewport.addEventListener('scroll', onViewportResize);
+    onViewportResize();
+  }
 });   // ✅ closes document.addEventListener("DOMContentLoaded", ...)
 
     </script>
